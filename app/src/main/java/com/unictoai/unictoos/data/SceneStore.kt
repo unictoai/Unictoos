@@ -8,10 +8,15 @@ import com.unictoai.unictoos.domain.SourceType
 import org.json.JSONArray
 import org.json.JSONObject
 
-class SceneStore(context: Context) {
+interface SceneRepository {
+    fun loadOrDefault(defaults: List<Scene>): List<Scene>
+    fun save(scenes: List<Scene>)
+}
+
+class SceneStore(context: Context) : SceneRepository {
     private val preferences = context.getSharedPreferences("unictoos_scenes", Context.MODE_PRIVATE)
 
-    fun loadOrDefault(defaults: List<Scene>): List<Scene> {
+    override fun loadOrDefault(defaults: List<Scene>): List<Scene> {
         val raw = preferences.getString(KEY_SCENES, null) ?: return defaults
         return runCatching {
             val scenes = JSONArray(raw).toSceneList()
@@ -19,7 +24,7 @@ class SceneStore(context: Context) {
         }.getOrElse { defaults }
     }
 
-    fun save(scenes: List<Scene>) {
+    override fun save(scenes: List<Scene>) {
         val json = JSONArray()
         scenes.forEach { scene ->
             json.put(JSONObject().apply {

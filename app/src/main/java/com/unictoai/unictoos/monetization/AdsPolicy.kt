@@ -28,7 +28,12 @@ data class AdsPolicy(
     val allowedSlots: Set<AdSlot> = setOf(AdSlot.HOME_BANNER, AdSlot.LIBRARY_BANNER),
 )
 
-class AdsPreferences(context: Context) {
+interface AdsPreferencesRepository {
+    val policy: StateFlow<AdsPolicy>
+    fun setEnabled(enabled: Boolean)
+}
+
+class AdsPreferences(context: Context) : AdsPreferencesRepository {
     private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
     private val _policy = MutableStateFlow(
         AdsPolicy(
@@ -36,9 +41,9 @@ class AdsPreferences(context: Context) {
             consentGranted = preferences.getBoolean(KEY_CONSENT, false),
         ),
     )
-    val policy: StateFlow<AdsPolicy> = _policy.asStateFlow()
+    override val policy: StateFlow<AdsPolicy> = _policy.asStateFlow()
 
-    fun setEnabled(enabled: Boolean) {
+    override fun setEnabled(enabled: Boolean) {
         val next = _policy.value.copy(enabled = enabled, consentGranted = enabled)
         preferences.edit().putBoolean(KEY_ENABLED, enabled).putBoolean(KEY_CONSENT, next.consentGranted).apply()
         _policy.value = next

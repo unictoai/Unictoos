@@ -3,10 +3,13 @@ package com.unictoai.unictoos
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.unictoai.unictoos.data.CredentialRepository
 import com.unictoai.unictoos.data.CredentialStore
+import com.unictoai.unictoos.data.SceneRepository
 import com.unictoai.unictoos.data.SceneStore
 import com.unictoai.unictoos.monetization.AdsPolicy
 import com.unictoai.unictoos.monetization.AdsPreferences
+import com.unictoai.unictoos.monetization.AdsPreferencesRepository
 import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
@@ -32,10 +35,12 @@ data class DestinationConfig(
     val endpoint: String get() = if (isConfigured) serverUrl.trimEnd('/') + "/" + streamKey else ""
 }
 
-class StudioViewModel(application: Application) : AndroidViewModel(application) {
-    private val credentialStore = CredentialStore(application.applicationContext)
-    private val sceneStore = SceneStore(application.applicationContext)
-    private val adsPreferences = AdsPreferences(application.applicationContext)
+class StudioViewModel(
+    application: Application,
+    private val credentialStore: CredentialRepository = CredentialStore(application.applicationContext),
+    private val sceneStore: SceneRepository = SceneStore(application.applicationContext),
+    private val adsPreferences: AdsPreferencesRepository = AdsPreferences(application.applicationContext),
+) : AndroidViewModel(application) {
     private val _scenes = MutableStateFlow(
         listOf(
             Scene(

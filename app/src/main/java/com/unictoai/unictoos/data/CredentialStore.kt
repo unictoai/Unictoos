@@ -12,7 +12,13 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-class CredentialStore(context: Context) {
+interface CredentialRepository {
+    fun save(platform: PlatformPreset, serverUrl: String, streamKey: String)
+    fun load(platform: PlatformPreset): Pair<String, String>
+    fun clear(platform: PlatformPreset)
+}
+
+class CredentialStore(context: Context) : CredentialRepository {
     private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 
     init {
@@ -20,18 +26,18 @@ class CredentialStore(context: Context) {
         migrateLegacyYoutubeCredentials()
     }
 
-    fun save(platform: PlatformPreset, serverUrl: String, streamKey: String) {
+    override fun save(platform: PlatformPreset, serverUrl: String, streamKey: String) {
         preferences.edit()
             .putString(serverKey(platform), encrypt(serverUrl))
             .putString(streamKey(platform), encrypt(streamKey))
             .apply()
     }
 
-    fun load(platform: PlatformPreset): Pair<String, String> =
+    override fun load(platform: PlatformPreset): Pair<String, String> =
         decrypt(preferences.getString(serverKey(platform), null)).orEmpty() to
             decrypt(preferences.getString(streamKey(platform), null)).orEmpty()
 
-    fun clear(platform: PlatformPreset) {
+    override fun clear(platform: PlatformPreset) {
         preferences.edit()
             .remove(serverKey(platform))
             .remove(streamKey(platform))
