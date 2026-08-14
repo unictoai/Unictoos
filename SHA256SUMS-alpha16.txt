@@ -1,0 +1,2 @@
+e30b5b42296c4dfee5c6251d55a91122d4c3a6789fd46b9b83685231cffa7f67  app/build/outputs/apk/release/app-release-unsigned.apk
+ec7e45a355e7b7f2ae02c155599bd5680730b425b43b62a6ea64369c5bd0de61  app/build/outputs/apk/debug/app-debug.apk

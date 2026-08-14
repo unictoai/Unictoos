@@ -172,6 +172,11 @@ class StudioViewModelBehaviorTest {
     }
 
     @Test
+    fun exposesApplicationConstructorForAndroidViewModelFactory() {
+        StudioViewModel::class.java.getConstructor(Application::class.java)
+    }
+
+    @Test
     fun startupFallsBackWhenPersistenceRepositoriesFail() {
         val fallback = StudioViewModel(
             Application(),

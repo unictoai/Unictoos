@@ -73,7 +73,7 @@ data class DestinationConfig(
     val endpoint: String get() = if (isConfigured) serverUrl.trimEnd('/') + "/" + streamKey else ""
 }
 
-class StudioViewModel(
+class StudioViewModel @JvmOverloads constructor(
     application: Application,
     private val credentialStore: CredentialRepository = safeCredentialRepository(application),
     private val sceneStore: SceneRepository = SceneStore(application.applicationContext),
