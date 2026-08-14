@@ -25,7 +25,7 @@ data class DestinationConfig(
     val streamKey: String = "",
 ) {
     val isConfigured: Boolean get() = serverUrl.isNotBlank() && streamKey.isNotBlank()
-    val endpoint: String get() = serverUrl.trimEnd('/') + "/" + streamKey
+    val endpoint: String get() = if (isConfigured) serverUrl.trimEnd('/') + "/" + streamKey else ""
 }
 
 class StudioViewModel(application: Application) : AndroidViewModel(application) {

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -71,6 +73,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -110,6 +114,8 @@ class MainActivity : ComponentActivity() {
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             launchProjection()
+        } else {
+            Toast.makeText(this, "Microphone access is required to go live with audio", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -119,6 +125,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestStreamStart(endpoint: String) {
+        if (endpoint.isBlank() || !endpoint.contains("/")) {
+            Toast.makeText(this, "Configure a valid streaming server URL and stream key in Settings", Toast.LENGTH_LONG).show()
+            return
+        }
         pendingEndpoint = endpoint
         val needsAudio = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
         if (needsAudio) {
@@ -230,9 +240,18 @@ private fun HomeScreen(
     ) {
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Text("Good to see you", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Unictoos", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(
+                        painter = painterResource(com.unictoai.unictoos.R.drawable.logo_unictoos),
+                        contentDescription = "Unictoos logo",
+                        modifier = Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)),
+                        contentScale = ContentScale.Crop,
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("Good to see you", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Unictoos", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                    }
                 }
                 StatusPill(session.status)
             }
@@ -244,7 +263,12 @@ private fun HomeScreen(
             ) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.LiveTv, null, tint = MaterialTheme.colorScheme.primary)
+                        Image(
+                            painter = painterResource(com.unictoai.unictoos.R.drawable.logo_unictoos),
+                            contentDescription = null,
+                            modifier = Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop,
+                        )
                         Spacer(Modifier.width(8.dp))
                         Text("Creator studio", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                     }
@@ -335,10 +359,16 @@ private fun StudioScreen(
                 }
             }
         }
+        val audioLabel = when {
+            session.status == StreamStatus.LIVE -> "Mic live"
+            session.message?.contains("Microphone", ignoreCase = true) == true -> "Mic ready"
+            session.status == StreamStatus.ERROR -> "Check mic"
+            else -> "Not checked"
+        }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             MetricCard("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—", Modifier.weight(1f))
             MetricCard("FPS", if (session.fps > 0) session.fps.toString() else "—", Modifier.weight(1f))
-            MetricCard("Audio", "Mic ready", Modifier.weight(1f))
+            MetricCard("Audio", audioLabel, Modifier.weight(1f))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedButton(onClick = onEditScenes, modifier = Modifier.weight(1f)) {

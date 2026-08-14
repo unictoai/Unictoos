@@ -4,16 +4,23 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
 import com.pedro.common.ConnectChecker
 import com.pedro.library.util.sources.audio.MicrophoneSource
+import com.pedro.library.util.sources.audio.NoAudioSource
 import com.pedro.library.util.sources.video.NoVideoSource
 import com.pedro.library.util.sources.video.ScreenSource
 import com.pedro.library.generic.GenericStream
@@ -33,7 +40,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        genericStream = GenericStream(this, this, NoVideoSource(), MicrophoneSource()).apply {
+        genericStream = GenericStream(this, this, NoVideoSource(), NoAudioSource()).apply {
             getGlInterface().setForceRender(true, 30)
         }
         prepared = try {
@@ -61,6 +68,14 @@ class StreamingForegroundService : Service(), ConnectChecker {
         when (intent?.action) {
             ACTION_PREPARE_PROJECTION -> {
                 startForegroundSafely()
+                if (!hasAudioPermission()) {
+                    publish(StreamStatus.ERROR, "Microphone permission is not granted")
+                    return START_NOT_STICKY
+                }
+                if (!checkMicrophoneInput()) {
+                    publish(StreamStatus.ERROR, "Microphone is unavailable. Check Android privacy controls and other apps using the mic")
+                    return START_NOT_STICKY
+                }
                 val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
                 val projectionData = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     intent.getParcelableExtra(EXTRA_PROJECTION_DATA, Intent::class.java)
@@ -71,7 +86,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 if (projectionData == null || !prepareProjection(resultCode, projectionData)) {
                     publish(StreamStatus.ERROR, "Screen capture permission was not available")
                 } else {
-                    publish(StreamStatus.PREPARING, "Capture is ready")
+                    publish(StreamStatus.PREPARING, "Microphone ready • capture is ready")
                 }
             }
             ACTION_START -> {
@@ -89,10 +104,41 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val projection = projectionManager.getMediaProjection(resultCode, data) ?: return false
         mediaProjection = projection
         return try {
-            genericStream.changeVideoSource(ScreenSource(applicationContext, projection))
-            true
+                                genericStream.changeVideoSource(ScreenSource(applicationContext, projection))
+                    genericStream.changeAudioSource(MicrophoneSource())
+                    true
+
         } catch (_: IllegalArgumentException) {
             false
+        }
+    }
+
+    private fun hasAudioPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+
+    private fun checkMicrophoneInput(): Boolean {
+        val bufferSize = AudioRecord.getMinBufferSize(
+            AUDIO_SAMPLE_RATE,
+            AudioFormat.CHANNEL_IN_MONO,
+            AudioFormat.ENCODING_PCM_16BIT,
+        )
+        if (bufferSize <= 0) return false
+        val recorder = runCatching {
+            AudioRecord(
+                MediaRecorder.AudioSource.MIC,
+                AUDIO_SAMPLE_RATE,
+                AudioFormat.CHANNEL_IN_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+                bufferSize * 2,
+            )
+        }.getOrNull() ?: return false
+        return runCatching {
+            recorder.startRecording()
+            val samples = ShortArray((bufferSize / 2).coerceAtLeast(256))
+            recorder.read(samples, 0, samples.size) > 0
+        }.getOrDefault(false).also {
+            runCatching { recorder.stop() }
+            recorder.release()
         }
     }
 

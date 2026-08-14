@@ -9,9 +9,9 @@
 
     <application
         android:allowBackup="false"
-        android:icon="@drawable/ic_unictoos"
+        android:icon="@drawable/logo_unictoos"
         android:label="Unictoos"
-        android:roundIcon="@drawable/ic_unictoos"
+        android:roundIcon="@drawable/logo_unictoos"
         android:supportsRtl="true"
         android:theme="@style/Theme.Unictoos">
         <activity
