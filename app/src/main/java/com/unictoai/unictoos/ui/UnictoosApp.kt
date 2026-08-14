@@ -76,6 +76,7 @@ internal fun UnictoosApp(
     onToggleMute: () -> Unit,
     onToggleRecording: (Boolean) -> Unit,
     onCreateMarker: () -> Unit,
+    onDismissStatusMessage: () -> Unit,
     vm: StudioViewModel = viewModel(),
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.HOME) }
@@ -88,6 +89,7 @@ internal fun UnictoosApp(
     val destination by vm.destination.collectAsStateWithLifecycle()
     val adsPolicy by vm.adsPolicy.collectAsStateWithLifecycle()
     val streamQuality by vm.streamQuality.collectAsStateWithLifecycle()
+    val thermalProtectionEnabled by vm.thermalProtectionEnabled.collectAsStateWithLifecycle()
     val selectedScene = scenes.firstOrNull { it.id == selectedSceneId } ?: scenes.firstOrNull() ?: Scene(
         id = "fallback",
         name = "Quick Start",
@@ -151,6 +153,7 @@ internal fun UnictoosApp(
                     onToggleMute = onToggleMute,
                     onToggleRecording = { onToggleRecording(session.recording) },
                     onCreateMarker = onCreateMarker,
+                    onDismissStatusMessage = onDismissStatusMessage,
                     onEditScenes = { selectedTab = AppTab.SCENES },
                     onOpenSettings = { selectedTab = AppTab.SETTINGS },
                 )
@@ -170,6 +173,8 @@ internal fun UnictoosApp(
                     streamQuality = streamQuality,
                     onStreamQualityPreset = vm::setStreamQualityPreset,
                     onCustomStreamQualityChange = vm::updateCustomStreamQuality,
+                    thermalProtectionEnabled = thermalProtectionEnabled,
+                    onThermalProtectionChange = vm::setThermalProtectionEnabled,
                 )
             }
         }

@@ -13,6 +13,7 @@ import com.unictoai.unictoos.domain.StreamStatus
 import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.StreamQualityPreset
 import com.unictoai.unictoos.data.StreamQualityRepository
+import com.unictoai.unictoos.data.ThermalProtectionRepository
 import com.unictoai.unictoos.monetization.AdsPreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -35,6 +36,7 @@ class StudioViewModelBehaviorTest {
     private lateinit var scenes: FakeSceneRepository
     private lateinit var ads: FakeAdsPreferences
     private lateinit var quality: FakeStreamQualityRepository
+    private lateinit var thermal: FakeThermalProtectionRepository
     private lateinit var viewModel: StudioViewModel
 
     @Before
@@ -44,7 +46,8 @@ class StudioViewModelBehaviorTest {
         scenes = FakeSceneRepository()
         ads = FakeAdsPreferences()
         quality = FakeStreamQualityRepository()
-        viewModel = StudioViewModel(Application(), credentials, scenes, ads, quality)
+        thermal = FakeThermalProtectionRepository()
+        viewModel = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal)
     }
 
     @After
@@ -195,6 +198,16 @@ private class FakeStreamQualityRepository : StreamQualityRepository {
 
     override fun save(quality: StreamQuality) {
         value = quality
+    }
+}
+
+private class FakeThermalProtectionRepository : ThermalProtectionRepository {
+    private var enabledState = true
+
+    override fun isEnabled(): Boolean = enabledState
+
+    override fun setEnabled(enabled: Boolean) {
+        enabledState = enabled
     }
 }
 

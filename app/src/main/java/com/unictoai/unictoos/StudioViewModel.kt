@@ -9,6 +9,8 @@ import com.unictoai.unictoos.data.SceneRepository
 import com.unictoai.unictoos.data.SceneStore
 import com.unictoai.unictoos.data.StreamQualityRepository
 import com.unictoai.unictoos.data.StreamQualityStore
+import com.unictoai.unictoos.data.ThermalProtectionRepository
+import com.unictoai.unictoos.data.ThermalProtectionStore
 import com.unictoai.unictoos.monetization.AdsPolicy
 import com.unictoai.unictoos.monetization.AdsPreferences
 import com.unictoai.unictoos.monetization.AdsPreferencesRepository
@@ -45,6 +47,7 @@ class StudioViewModel(
     private val sceneStore: SceneRepository = SceneStore(application.applicationContext),
     private val adsPreferences: AdsPreferencesRepository = AdsPreferences(application.applicationContext),
     private val streamQualityStore: StreamQualityRepository = StreamQualityStore(application.applicationContext),
+    private val thermalProtectionStore: ThermalProtectionRepository = ThermalProtectionStore(application.applicationContext),
 ) : AndroidViewModel(application) {
     private val _scenes = MutableStateFlow(
         listOf(
@@ -87,6 +90,9 @@ class StudioViewModel(
     private val _streamQuality = MutableStateFlow(streamQualityStore.load())
     val streamQuality: StateFlow<StreamQuality> = _streamQuality.asStateFlow()
 
+    private val _thermalProtectionEnabled = MutableStateFlow(thermalProtectionStore.isEnabled())
+    val thermalProtectionEnabled: StateFlow<Boolean> = _thermalProtectionEnabled.asStateFlow()
+
     private val _destination = MutableStateFlow(DestinationConfig())
     val destination: StateFlow<DestinationConfig> = _destination.asStateFlow()
 
@@ -104,6 +110,11 @@ class StudioViewModel(
 
     fun setAdsEnabled(enabled: Boolean) {
         adsPreferences.setEnabled(enabled)
+    }
+
+    fun setThermalProtectionEnabled(enabled: Boolean) {
+        _thermalProtectionEnabled.value = enabled
+        thermalProtectionStore.setEnabled(enabled)
     }
 
     fun setStreamQualityPreset(preset: StreamQualityPreset) {

@@ -142,6 +142,7 @@ internal fun StudioScreen(
     onToggleMute: () -> Unit,
     onToggleRecording: () -> Unit,
     onCreateMarker: () -> Unit,
+    onDismissStatusMessage: () -> Unit,
     onEditScenes: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -201,6 +202,18 @@ internal fun StudioScreen(
             }
         }
         if (session.status == StreamStatus.ERROR) item { SessionErrorCard(session.message.orEmpty(), onOpenSettings) }
+        if (session.message?.contains("Reduced quality", ignoreCase = true) == true || session.message?.contains("quality raised", ignoreCase = true) == true) {
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Amber.copy(alpha = 0.14f)), shape = RoundedCornerShape(18.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Warning, contentDescription = "Quality notice", tint = UnictoosPalette.Amber)
+                        Spacer(Modifier.width(10.dp))
+                        Text(session.message.orEmpty(), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick = onDismissStatusMessage) { Text("Dismiss") }
+                    }
+                }
+            }
+        }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricCard("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—", Modifier.weight(1f))

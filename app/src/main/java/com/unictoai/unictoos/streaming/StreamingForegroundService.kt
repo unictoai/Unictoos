@@ -35,6 +35,7 @@ import com.pedro.library.util.sources.video.ScreenSource
 import com.unictoai.unictoos.R
 import com.unictoai.unictoos.data.CreatorHistoryStore
 import com.unictoai.unictoos.data.StreamQualityStore
+import com.unictoai.unictoos.data.ThermalProtectionStore
 import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.SessionMode
 import com.unictoai.unictoos.domain.StreamHealthSample
@@ -64,6 +65,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var adaptiveTargetBitrate = 0
     private var degradedSinceElapsed = 0L
     private var recoveredSinceElapsed = 0L
+    private var thermalCapApplied = false
     private val bitrateHistory = java.util.ArrayDeque<Int>()
     private lateinit var historyStore: CreatorHistoryStore
     private lateinit var streamQuality: StreamQuality
@@ -116,6 +118,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             ACTION_TOGGLE_MUTE -> toggleMute()
             ACTION_START_RECORDING -> startRecording()
             ACTION_STOP_RECORDING -> stopRecording()
+            ACTION_DISMISS_STATUS -> dismissStatusMessage()
         }
         return START_NOT_STICKY
     }
@@ -274,6 +277,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         adaptiveTargetBitrate = 0
         degradedSinceElapsed = 0L
         recoveredSinceElapsed = 0L
+        thermalCapApplied = false
         bitrateHistory.clear()
         reconnectAttempt = 0
         currentEndpoint = ""
@@ -391,6 +395,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
         } else {
             PowerManager.THERMAL_STATUS_NONE
         }
+        if (ThermalProtectionStore(applicationContext).isEnabled() && thermalStatus >= PowerManager.THERMAL_STATUS_MODERATE && !thermalCapApplied && prepared) {
+            applyThermalProtection(thermalStatus)
+        }
         val connectivity = getSystemService(ConnectivityManager::class.java)
         val capabilities = connectivity?.getNetworkCapabilities(connectivity.activeNetwork)
         val networkLabel = when {
@@ -411,6 +418,33 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 networkLabel = networkLabel,
             ),
         )
+    }
+
+    private fun applyThermalProtection(thermalStatus: Int) {
+        val currentTarget = adaptiveTargetBitrate.takeIf { it > 0 } ?: streamQuality.bitrate
+        val reducedTarget = (currentTarget * 0.75f).toInt().coerceAtLeast(1_000_000)
+        if (reducedTarget >= currentTarget) {
+            thermalCapApplied = true
+            return
+        }
+        runCatching { genericStream.setVideoBitrateOnFly(reducedTarget) }
+            .onSuccess {
+                adaptiveTargetBitrate = reducedTarget
+                thermalCapApplied = true
+                val label = when (thermalStatus) {
+                    PowerManager.THERMAL_STATUS_CRITICAL, PowerManager.THERMAL_STATUS_EMERGENCY, PowerManager.THERMAL_STATUS_SHUTDOWN -> "critical temperature"
+                    PowerManager.THERMAL_STATUS_SEVERE -> "high temperature"
+                    else -> "device temperature"
+                }
+                publish(StreamStatus.LIVE, "Reduced quality to protect the device from $label • ${reducedTarget / 1000} kbps")
+            }
+    }
+
+    private fun dismissStatusMessage() {
+        val previous = StreamingStatusBus.state.value
+        if (previous.message?.contains("Reduced quality", ignoreCase = true) == true) {
+            StreamingStatusBus.update(previous.copy(message = null))
+        }
     }
 
     private fun updateNotification(text: String) {
@@ -528,6 +562,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         const val ACTION_TOGGLE_MUTE = "com.unictoai.unictoos.action.TOGGLE_MUTE"
         const val ACTION_START_RECORDING = "com.unictoai.unictoos.action.START_RECORDING"
         const val ACTION_STOP_RECORDING = "com.unictoai.unictoos.action.STOP_RECORDING"
+        const val ACTION_DISMISS_STATUS = "com.unictoai.unictoos.action.DISMISS_STATUS"
         const val EXTRA_RESULT_CODE = "extra_result_code"
         const val EXTRA_PROJECTION_DATA = "extra_projection_data"
         const val EXTRA_ENDPOINT = "extra_endpoint"

@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
                     onToggleMute = ::toggleMute,
                     onToggleRecording = ::toggleRecording,
                     onCreateMarker = ::createMarker,
+                    onDismissStatusMessage = ::dismissStatusMessage,
                 )
             }
         }
@@ -158,6 +159,12 @@ class MainActivity : ComponentActivity() {
         startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_CREATE_MARKER
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_MARKER_LABEL, "Marked moment")
+        })
+    }
+
+    internal fun dismissStatusMessage() {
+        startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
+            action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_DISMISS_STATUS
         })
     }
 

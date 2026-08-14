@@ -142,6 +142,8 @@ internal fun SettingsScreen(
     streamQuality: StreamQuality,
     onStreamQualityPreset: (StreamQualityPreset) -> Unit,
     onCustomStreamQualityChange: (Int, Int) -> Unit,
+    thermalProtectionEnabled: Boolean,
+    onThermalProtectionChange: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
     var microphoneEnabled by rememberSaveable { mutableStateOf(true) }
@@ -237,6 +239,8 @@ internal fun SettingsScreen(
                     SettingToggle("Microphone", "Check audio access before going live", microphoneEnabled) { microphoneEnabled = it }
                     HorizontalDivider(color = UnictoosPalette.Stroke)
                     SettingToggle("Keep screen awake", "Prevent the display from sleeping in Studio", keepAwake) { keepAwake = it }
+                    HorizontalDivider(color = UnictoosPalette.Stroke)
+                    SettingToggle("Automatic thermal protection", "Lower live bitrate when the device is running hot", thermalProtectionEnabled, onThermalProtectionChange)
                 }
             }
         }
