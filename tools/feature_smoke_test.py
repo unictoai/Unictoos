@@ -45,6 +45,8 @@ check("secure credential path", "CredentialStore" in (ROOT / "app/src/main/java/
 check("scene persistence path", "SceneStore" in (ROOT / "app/src/main/java/com/unictoai/unictoos/StudioViewModel.kt").read_text() and (ROOT / "app/src/main/java/com/unictoai/unictoos/data/SceneStore.kt").exists())
 check("engagement model boundary", (ROOT / "app/src/main/java/com/unictoai/unictoos/domain/EngagementModels.kt").exists() and "OAuth" in MAIN)
 check("integration adapter boundary", (ROOT / "app/src/main/java/com/unictoai/unictoos/integrations/PlatformIntegration.kt").exists() and "StreamMetadataRequest" in (ROOT / "app/src/main/java/com/unictoai/unictoos/integrations/PlatformIntegration.kt").read_text())
+check("creator history store", (ROOT / "app/src/main/java/com/unictoai/unictoos/data/CreatorHistoryStore.kt").exists() and "SessionSummary" in (ROOT / "app/src/main/java/com/unictoai/unictoos/data/CreatorHistoryStore.kt").read_text())
+check("stream marker path", "ACTION_CREATE_MARKER" in SERVICE and "Mark moment" in MAIN)
 check("platform dashboard links", "dashboard.twitch.tv" in MAIN and "dashboard.kick.com" in MAIN)
 check("recording library path", "filesDir, \"recordings\"" in MAIN)
 check("recording playback and share path", "FileProvider.getUriForFile" in MAIN and "ACTION_SEND" in MAIN)

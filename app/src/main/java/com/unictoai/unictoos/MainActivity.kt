@@ -115,6 +115,7 @@ import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
+import com.unictoai.unictoos.data.CreatorHistoryStore
 import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
@@ -182,6 +183,7 @@ class MainActivity : ComponentActivity() {
                     onStopStream = ::stopStream,
                     onToggleMute = ::toggleMute,
                     onToggleRecording = ::toggleRecording,
+                    onCreateMarker = ::createMarker,
                 )
             }
         }
@@ -272,6 +274,13 @@ class MainActivity : ComponentActivity() {
         })
     }
 
+    private fun createMarker() {
+        startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
+            action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_CREATE_MARKER
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_MARKER_LABEL, "Marked moment")
+        })
+    }
+
     companion object {
         private const val CAPTURE_SCREEN = "screen"
         private const val CAPTURE_CAMERA = "camera"
@@ -285,6 +294,7 @@ private fun UnictoosApp(
     onStopStream: () -> Unit,
     onToggleMute: () -> Unit,
     onToggleRecording: (Boolean) -> Unit,
+    onCreateMarker: () -> Unit,
     vm: StudioViewModel = viewModel(),
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.HOME) }
@@ -357,6 +367,7 @@ private fun UnictoosApp(
                         onStop = onStopStream,
                     onToggleMute = onToggleMute,
                     onToggleRecording = { onToggleRecording(session.recording) },
+                    onCreateMarker = onCreateMarker,
                     onEditScenes = { selectedTab = AppTab.SCENES },
                     onOpenSettings = { selectedTab = AppTab.SETTINGS },
                 )
@@ -720,6 +731,7 @@ private fun StudioScreen(
     onStop: () -> Unit,
     onToggleMute: () -> Unit,
     onToggleRecording: () -> Unit,
+    onCreateMarker: () -> Unit,
     onEditScenes: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -788,6 +800,15 @@ private fun StudioScreen(
         }
         item {
             HealthCenterCard(history = healthHistory, session = session)
+        }
+        item {
+            AnimatedVisibility(visible = session.status == StreamStatus.LIVE, enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 3 }) {
+                OutlinedButton(onClick = onCreateMarker, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                    Icon(Icons.Default.Bolt, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Mark moment for clip")
+                }
+            }
         }
         item {
             Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
@@ -974,6 +995,8 @@ private fun LibraryScreen() {
     val context = LocalContext.current
     val recordingsDirectory = java.io.File(context.filesDir, "recordings")
     var recordings by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    var sessionSummaries by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    var markerCount by rememberSaveable { mutableStateOf(0) }
     var renameTarget by rememberSaveable { mutableStateOf<String?>(null) }
     var renameValue by rememberSaveable { mutableStateOf("") }
 
@@ -1015,7 +1038,13 @@ private fun LibraryScreen() {
         }
     }
 
-    LaunchedEffect(Unit) { refresh() }
+    LaunchedEffect(Unit) {
+        refresh()
+        val history = CreatorHistoryStore(context)
+        val sessions = history.loadSessions()
+        sessionSummaries = sessions.map { summary -> "${summary.mode.name.lowercase().replaceFirstChar { it.uppercase() }} • ${summary.elapsedSeconds / 60} min • ${summary.bitrateKbps} kbps" }
+        markerCount = history.loadMarkers().size
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -1025,6 +1054,16 @@ private fun LibraryScreen() {
             BrandHeader("Your content", "Library")
             Spacer(Modifier.height(6.dp))
             Text("Recordings stay on this device until you choose to share them.", color = UnictoosPalette.TextMuted)
+        }
+        item {
+            SectionHeader("Creator analytics", "Local history only")
+            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ReadinessRow("Completed sessions", sessionSummaries.size.toString(), sessionSummaries.isNotEmpty())
+                    ReadinessRow("Marked moments", markerCount.toString(), markerCount > 0)
+                    ReadinessRow("Latest session", sessionSummaries.lastOrNull() ?: "No completed sessions", sessionSummaries.isNotEmpty())
+                }
+            }
         }
         if (recordings.isEmpty()) {
             item {

@@ -33,9 +33,12 @@ import com.pedro.library.util.sources.video.Camera2Source
 import com.pedro.library.util.sources.video.NoVideoSource
 import com.pedro.library.util.sources.video.ScreenSource
 import com.unictoai.unictoos.R
+import com.unictoai.unictoos.data.CreatorHistoryStore
 import com.unictoai.unictoos.domain.SessionMode
 import com.unictoai.unictoos.domain.StreamHealthSample
+import com.unictoai.unictoos.domain.StreamMarker
 import com.unictoai.unictoos.domain.StreamSessionState
+import com.unictoai.unictoos.domain.SessionSummary
 import com.unictoai.unictoos.domain.StreamStatus
 import java.io.File
 
@@ -50,6 +53,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var currentEndpoint: String = ""
     private var reconnectAttempt = 0
     private var startedAtElapsed = 0L
+    private lateinit var historyStore: CreatorHistoryStore
 
     private val handler = Handler(Looper.getMainLooper())
     private val projectionManager: MediaProjectionManager by lazy {
@@ -70,6 +74,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     override fun onCreate() {
         super.onCreate()
+        historyStore = CreatorHistoryStore(applicationContext)
         createNotificationChannel()
         genericStream = GenericStream(this, this, NoVideoSource(), NoAudioSource()).apply {
             getGlInterface().setForceRender(true, VIDEO_FPS)
@@ -91,6 +96,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             ACTION_START_PRACTICE -> {
                 if (startForegroundSafely(mediaProjection != null)) startPractice()
             }
+            ACTION_CREATE_MARKER -> createMarker(intent.getStringExtra(EXTRA_MARKER_LABEL).orEmpty())
             ACTION_STOP -> stopStreaming()
             ACTION_TOGGLE_MUTE -> toggleMute()
             ACTION_START_RECORDING -> startRecording()
@@ -235,12 +241,34 @@ class StreamingForegroundService : Service(), ConnectChecker {
         handler.removeCallbacksAndMessages(null)
         if (::genericStream.isInitialized && genericStream.isStreaming) genericStream.stopStream()
         if (StreamingStatusBus.state.value.recording) stopRecording()
+        val completed = StreamingStatusBus.state.value
+        if (completed.elapsedSeconds > 0L) {
+            historyStore.addSession(
+                SessionSummary(
+                    id = "session-${System.currentTimeMillis()}",
+                    mode = completed.mode,
+                    elapsedSeconds = completed.elapsedSeconds,
+                    bitrateKbps = completed.bitrateKbps,
+                    fps = completed.fps,
+                    droppedFrames = completed.droppedFrames,
+                    finishedAtMillis = System.currentTimeMillis(),
+                ),
+            )
+        }
         startedAtElapsed = 0L
         reconnectAttempt = 0
         currentEndpoint = ""
         publish(StreamStatus.IDLE, "Broadcast stopped")
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    private fun createMarker(label: String) {
+        val state = StreamingStatusBus.state.value
+        if (state.status != StreamStatus.LIVE) return
+        val safeLabel = label.trim().ifBlank { "Moment" }
+        historyStore.addMarker(StreamMarker("marker-${System.currentTimeMillis()}", safeLabel, state.elapsedSeconds, System.currentTimeMillis()))
+        publish(state.status, "Marker saved at ${formatElapsed(state.elapsedSeconds)}")
     }
 
     private fun toggleMute() {
@@ -435,6 +463,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         const val ACTION_PREPARE_CAMERA = "com.unictoai.unictoos.action.PREPARE_CAMERA"
         const val ACTION_START = "com.unictoai.unictoos.action.START_STREAMING"
         const val ACTION_START_PRACTICE = "com.unictoai.unictoos.action.START_PRACTICE"
+        const val ACTION_CREATE_MARKER = "com.unictoai.unictoos.action.CREATE_MARKER"
         const val ACTION_STOP = "com.unictoai.unictoos.action.STOP_STREAMING"
         const val ACTION_TOGGLE_MUTE = "com.unictoai.unictoos.action.TOGGLE_MUTE"
         const val ACTION_START_RECORDING = "com.unictoai.unictoos.action.START_RECORDING"
@@ -442,6 +471,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         const val EXTRA_RESULT_CODE = "extra_result_code"
         const val EXTRA_PROJECTION_DATA = "extra_projection_data"
         const val EXTRA_ENDPOINT = "extra_endpoint"
+        const val EXTRA_MARKER_LABEL = "extra_marker_label"
         private const val CHANNEL_ID = "unictoos-broadcasting"
         private const val NOTIFICATION_ID = 4101
         private const val VIDEO_WIDTH = 720
