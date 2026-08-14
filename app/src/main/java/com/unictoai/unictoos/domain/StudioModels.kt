@@ -18,6 +18,9 @@ data class Source(
     val enabled: Boolean = true,
     val zIndex: Int = 0,
     val opacity: Float = 1f,
+    val textContent: String = "",
+    val textColor: Long = 0xFFFFFFFF,
+    val textSizeSp: Float = 22f,
 )
 
 enum class SourceType(val label: String) {

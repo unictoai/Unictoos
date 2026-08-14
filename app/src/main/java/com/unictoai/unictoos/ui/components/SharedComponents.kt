@@ -87,6 +87,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -231,6 +232,9 @@ internal fun SourceToggleRow(
     onMoveDown: () -> Unit = {},
     opacity: Float = 1f,
     onOpacityChange: (Float) -> Unit = {},
+    textContent: String = "",
+    textSizeSp: Float = 22f,
+    onTextChange: (String, Float) -> Unit = { _, _ -> },
 ) {
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -250,6 +254,35 @@ internal fun SourceToggleRow(
         TextButton(onClick = onMoveUp, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("↑") }
         TextButton(onClick = onMoveDown, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("↓") }
             Switch(checked = enabled, onCheckedChange = { onClick() })
+        }
+        if (type.startsWith("Text")) {
+            var draftText by rememberSaveable(title, textContent) { mutableStateOf(textContent) }
+            var draftSize by rememberSaveable(title, textSizeSp) { mutableStateOf(textSizeSp) }
+            OutlinedTextField(
+                value = draftText,
+                onValueChange = {
+                    draftText = it
+                    onTextChange(it, draftSize)
+                },
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                label = { Text("Overlay text") },
+                placeholder = { Text("Add a title or callout") },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+            )
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Size", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(38.dp))
+                Slider(
+                    value = draftSize,
+                    onValueChange = {
+                        draftSize = it
+                        onTextChange(draftText, it)
+                    },
+                    valueRange = 10f..72f,
+                    modifier = Modifier.weight(1f),
+                )
+                Text("${draftSize.toInt()}sp", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(42.dp))
+            }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Opacity", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(54.dp))

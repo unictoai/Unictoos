@@ -40,6 +40,9 @@ class SceneStore(context: Context) : SceneRepository {
                             put("enabled", source.enabled)
                             put("zIndex", source.zIndex)
                             put("opacity", source.opacity.toDouble())
+                            put("textContent", source.textContent)
+                            put("textColor", source.textColor)
+                            put("textSizeSp", source.textSizeSp.toDouble())
                         })
                     }
                 })
@@ -71,6 +74,9 @@ class SceneStore(context: Context) : SceneRepository {
                     enabled = sourceJson.optBoolean("enabled", true),
                     zIndex = sourceJson.optInt("zIndex", index),
                     opacity = sourceJson.optDouble("opacity", 1.0).toFloat().coerceIn(0f, 1f),
+                    textContent = sourceJson.optString("textContent", ""),
+                    textColor = sourceJson.optLong("textColor", 0xFFFFFFFF),
+                    textSizeSp = sourceJson.optDouble("textSizeSp", 22.0).toFloat().coerceIn(10f, 72f),
                 ),
             )
         }

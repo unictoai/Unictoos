@@ -139,6 +139,7 @@ internal fun ScenesScreen(
     onAddSource: (String, String, SourceType) -> Unit,
     onMoveSource: (String, String, Int) -> Unit,
     onSetSourceOpacity: (String, String, Float) -> Unit,
+    onUpdateTextSource: (String, String, String, Float) -> Unit,
     onOpenStudio: () -> Unit,
 ) {
     var showAddSource by rememberSaveable { mutableStateOf(false) }
@@ -176,6 +177,9 @@ internal fun ScenesScreen(
                                 onMoveDown = { onMoveSource(selectedScene.id, source.id, 1) },
                                 opacity = source.opacity,
                                 onOpacityChange = { onSetSourceOpacity(selectedScene.id, source.id, it) },
+                                textContent = source.textContent,
+                                textSizeSp = source.textSizeSp,
+                                onTextChange = { content, size -> onUpdateTextSource(selectedScene.id, source.id, content, size) },
                             )
                         }
                     }

@@ -136,6 +136,7 @@ internal fun UnictoosApp(
                     onAddSource = vm::addSource,
                     onMoveSource = vm::moveSource,
                     onSetSourceOpacity = vm::setSourceOpacity,
+                    onUpdateTextSource = vm::updateTextSource,
                     onOpenStudio = { selectedTab = AppTab.STUDIO },
                 )
                 AppTab.STUDIO -> StudioScreen(

@@ -255,6 +255,20 @@ class StudioViewModel(
         }
     }
 
+    fun updateTextSource(sceneId: String, sourceId: String, content: String, sizeSp: Float) {
+        _scenes.update { scenes ->
+            scenes.map { scene ->
+                if (scene.id != sceneId) scene else scene.copy(
+                    sources = scene.sources.map { source ->
+                        if (source.id == sourceId && source.type == SourceType.TEXT) {
+                            source.copy(textContent = content.take(240), textSizeSp = sizeSp.coerceIn(10f, 72f))
+                        } else source
+                    },
+                )
+            }.also(sceneStore::save)
+        }
+    }
+
     fun setSourceOpacity(sceneId: String, sourceId: String, opacity: Float) {
         _scenes.update { scenes ->
             scenes.map { scene ->
