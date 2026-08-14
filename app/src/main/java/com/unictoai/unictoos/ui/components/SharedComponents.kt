@@ -285,7 +285,13 @@ internal fun SceneCard(
     } else {
         CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)
     }
-    Card(onClick = onClick ?: {}, colors = colors, shape = RoundedCornerShape(22.dp)) {
+    Card(
+        onClick = onClick ?: {},
+        colors = colors,
+        shape = RoundedCornerShape(22.dp),
+        border = if (onClick != null) BorderStroke(1.dp, if (selected) UnictoosPalette.VioletBright.copy(alpha = 0.72f) else UnictoosPalette.Stroke) else null,
+        modifier = Modifier.animateContentSize(tween(150)),
+    ) {
         Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.size(62.dp).clip(RoundedCornerShape(17.dp)).background(
