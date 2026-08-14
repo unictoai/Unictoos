@@ -30,6 +30,7 @@ for action in (
     "ACTION_PREPARE_PROJECTION",
     "ACTION_PREPARE_CAMERA",
     "ACTION_START",
+    "ACTION_START_PRACTICE",
     "ACTION_STOP",
     "ACTION_TOGGLE_MUTE",
     "ACTION_START_RECORDING",
@@ -41,7 +42,14 @@ for tab in ("HOME", "SCENES", "STUDIO", "ENGAGEMENT", "LIBRARY", "SETTINGS"):
 check("camera capture path", "Camera2Source" in SERVICE and "CAPTURE_CAMERA" in MAIN)
 check("screen capture path", "ScreenSource" in SERVICE and "CAPTURE_SCREEN" in MAIN)
 check("secure credential path", "CredentialStore" in (ROOT / "app/src/main/java/com/unictoai/unictoos/StudioViewModel.kt").read_text())
+check("scene persistence path", "SceneStore" in (ROOT / "app/src/main/java/com/unictoai/unictoos/StudioViewModel.kt").read_text() and (ROOT / "app/src/main/java/com/unictoai/unictoos/data/SceneStore.kt").exists())
+check("engagement model boundary", (ROOT / "app/src/main/java/com/unictoai/unictoos/domain/EngagementModels.kt").exists() and "OAuth" in MAIN)
+check("platform dashboard links", "dashboard.twitch.tv" in MAIN and "dashboard.kick.com" in MAIN)
 check("recording library path", "filesDir, \"recordings\"" in MAIN)
+check("recording playback and share path", "FileProvider.getUriForFile" in MAIN and "ACTION_SEND" in MAIN)
+check("file provider declared", "androidx.core.content.FileProvider" in MANIFEST and (ROOT / "app/src/main/res/xml/file_paths.xml").exists())
+check("practice mode path", "ACTION_START_PRACTICE" in MAIN and "SessionMode.PRACTICE" in SERVICE)
+check("health history path", "healthHistory" in MAIN and "recordHealth" in SERVICE)
 check("preflight path", "PreflightCard" in MAIN and "ACCESS_NETWORK_STATE" in MANIFEST)
 check("stale enum state is guarded", "firstOrNull { it.name == selectedPlatformName }" in MAIN)
 check("empty scene state is guarded", "scenes.firstOrNull() ?: Scene(" in MAIN)

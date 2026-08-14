@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.unictoai.unictoos.data.CredentialStore
+import com.unictoai.unictoos.data.SceneStore
 import com.unictoai.unictoos.monetization.AdsPolicy
 import com.unictoai.unictoos.monetization.AdsPreferences
 import com.unictoai.unictoos.domain.AspectRatio
@@ -12,6 +13,7 @@ import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.Source
 import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.domain.StreamDestination
+import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +34,7 @@ data class DestinationConfig(
 
 class StudioViewModel(application: Application) : AndroidViewModel(application) {
     private val credentialStore = CredentialStore(application.applicationContext)
+    private val sceneStore = SceneStore(application.applicationContext)
     private val adsPreferences = AdsPreferences(application.applicationContext)
     private val _scenes = MutableStateFlow(
         listOf(
@@ -68,6 +71,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _session = MutableStateFlow(StreamSessionState())
     val session: StateFlow<StreamSessionState> = _session.asStateFlow()
+    val healthHistory: StateFlow<List<StreamHealthSample>> = StreamingStatusBus.healthHistory
     val adsPolicy: StateFlow<AdsPolicy> = adsPreferences.policy
 
     private val _destination = MutableStateFlow(DestinationConfig())
@@ -77,6 +81,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     val activePlatform: StateFlow<PlatformPreset> = _activePlatform.asStateFlow()
 
     init {
+        _scenes.value = sceneStore.loadOrDefault(_scenes.value)
         val saved = credentialStore.load(PlatformPreset.YOUTUBE)
         _destination.value = DestinationConfig(platform = PlatformPreset.YOUTUBE, serverUrl = saved.first, streamKey = saved.second)
         viewModelScope.launch {
@@ -121,12 +126,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     fun addScene(name: String, aspectRatio: AspectRatio = AspectRatio.PORTRAIT) {
         val safeName = name.trim().ifBlank { "New Scene" }
         _scenes.update { current ->
-            current + Scene(
+            (current + Scene(
                 id = "scene-${current.size + 1}",
                 name = safeName,
                 aspectRatio = aspectRatio,
                 sources = listOf(Source("color-${current.size + 1}", "Background", SourceType.COLOR)),
-            )
+            )).also(sceneStore::save)
         }
     }
 
@@ -138,7 +143,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                         if (source.id == sourceId) source.copy(enabled = !source.enabled) else source
                     },
                 )
-            }
+            }.also(sceneStore::save)
         }
     }
 
@@ -150,7 +155,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     val sourceId = "${type.name.lowercase()}-${scene.sources.size + 1}"
                     scene.copy(sources = scene.sources + Source(sourceId, safeName, type, enabled = true))
                 }
-            }
+            }.also(sceneStore::save)
         }
     }
 

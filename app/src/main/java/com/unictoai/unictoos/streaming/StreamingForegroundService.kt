@@ -13,9 +13,12 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
+import android.net.ConnectivityManager
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
+import android.os.PowerManager
 import android.os.Looper
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
@@ -30,6 +33,8 @@ import com.pedro.library.util.sources.video.Camera2Source
 import com.pedro.library.util.sources.video.NoVideoSource
 import com.pedro.library.util.sources.video.ScreenSource
 import com.unictoai.unictoos.R
+import com.unictoai.unictoos.domain.SessionMode
+import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
 import java.io.File
@@ -56,6 +61,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 val elapsed = (SystemClock.elapsedRealtime() - startedAtElapsed) / 1_000L
                 val previous = StreamingStatusBus.state.value
                 StreamingStatusBus.update(previous.copy(elapsedSeconds = elapsed))
+                recordHealthSample(elapsed, previous)
                 updateNotification("Live for ${formatElapsed(elapsed)}")
                 handler.postDelayed(this, 1_000L)
             }
@@ -81,6 +87,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
             ACTION_PREPARE_CAMERA -> prepareCamera()
             ACTION_START -> {
                 if (startForegroundSafely(mediaProjection != null)) startStream(intent.getStringExtra(EXTRA_ENDPOINT).orEmpty())
+            }
+            ACTION_START_PRACTICE -> {
+                if (startForegroundSafely(mediaProjection != null)) startPractice()
             }
             ACTION_STOP -> stopStreaming()
             ACTION_TOGGLE_MUTE -> toggleMute()
@@ -186,7 +195,25 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
     }
 
+    private fun startPractice() {
+        if (!prepared || !captureReady || microphoneSource == null) {
+            publish(StreamStatus.ERROR, "Practice capture is not ready. Approve capture and microphone access first")
+            return
+        }
+        manualStop = false
+        currentEndpoint = ""
+        reconnectAttempt = 0
+        StreamingStatusBus.clearHealth()
+        val previous = StreamingStatusBus.state.value
+        StreamingStatusBus.update(previous.copy(mode = SessionMode.PRACTICE, message = "Starting local practice recording"))
+        startRecording(prefix = "unictoos-practice")
+        publish(StreamStatus.LIVE, "Practice mode active • nothing is published")
+    }
+
     private fun startStream(endpoint: String) {
+        StreamingStatusBus.clearHealth()
+        val previous = StreamingStatusBus.state.value
+        StreamingStatusBus.update(previous.copy(mode = SessionMode.BROADCAST))
         if (!prepared || !captureReady || microphoneSource == null) {
             publish(StreamStatus.ERROR, "Capture is not ready. Approve screen capture and microphone access first")
             return
@@ -223,10 +250,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
         StreamingStatusBus.update(previous.copy(microphoneMuted = source.isMuted(), message = if (source.isMuted()) "Microphone muted" else "Microphone live"))
     }
 
-    private fun startRecording() {
+    private fun startRecording(prefix: String = "unictoos") {
         if (!prepared || StreamingStatusBus.state.value.recording) return
         val directory = File(filesDir, "recordings").apply { mkdirs() }
-        val output = File(directory, "unictoos-${System.currentTimeMillis()}.mp4")
+        val output = File(directory, "$prefix-${System.currentTimeMillis()}.mp4")
         runCatching {
             genericStream.startRecord(output.absolutePath, object : RecordController.Listener {
                 override fun onStatusChange(status: RecordController.Status) {
@@ -304,6 +331,38 @@ class StreamingForegroundService : Service(), ConnectChecker {
         updateNotification(message ?: status.name.lowercase().replace('_', ' '))
     }
 
+    private fun recordHealthSample(elapsed: Long, state: StreamSessionState) {
+        val batteryIntent = registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        val batteryPercent = if (level >= 0 && scale > 0) (level * 100 / scale).coerceIn(0, 100) else -1
+        val thermalStatus = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getSystemService(PowerManager::class.java)?.currentThermalStatus ?: PowerManager.THERMAL_STATUS_NONE
+        } else {
+            PowerManager.THERMAL_STATUS_NONE
+        }
+        val connectivity = getSystemService(ConnectivityManager::class.java)
+        val capabilities = connectivity?.getNetworkCapabilities(connectivity.activeNetwork)
+        val networkLabel = when {
+            capabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true -> "Wi-Fi"
+            capabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) == true -> "Cellular"
+            capabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) == true -> "Ethernet"
+            else -> "Offline"
+        }
+        StreamingStatusBus.recordHealth(
+            StreamHealthSample(
+                elapsedSeconds = elapsed,
+                bitrateKbps = state.bitrateKbps,
+                fps = state.fps,
+                droppedFrames = state.droppedFrames,
+                audioLevel = state.audioLevel,
+                batteryPercent = batteryPercent,
+                thermalStatus = thermalStatus,
+                networkLabel = networkLabel,
+            ),
+        )
+    }
+
     private fun updateNotification(text: String) {
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification(text))
     }
@@ -375,6 +434,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         const val ACTION_PREPARE_PROJECTION = "com.unictoai.unictoos.action.PREPARE_PROJECTION"
         const val ACTION_PREPARE_CAMERA = "com.unictoai.unictoos.action.PREPARE_CAMERA"
         const val ACTION_START = "com.unictoai.unictoos.action.START_STREAMING"
+        const val ACTION_START_PRACTICE = "com.unictoai.unictoos.action.START_PRACTICE"
         const val ACTION_STOP = "com.unictoai.unictoos.action.STOP_STREAMING"
         const val ACTION_TOGGLE_MUTE = "com.unictoai.unictoos.action.TOGGLE_MUTE"
         const val ACTION_START_RECORDING = "com.unictoai.unictoos.action.START_RECORDING"

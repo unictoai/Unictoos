@@ -46,10 +46,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Home
@@ -60,6 +62,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Videocam
@@ -113,6 +116,7 @@ import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.domain.StreamDestination
+import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
 import com.unictoai.unictoos.ui.theme.UnictoosPalette
@@ -130,9 +134,13 @@ private enum class AppTab(val label: String) {
 class MainActivity : ComponentActivity() {
     private var pendingEndpoint: String = ""
     private var pendingCaptureMode: String = CAPTURE_SCREEN
+    private var pendingPractice: Boolean = false
 
     private val projectionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode != RESULT_OK || result.data == null) return@registerForActivityResult
+        if (result.resultCode != RESULT_OK || result.data == null) {
+            pendingPractice = false
+            return@registerForActivityResult
+        }
         if (pendingCaptureMode == CAPTURE_CAMERA) {
             startCameraCapture()
             return@registerForActivityResult
@@ -144,9 +152,14 @@ class MainActivity : ComponentActivity() {
         }
         androidx.core.content.ContextCompat.startForegroundService(this, prepareIntent)
         startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
-            action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START
+            action = if (pendingPractice) {
+                com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START_PRACTICE
+            } else {
+                com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START
+            }
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_ENDPOINT, pendingEndpoint)
         })
+        pendingPractice = false
     }
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -165,6 +178,7 @@ class MainActivity : ComponentActivity() {
             UnictoosTheme {
                 UnictoosApp(
                     onRequestStreamStart = ::requestStreamStart,
+                    onRequestPracticeStart = ::requestPracticeStart,
                     onStopStream = ::stopStream,
                     onToggleMute = ::toggleMute,
                     onToggleRecording = ::toggleRecording,
@@ -201,14 +215,39 @@ class MainActivity : ComponentActivity() {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_PREPARE_CAMERA
         })
         startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
-            action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START
+            action = if (pendingPractice) {
+                com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START_PRACTICE
+            } else {
+                com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START
+            }
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_ENDPOINT, pendingEndpoint)
         })
+        pendingPractice = false
     }
 
     private fun launchProjection() {
         val manager = getSystemService(MediaProjectionManager::class.java)
         projectionLauncher.launch(manager.createScreenCaptureIntent())
+    }
+
+    private fun requestPracticeStart(captureMode: String) {
+        pendingEndpoint = ""
+        pendingCaptureMode = captureMode
+        pendingPractice = true
+        val needsAudio = androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+        val needsCamera = captureMode == CAPTURE_CAMERA && androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
+        if (needsAudio || needsCamera) {
+            val permissions = buildList {
+                add(Manifest.permission.RECORD_AUDIO)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
+                if (needsCamera) add(Manifest.permission.CAMERA)
+            }
+            permissionLauncher.launch(permissions.toTypedArray())
+        } else if (captureMode == CAPTURE_CAMERA) {
+            startCameraCapture()
+        } else {
+            launchProjection()
+        }
     }
 
     private fun stopStream() {
@@ -242,6 +281,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun UnictoosApp(
     onRequestStreamStart: (String, String) -> Unit,
+    onRequestPracticeStart: (String) -> Unit,
     onStopStream: () -> Unit,
     onToggleMute: () -> Unit,
     onToggleRecording: (Boolean) -> Unit,
@@ -253,6 +293,7 @@ private fun UnictoosApp(
     val scenes by vm.scenes.collectAsStateWithLifecycle()
     val destinations by vm.destinations.collectAsStateWithLifecycle()
     val session by vm.session.collectAsStateWithLifecycle()
+    val healthHistory by vm.healthHistory.collectAsStateWithLifecycle()
     val destination by vm.destination.collectAsStateWithLifecycle()
     val adsPolicy by vm.adsPolicy.collectAsStateWithLifecycle()
     val selectedScene = scenes.firstOrNull { it.id == selectedSceneId } ?: scenes.firstOrNull() ?: Scene(
@@ -293,16 +334,25 @@ private fun UnictoosApp(
                 AppTab.STUDIO -> StudioScreen(
                     scene = selectedScene,
                     session = session,
+                    healthHistory = healthHistory,
                     destination = destination,
-                    onStart = {
-                        val captureMode = when {
-                            selectedScene.sources.any { it.type == SourceType.SCREEN && it.enabled } -> "screen"
-                            selectedScene.sources.any { it.type == SourceType.CAMERA && it.enabled } -> "camera"
-                            else -> "screen"
-                        }
-                        onRequestStreamStart(destination.endpoint, captureMode)
-                    },
-                    onStop = onStopStream,
+                        onStart = {
+                            val captureMode = when {
+                                selectedScene.sources.any { it.type == SourceType.SCREEN && it.enabled } -> "screen"
+                                selectedScene.sources.any { it.type == SourceType.CAMERA && it.enabled } -> "camera"
+                                else -> "screen"
+                            }
+                            onRequestStreamStart(destination.endpoint, captureMode)
+                        },
+                        onPractice = {
+                            val captureMode = when {
+                                selectedScene.sources.any { it.type == SourceType.SCREEN && it.enabled } -> "screen"
+                                selectedScene.sources.any { it.type == SourceType.CAMERA && it.enabled } -> "camera"
+                                else -> "screen"
+                            }
+                            onRequestPracticeStart(captureMode)
+                        },
+                        onStop = onStopStream,
                     onToggleMute = onToggleMute,
                     onToggleRecording = { onToggleRecording(session.recording) },
                     onEditScenes = { selectedTab = AppTab.SCENES },
@@ -650,8 +700,10 @@ private fun ScenesScreen(
 private fun StudioScreen(
     scene: Scene,
     session: StreamSessionState,
+    healthHistory: List<StreamHealthSample>,
     destination: DestinationConfig,
     onStart: () -> Unit,
+    onPractice: () -> Unit,
     onStop: () -> Unit,
     onToggleMute: () -> Unit,
     onToggleRecording: () -> Unit,
@@ -722,6 +774,9 @@ private fun StudioScreen(
             }
         }
         item {
+            HealthCenterCard(history = healthHistory, session = session)
+        }
+        item {
             Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
                 Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(if (destination.isConfigured) Icons.Default.Wifi else Icons.Default.Warning, null, tint = if (destination.isConfigured) UnictoosPalette.Mint else UnictoosPalette.Amber)
@@ -755,6 +810,11 @@ private fun StudioScreen(
                     Spacer(Modifier.width(6.dp))
                     Text("Edit scene")
                 }
+                OutlinedButton(onClick = onPractice, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp), enabled = session.status == StreamStatus.IDLE || session.status == StreamStatus.ERROR) {
+                    Icon(Icons.Default.PlayArrow, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Practice")
+                }
                 Button(
                     onClick = if (session.status == StreamStatus.LIVE) onStop else onStart,
                     modifier = Modifier.weight(1f),
@@ -765,6 +825,43 @@ private fun StudioScreen(
                     Spacer(Modifier.width(6.dp))
                     Text(if (session.status == StreamStatus.LIVE) "Stop" else "Go live")
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HealthCenterCard(history: List<StreamHealthSample>, session: StreamSessionState) {
+    val latest = history.lastOrNull()
+    val thermalLabel = when (latest?.thermalStatus) {
+        android.os.PowerManager.THERMAL_STATUS_LIGHT -> "Warm"
+        android.os.PowerManager.THERMAL_STATUS_MODERATE -> "Hot"
+        android.os.PowerManager.THERMAL_STATUS_SEVERE, android.os.PowerManager.THERMAL_STATUS_CRITICAL, android.os.PowerManager.THERMAL_STATUS_EMERGENCY, android.os.PowerManager.THERMAL_STATUS_SHUTDOWN -> "Reduce quality"
+        else -> "Normal"
+    }
+    Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text("Health center", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(if (session.mode.name == "PRACTICE") "Local rehearsal diagnostics" else "Live session diagnostics", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                }
+                Icon(Icons.Default.GraphicEq, contentDescription = null, tint = UnictoosPalette.Cyan)
+            }
+            if (latest == null) {
+                Text("Health telemetry appears here once a session is active.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+            } else {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MetricCard("Bitrate", "${latest.bitrateKbps} kbps", Modifier.weight(1f))
+                    MetricCard("FPS", latest.fps.toString(), Modifier.weight(1f))
+                    MetricCard("Drops", latest.droppedFrames.toString(), Modifier.weight(1f))
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Network  ${latest.networkLabel}", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    Text("Battery  ${if (latest.batteryPercent >= 0) "${latest.batteryPercent}%" else "—"}", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    Text("Thermal  $thermalLabel", color = if (thermalLabel == "Normal") UnictoosPalette.Mint else UnictoosPalette.Amber, style = MaterialTheme.typography.bodySmall)
+                }
+                Text("${history.size} samples retained locally for this session", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -792,13 +889,55 @@ private fun PreflightCard() {
 
 @Composable
 private fun EngagementScreen() {
+    var selectedChannel by rememberSaveable { mutableStateOf("All") }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { BrandHeader("Community control", "Engage") { StatusPill(StreamStatus.IDLE) }; Spacer(Modifier.height(6.dp)); Text("Bring chat, alerts, and creator actions into one calm mobile workspace.", color = UnictoosPalette.TextMuted) }
-        item { Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(24.dp)) { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { Icon(Icons.AutoMirrored.Filled.Chat, null, tint = UnictoosPalette.Cyan, modifier = Modifier.size(30.dp)); Text("Unified chat inbox", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("Connect platform accounts to read chat, emotes, alerts, and moderation events without leaving Studio.", color = UnictoosPalette.TextMuted); Text("No accounts connected", color = UnictoosPalette.Amber, fontWeight = FontWeight.SemiBold) } } }
+        item {
+            BrandHeader("Community control", "Engage") { StatusPill(StreamStatus.IDLE) }
+            Spacer(Modifier.height(6.dp))
+            Text("Bring chat, alerts, and creator actions into one calm mobile workspace.", color = UnictoosPalette.TextMuted)
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(24.dp)) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column {
+                            Text("Unified inbox", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text("Chat, events, and alerts in one view", color = UnictoosPalette.TextMuted)
+                        }
+                        Icon(Icons.AutoMirrored.Filled.Chat, null, tint = UnictoosPalette.Cyan, modifier = Modifier.size(30.dp))
+                    }
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(listOf("All", "YouTube", "Twitch", "Kick")) { channel ->
+                            FilterChip(selected = selectedChannel == channel, onClick = { selectedChannel = channel }, label = { Text(channel) })
+                        }
+                    }
+                    Text("No accounts connected", color = UnictoosPalette.Amber, fontWeight = FontWeight.SemiBold)
+                    Text("Connect OAuth accounts to read chat and events. Stream keys remain separate and are never used as chat credentials.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
         item { SectionHeader("Platform integrations", "OAuth is kept separate from stream keys") }
         items(PlatformPreset.values().toList()) { platform -> IntegrationCard(platform) }
-        item { SectionHeader("Planned creator controls", "Built around explicit permissions") }
-        item { ReadinessRow("Chat and emotes", "OAuth integration", false); ReadinessRow("Alerts and follows", "Event connection", false); ReadinessRow("Moderation", "Permissioned tools", false); ReadinessRow("Clips and markers", "Platform API", false) }
+        item {
+            SectionHeader("Events and alerts", "Ready for provider adapters")
+            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ReadinessRow("Follows, subscriptions, cheers, raids", "Event connection", false)
+                    ReadinessRow("Pinned chat and quick replies", "Explicit send scope", false)
+                    ReadinessRow("Clips and stream markers", "Platform API", false)
+                }
+            }
+        }
+        item {
+            SectionHeader("Moderation desk", "Every action requires an explicit provider permission")
+            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Moderation stays out of the media path", fontWeight = FontWeight.SemiBold)
+                    Text("Blocked terms, AutoMod review, timeouts, bans, slow mode, shield mode, and message deletion will be connected only after OAuth scopes and audit logging are in place.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    Text("No provider actions are available while disconnected.", color = UnictoosPalette.Amber, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
     }
 }
 
@@ -808,8 +947,11 @@ private fun IntegrationCard(platform: PlatformPreset) {
         Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(color = UnictoosPalette.Violet.copy(alpha = 0.20f), shape = RoundedCornerShape(12.dp)) { Text(platform.label.take(1), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = UnictoosPalette.VioletBright, fontWeight = FontWeight.Bold) }
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) { Text(platform.label, fontWeight = FontWeight.SemiBold); Text("Stream key works now • OAuth tools are separate", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall) }
-            Text("SOON", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Column(Modifier.weight(1f)) {
+                Text(platform.label, fontWeight = FontWeight.SemiBold)
+                Text(if (platform == PlatformPreset.CUSTOM) "Custom RTMP only" else "Stream key works now • OAuth tools are separate", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+            }
+            Text("READY".takeIf { platform != PlatformPreset.CUSTOM } ?: "MANUAL", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -817,45 +959,115 @@ private fun IntegrationCard(platform: PlatformPreset) {
 @Composable
 private fun LibraryScreen() {
     val context = LocalContext.current
+    val recordingsDirectory = java.io.File(context.filesDir, "recordings")
     var recordings by rememberSaveable { mutableStateOf(emptyList<String>()) }
-    LaunchedEffect(Unit) {
-        recordings = java.io.File(context.filesDir, "recordings")
-            .listFiles()
+    var renameTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var renameValue by rememberSaveable { mutableStateOf("") }
+
+    fun refresh() {
+        recordings = recordingsDirectory.listFiles()
             ?.filter { it.extension.equals("mp4", ignoreCase = true) }
             ?.sortedByDescending { it.lastModified() }
             ?.map { it.name }
             .orEmpty()
     }
-    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        BrandHeader("Your content", "Library")
-        Text("Recordings and reusable broadcast assets stay close to your workflow.", color = UnictoosPalette.TextMuted)
+
+    fun contentUri(name: String): android.net.Uri? {
+        val file = java.io.File(recordingsDirectory, name)
+        return if (file.exists()) runCatching {
+            androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        }.getOrNull() else null
+    }
+
+    fun play(name: String) {
+        contentUri(name)?.let { uri ->
+            runCatching {
+                context.startActivity(Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "video/mp4")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                })
+            }
+        }
+    }
+
+    fun share(name: String) {
+        contentUri(name)?.let { uri ->
+            runCatching {
+                context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                    type = "video/mp4"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }, "Share recording"))
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) { refresh() }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item {
+            BrandHeader("Your content", "Library")
+            Spacer(Modifier.height(6.dp))
+            Text("Recordings stay on this device until you choose to share them.", color = UnictoosPalette.TextMuted)
+        }
         if (recordings.isEmpty()) {
-            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(24.dp)) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.Default.Movie, null, tint = UnictoosPalette.VioletBright, modifier = Modifier.size(32.dp))
-                    Text("No recordings yet", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-                    Text("Press Record in Studio. Saved MP4 sessions will appear here in app storage.", color = UnictoosPalette.TextMuted)
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(24.dp)) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Icon(Icons.Default.Movie, null, tint = UnictoosPalette.VioletBright, modifier = Modifier.size(32.dp))
+                        Text("No recordings yet", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+                        Text("Press Record in Studio or start Practice mode. Saved MP4 sessions will appear here.", color = UnictoosPalette.TextMuted)
+                    }
                 }
             }
         } else {
-            SectionHeader("Saved recordings", "Stored locally on this device")
-            recordings.forEach { name ->
-                Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
-                    Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Movie, null, tint = UnictoosPalette.Cyan)
+            item { SectionHeader("Saved recordings", "Stored locally on this device") }
+            items(recordings, key = { it }) { name ->
+                Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface), shape = RoundedCornerShape(18.dp)) {
+                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Surface(color = UnictoosPalette.Violet.copy(alpha = 0.16f), shape = RoundedCornerShape(12.dp)) {
+                            Icon(Icons.Default.Movie, null, tint = UnictoosPalette.Cyan, modifier = Modifier.padding(9.dp).size(22.dp))
+                        }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(name.removeSuffix(".mp4"), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("MP4 • app-private storage", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
                         }
+                        IconButton(onClick = { play(name) }) { Icon(Icons.Default.PlayArrow, "Play recording", tint = UnictoosPalette.Cyan) }
+                        IconButton(onClick = { share(name) }) { Icon(Icons.Default.Share, "Share recording", tint = UnictoosPalette.Cyan) }
+                        IconButton(onClick = { renameTarget = name; renameValue = name.removeSuffix(".mp4") }) { Icon(Icons.Default.Edit, "Rename recording", tint = UnictoosPalette.TextMuted) }
+                        IconButton(onClick = { java.io.File(recordingsDirectory, name).delete(); refresh() }) { Icon(Icons.Default.Delete, "Delete recording", tint = UnictoosPalette.Danger) }
                     }
                 }
             }
         }
-        SectionHeader("Creator assets", "Overlays, intros, and saved scene media")
-        ReadinessRow("Scene templates", "Available", true)
-        ReadinessRow("Overlay library", "Next milestone", false)
-        ReadinessRow("Cloud backup", "Not connected", false)
+        item {
+            SectionHeader("Creator assets", "Overlays, intros, and saved scene media")
+            ReadinessRow("Scene templates", "Available", true)
+            ReadinessRow("Overlay library", "Next milestone", false)
+            ReadinessRow("Cloud backup", "Not connected", false)
+        }
+    }
+
+    if (renameTarget != null) {
+        AlertDialog(
+            onDismissRequest = { renameTarget = null },
+            title = { Text("Rename recording") },
+            text = { OutlinedTextField(value = renameValue, onValueChange = { renameValue = it }, label = { Text("Recording name") }, singleLine = true) },
+            confirmButton = {
+                Button(onClick = {
+                    val old = renameTarget
+                    val safe = renameValue.trim().ifBlank { old?.removeSuffix(".mp4").orEmpty() }.replace(Regex("[^A-Za-z0-9 _-]"), "_")
+                    if (old != null && safe.isNotBlank()) java.io.File(recordingsDirectory, old).renameTo(java.io.File(recordingsDirectory, "$safe.mp4"))
+                    renameTarget = null
+                    refresh()
+                }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { renameTarget = null }) { Text("Cancel") } },
+        )
     }
 }
 
@@ -868,6 +1080,7 @@ private fun SettingsScreen(
     adsEnabled: Boolean,
     onAdsEnabledChange: (Boolean) -> Unit,
 ) {
+    val context = LocalContext.current
     var microphoneEnabled by rememberSaveable { mutableStateOf(true) }
     var keepAwake by rememberSaveable { mutableStateOf(true) }
     var selectedPlatformName by rememberSaveable(destination.platform.name) { mutableStateOf(destination.platform.name) }
@@ -929,6 +1142,19 @@ private fun SettingsScreen(
                             OutlinedButton(onClick = onClearDestination, modifier = Modifier.weight(0.65f), shape = RoundedCornerShape(14.dp)) {
                                 Text("Clear")
                             }
+                        }
+                    }
+                    val dashboardUrl = when (selectedPlatform) {
+                        PlatformPreset.YOUTUBE -> "https://studio.youtube.com/channel/UC/livestreaming"
+                        PlatformPreset.TWITCH -> "https://dashboard.twitch.tv/settings/stream"
+                        PlatformPreset.KICK -> "https://dashboard.kick.com/channel/stream"
+                        PlatformPreset.CUSTOM -> null
+                    }
+                    if (dashboardUrl != null) {
+                        TextButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(dashboardUrl))) } }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Open ${selectedPlatform.label} dashboard")
                         }
                     }
                 }

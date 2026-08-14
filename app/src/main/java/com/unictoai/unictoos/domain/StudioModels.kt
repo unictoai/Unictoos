@@ -57,9 +57,27 @@ enum class StreamStatus {
     ERROR,
 }
 
+enum class SessionMode {
+    BROADCAST,
+    PRACTICE,
+}
+
+@Immutable
+data class StreamHealthSample(
+    val elapsedSeconds: Long,
+    val bitrateKbps: Int,
+    val fps: Int,
+    val droppedFrames: Int,
+    val audioLevel: Int,
+    val batteryPercent: Int,
+    val thermalStatus: Int,
+    val networkLabel: String,
+)
+
 @Immutable
 data class StreamSessionState(
     val status: StreamStatus = StreamStatus.IDLE,
+    val mode: SessionMode = SessionMode.BROADCAST,
     val elapsedSeconds: Long = 0,
     val bitrateKbps: Int = 0,
     val fps: Int = 0,
