@@ -17,6 +17,8 @@ def check(name: str, condition: bool):
     checks.append((name, condition))
 
 check("debug APK exists", APK.exists())
+check("screen file organization", (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/MainActivity.kt").exists() and not (ROOT / "app/src/main/java/com/unictoai/unictoos/MainActivity.kt").exists())
+check("contributor guidance", (ROOT / "CONTRIBUTING.md").exists() and "one-file-per-screen" in (ROOT / "CONTRIBUTING.md").read_text())
 check("launch activity declared", ".MainActivity" in MANIFEST and "android.intent.action.MAIN" in MANIFEST)
 for permission in (
     "android.permission.CAMERA",
