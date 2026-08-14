@@ -3,6 +3,7 @@ package com.unictoai.unictoos
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.unictoai.unictoos.data.ConfigExporter
 import com.unictoai.unictoos.data.CredentialRepository
 import com.unictoai.unictoos.data.CredentialStore
 import com.unictoai.unictoos.data.SceneRepository
@@ -122,6 +123,8 @@ class StudioViewModel(
             StreamingStatusBus.state.collect { state -> _session.value = state }
         }
     }
+
+    fun exportConfigJson(): String = ConfigExporter.export(_scenes.value, _destinations.value)
 
     fun setAdsEnabled(enabled: Boolean) {
         adsPreferences.setEnabled(enabled)

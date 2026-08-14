@@ -150,6 +150,7 @@ internal fun SettingsScreen(
     onAudioQualityChange: (AudioQuality) -> Unit,
     onEchoCancelerChange: (Boolean) -> Unit,
     onNoiseSuppressorChange: (Boolean) -> Unit,
+    onExportConfig: () -> Unit,
 ) {
     val context = LocalContext.current
     var microphoneEnabled by rememberSaveable { mutableStateOf(true) }
@@ -255,6 +256,19 @@ internal fun SettingsScreen(
                     SettingToggle("Keep screen awake", "Prevent the display from sleeping in Studio", keepAwake) { keepAwake = it }
                     HorizontalDivider(color = UnictoosPalette.Stroke)
                     SettingToggle("Automatic thermal protection", "Lower live bitrate when the device is running hot", thermalProtectionEnabled, onThermalProtectionChange)
+                }
+            }
+        }
+        item {
+            SectionHeader("Backup and export", "Share scenes and destination metadata without stream keys")
+            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Create a JSON backup of scene layouts and ingest URLs. Stream keys are always omitted.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    FilledTonalButton(onClick = onExportConfig, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                        Icon(Icons.Default.Share, contentDescription = null)
+                        Spacer(Modifier.width(7.dp))
+                        Text("Export safe configuration")
+                    }
                 }
             }
         }

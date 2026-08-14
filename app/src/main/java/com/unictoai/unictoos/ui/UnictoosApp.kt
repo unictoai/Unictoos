@@ -81,6 +81,7 @@ internal fun UnictoosApp(
     onToggleRecording: (Boolean) -> Unit,
     onCreateMarker: () -> Unit,
     onDismissStatusMessage: () -> Unit,
+    onShareConfig: (String) -> Unit,
     vm: StudioViewModel = viewModel(),
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.HOME) }
@@ -194,6 +195,7 @@ internal fun UnictoosApp(
                     onAudioQualityChange = vm::setAudioQuality,
                     onEchoCancelerChange = vm::setEchoCanceler,
                     onNoiseSuppressorChange = vm::setNoiseSuppressor,
+                    onExportConfig = { onShareConfig(vm.exportConfigJson()) },
                 )
             }
             }

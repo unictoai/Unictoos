@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity() {
                     onToggleRecording = ::toggleRecording,
                     onCreateMarker = ::createMarker,
                     onDismissStatusMessage = ::dismissStatusMessage,
+                    onShareConfig = ::shareConfig,
                 )
             }
         }
@@ -166,6 +167,13 @@ class MainActivity : ComponentActivity() {
         startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_DISMISS_STATUS
         })
+    }
+
+    internal fun shareConfig(json: String) {
+        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+            type = "application/json"
+            putExtra(Intent.EXTRA_TEXT, json)
+        }, "Export Unictoos configuration"))
     }
 
     companion object {
