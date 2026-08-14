@@ -4,6 +4,7 @@ import android.content.Context
 import com.unictoai.unictoos.domain.SessionMode
 import com.unictoai.unictoos.domain.SessionSummary
 import com.unictoai.unictoos.domain.StreamMarker
+import com.unictoai.unictoos.domain.StreamHealthSample
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -45,6 +46,40 @@ class CreatorHistoryStore(context: Context) {
         }
     }.getOrDefault(emptyList())
 
+    fun loadHealthSamples(): List<StreamHealthSample> = runCatching {
+        JSONArray(preferences.getString(KEY_HEALTH, "[]")).toList { json ->
+            StreamHealthSample(
+                elapsedSeconds = json.optLong("elapsedSeconds"),
+                sessionId = json.optString("sessionId"),
+                bitrateKbps = json.optInt("bitrateKbps"),
+                fps = json.optInt("fps"),
+                droppedFrames = json.optInt("droppedFrames"),
+                audioLevel = json.optInt("audioLevel"),
+                batteryPercent = json.optInt("batteryPercent"),
+                thermalStatus = json.optInt("thermalStatus"),
+                networkLabel = json.optString("networkLabel"),
+            )
+        }
+    }.getOrDefault(emptyList())
+
+    fun addHealthSamples(samples: List<StreamHealthSample>) {
+        if (samples.isEmpty()) return
+        val stored = (loadHealthSamples() + samples).takeLast(MAX_HEALTH_ITEMS)
+        preferences.edit().putString(KEY_HEALTH, stored.toJson { sample ->
+            JSONObject().apply {
+                put("elapsedSeconds", sample.elapsedSeconds)
+                put("sessionId", sample.sessionId)
+                put("bitrateKbps", sample.bitrateKbps)
+                put("fps", sample.fps)
+                put("droppedFrames", sample.droppedFrames)
+                put("audioLevel", sample.audioLevel)
+                put("batteryPercent", sample.batteryPercent)
+                put("thermalStatus", sample.thermalStatus)
+                put("networkLabel", sample.networkLabel)
+            }
+        }.toString()).apply()
+    }
+
     fun addMarker(marker: StreamMarker) {
         val markers = (loadMarkers() + marker).takeLast(MAX_ITEMS)
         preferences.edit().putString(KEY_MARKERS, markers.toJson { item ->
@@ -67,5 +102,7 @@ class CreatorHistoryStore(context: Context) {
         const val MAX_ITEMS = 120
         const val KEY_SESSIONS = "sessions_v1"
         const val KEY_MARKERS = "markers_v1"
+        const val KEY_HEALTH = "health_samples_v1"
+        const val MAX_HEALTH_ITEMS = 1_200
     }
 }

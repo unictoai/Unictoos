@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -95,6 +96,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -133,6 +135,7 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
     var recordings by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var sessionSummaries by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var markerCount by rememberSaveable { mutableStateOf(0) }
+    var healthSamples by remember { mutableStateOf(emptyList<StreamHealthSample>()) }
     var renameTarget by rememberSaveable { mutableStateOf<String?>(null) }
     var renameValue by rememberSaveable { mutableStateOf("") }
 
@@ -180,6 +183,7 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
         val sessions = history.loadSessions()
         sessionSummaries = sessions.map { summary -> "${summary.mode.name.lowercase().replaceFirstChar { it.uppercase() }} • ${summary.elapsedSeconds / 60} min • ${summary.bitrateKbps} kbps" }
         markerCount = history.loadMarkers().size
+        healthSamples = history.loadHealthSamples()
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -198,6 +202,27 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
                     ReadinessRow("Completed sessions", sessionSummaries.size.toString(), sessionSummaries.isNotEmpty())
                     ReadinessRow("Marked moments", markerCount.toString(), markerCount > 0)
                     ReadinessRow("Latest session", sessionSummaries.lastOrNull() ?: "No completed sessions", sessionSummaries.isNotEmpty())
+                }
+            }
+        }
+        item {
+            SectionHeader("Stream health history", "Persisted locally from completed sessions")
+            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (healthSamples.isEmpty()) {
+                        Text("Health samples will appear after your first completed session.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        val recent: List<StreamHealthSample> = healthSamples.takeLast(36)
+                        val maxBitrate: Int = recent.maxOf { sample -> sample.bitrateKbps }.coerceAtLeast(1)
+                        Row(Modifier.fillMaxWidth().height(96.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            for (sample in recent) {
+                                Box(
+                                    Modifier.weight(1f).fillMaxHeight((sample.bitrateKbps.toFloat() / maxBitrate).coerceIn(0.08f, 1f)).clip(RoundedCornerShape(3.dp)).background(if (sample.networkLabel == "Offline") UnictoosPalette.Amber else UnictoosPalette.Cyan),
+                                )
+                            }
+                        }
+                        Text("${healthSamples.size} samples retained • latest ${recent.lastOrNull()?.bitrateKbps ?: 0} kbps", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }

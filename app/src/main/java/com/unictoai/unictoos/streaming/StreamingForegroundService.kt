@@ -74,6 +74,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private lateinit var streamQuality: StreamQuality
     private lateinit var audioSettings: AudioSettings
     private var autoStopSeconds = 0L
+    private var currentSessionId = ""
+    private val sessionHealthSamples = mutableListOf<StreamHealthSample>()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val handler = Handler(Looper.getMainLooper())
@@ -238,6 +240,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         currentEndpoint = ""
         reconnectAttempt = 0
         autoStopSeconds = AutoStopStore(applicationContext).load().seconds
+        currentSessionId = "session-${System.currentTimeMillis()}"
+        sessionHealthSamples.clear()
         StreamingStatusBus.clearHealth()
         val previous = StreamingStatusBus.state.value
         StreamingStatusBus.update(previous.copy(mode = SessionMode.PRACTICE, message = "Starting local practice recording"))
@@ -260,6 +264,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         if (genericStream.isStreaming) return
         manualStop = false
         autoStopSeconds = AutoStopStore(applicationContext).load().seconds
+        currentSessionId = "session-${System.currentTimeMillis()}"
+        sessionHealthSamples.clear()
         currentEndpoint = endpoint
         publish(StreamStatus.PREPARING, "Connecting to your destination")
         runCatching { genericStream.startStream(endpoint) }
@@ -272,6 +278,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         if (::genericStream.isInitialized && genericStream.isStreaming) genericStream.stopStream()
         if (StreamingStatusBus.state.value.recording) stopRecording()
         val completed = StreamingStatusBus.state.value
+        if (sessionHealthSamples.isNotEmpty()) historyStore.addHealthSamples(sessionHealthSamples.toList())
         if (completed.elapsedSeconds > 0L) {
             historyStore.addSession(
                 SessionSummary(
@@ -294,6 +301,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         reconnectAttempt = 0
         currentEndpoint = ""
         autoStopSeconds = 0L
+        currentSessionId = ""
+        sessionHealthSamples.clear()
         publish(StreamStatus.IDLE, reason)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -421,9 +430,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
             capabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) == true -> "Ethernet"
             else -> "Offline"
         }
-        StreamingStatusBus.recordHealth(
-            StreamHealthSample(
+        val sample = StreamHealthSample(
                 elapsedSeconds = elapsed,
+                sessionId = currentSessionId,
                 bitrateKbps = state.bitrateKbps,
                 fps = state.fps,
                 droppedFrames = state.droppedFrames,
@@ -431,8 +440,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 batteryPercent = batteryPercent,
                 thermalStatus = thermalStatus,
                 networkLabel = networkLabel,
-            ),
-        )
+            )
+        sessionHealthSamples += sample
+        StreamingStatusBus.recordHealth(sample)
     }
 
     private fun applyThermalProtection(thermalStatus: Int) {

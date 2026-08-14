@@ -373,6 +373,14 @@ private fun HealthCenterCard(history: List<StreamHealthSample>, session: StreamS
                     Text("Battery  ${if (latest.batteryPercent >= 0) "${latest.batteryPercent}%" else "—"}", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
                     Text("Thermal  $thermalLabel", color = if (thermalLabel == "Normal") UnictoosPalette.Mint else UnictoosPalette.Amber, style = MaterialTheme.typography.bodySmall)
                 }
+                Text("Audio level", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
+                LinearProgressIndicator(
+                    progress = { latest.audioLevel.coerceIn(0, 100) / 100f },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = UnictoosPalette.Mint,
+                    trackColor = Color.White.copy(alpha = 0.10f),
+                )
+                Text(if (latest.audioLevel > 0) "${latest.audioLevel}% peak" else "Waiting for microphone level telemetry", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
                 Text("${history.size} samples retained locally for this session", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
             }
         }

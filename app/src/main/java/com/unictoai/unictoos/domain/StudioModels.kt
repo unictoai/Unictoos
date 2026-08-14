@@ -70,6 +70,7 @@ enum class SessionMode {
 @Immutable
 data class StreamHealthSample(
     val elapsedSeconds: Long,
+    val sessionId: String = "",
     val bitrateKbps: Int,
     val fps: Int,
     val droppedFrames: Int,
