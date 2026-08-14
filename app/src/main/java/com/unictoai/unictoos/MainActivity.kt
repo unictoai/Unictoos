@@ -9,11 +9,13 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,12 +24,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.FiberManualRecord
@@ -36,7 +40,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
@@ -44,19 +47,22 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -72,6 +78,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -80,16 +87,21 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.unictoai.unictoos.domain.AspectRatio
+import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
+import com.unictoai.unictoos.domain.StreamDestination
+import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
+import com.unictoai.unictoos.ui.theme.UnictoosPalette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
 
 private enum class AppTab(val label: String) {
     HOME("Home"),
     SCENES("Scenes"),
     STUDIO("Studio"),
-    RECORDINGS("Recordings"),
+    LIBRARY("Library"),
     SETTINGS("Settings"),
 }
 
@@ -103,16 +115,15 @@ class MainActivity : ComponentActivity() {
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_RESULT_CODE, result.resultCode)
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PROJECTION_DATA, result.data)
         }
-        ContextCompat.startForegroundService(this, prepareIntent)
-        val startIntent = Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
+        androidx.core.content.ContextCompat.startForegroundService(this, prepareIntent)
+        startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_ENDPOINT, pendingEndpoint)
-        }
-        startService(startIntent)
+        })
     }
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             launchProjection()
         } else {
             Toast.makeText(this, "Microphone access is required to go live with audio", Toast.LENGTH_LONG).show()
@@ -121,16 +132,20 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { UnictoosTheme { UnictoosApp(onRequestStreamStart = ::requestStreamStart, onStopStream = ::stopStream) } }
+        setContent {
+            UnictoosTheme {
+                UnictoosApp(onRequestStreamStart = ::requestStreamStart, onStopStream = ::stopStream)
+            }
+        }
     }
 
     private fun requestStreamStart(endpoint: String) {
-        if (endpoint.isBlank() || !endpoint.contains("/")) {
-            Toast.makeText(this, "Configure a valid streaming server URL and stream key in Settings", Toast.LENGTH_LONG).show()
+        if (endpoint.isBlank()) {
+            Toast.makeText(this, "Add a streaming destination before going live", Toast.LENGTH_LONG).show()
             return
         }
         pendingEndpoint = endpoint
-        val needsAudio = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+        val needsAudio = androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
         if (needsAudio) {
             permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS))
         } else {
@@ -166,15 +181,22 @@ private fun UnictoosApp(
     val selectedScene = scenes.firstOrNull { it.id == selectedSceneId } ?: scenes.first()
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = UnictoosPalette.Ink,
         bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                listOf(AppTab.HOME, AppTab.SCENES, AppTab.STUDIO, AppTab.RECORDINGS, AppTab.SETTINGS).forEach { tab ->
+            NavigationBar(containerColor = UnictoosPalette.InkSoft, tonalElevation = 0.dp) {
+                listOf(AppTab.HOME, AppTab.SCENES, AppTab.STUDIO, AppTab.LIBRARY, AppTab.SETTINGS).forEach { tab ->
                     NavigationBarItem(
                         selected = selectedTab == tab,
                         onClick = { selectedTab = tab },
                         icon = { Icon(tab.icon(), contentDescription = tab.label) },
                         label = { Text(tab.label, maxLines = 1) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Color.White,
+                            selectedTextColor = UnictoosPalette.VioletBright,
+                            indicatorColor = UnictoosPalette.Violet.copy(alpha = 0.24f),
+                            unselectedIconColor = UnictoosPalette.TextMuted,
+                            unselectedTextColor = UnictoosPalette.TextMuted,
+                        ),
                     )
                 }
             }
@@ -188,12 +210,14 @@ private fun UnictoosApp(
                     session = session,
                     onGoStudio = { selectedTab = AppTab.STUDIO },
                     onOpenScenes = { selectedTab = AppTab.SCENES },
+                    onOpenSettings = { selectedTab = AppTab.SETTINGS },
                 )
                 AppTab.SCENES -> ScenesScreen(
                     scenes = scenes,
                     selectedSceneId = selectedSceneId,
                     onSelect = { selectedSceneId = it },
                     onAdd = { showAddScene = true },
+                    onOpenStudio = { selectedTab = AppTab.STUDIO },
                 )
                 AppTab.STUDIO -> StudioScreen(
                     scene = selectedScene,
@@ -202,9 +226,14 @@ private fun UnictoosApp(
                     onStart = { onRequestStreamStart(destination.endpoint) },
                     onStop = onStopStream,
                     onEditScenes = { selectedTab = AppTab.SCENES },
+                    onOpenSettings = { selectedTab = AppTab.SETTINGS },
                 )
-                AppTab.RECORDINGS -> RecordingsScreen()
-                AppTab.SETTINGS -> SettingsScreen(destination = destination, onSaveDestination = vm::updateDestination)
+                AppTab.LIBRARY -> LibraryScreen()
+                AppTab.SETTINGS -> SettingsScreen(
+                    destination = destination,
+                    onSaveDestination = vm::updateDestination,
+                    onClearDestination = vm::clearDestination,
+                )
             }
         }
     }
@@ -212,7 +241,10 @@ private fun UnictoosApp(
     if (showAddScene) {
         AddSceneDialog(
             onDismiss = { showAddScene = false },
-            onCreate = { name -> vm.addScene(name); showAddScene = false },
+            onCreate = { name, ratio ->
+                vm.addScene(name, ratio)
+                showAddScene = false
+            },
         )
     }
 }
@@ -221,85 +253,136 @@ private fun AppTab.icon() = when (this) {
     AppTab.HOME -> Icons.Default.Home
     AppTab.SCENES -> Icons.Default.Dashboard
     AppTab.STUDIO -> Icons.Default.LiveTv
-    AppTab.RECORDINGS -> Icons.Default.Movie
+    AppTab.LIBRARY -> Icons.Default.Movie
     AppTab.SETTINGS -> Icons.Default.Settings
+}
+
+@Composable
+private fun BrandHeader(
+    eyebrow: String,
+    title: String,
+    action: (@Composable () -> Unit)? = null,
+) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Image(
+                painter = painterResource(com.unictoai.unictoos.R.drawable.logo_unictoos),
+                contentDescription = "Unictoos logo",
+                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)),
+                contentScale = ContentScale.Crop,
+            )
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(eyebrow.uppercase(), style = MaterialTheme.typography.labelSmall, color = UnictoosPalette.Cyan, fontWeight = FontWeight.Bold)
+                Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            }
+        }
+        action?.invoke()
+    }
 }
 
 @Composable
 private fun HomeScreen(
     scenes: List<Scene>,
-    destinations: List<com.unictoai.unictoos.domain.StreamDestination>,
-    session: com.unictoai.unictoos.domain.StreamSessionState,
+    destinations: List<StreamDestination>,
+    session: StreamSessionState,
     onGoStudio: () -> Unit,
     onOpenScenes: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(
-                        painter = painterResource(com.unictoai.unictoos.R.drawable.logo_unictoos),
-                        contentDescription = "Unictoos logo",
-                        modifier = Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)),
-                        contentScale = ContentScale.Crop,
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text("Good to see you", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Unictoos", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                    }
-                }
-                StatusPill(session.status)
-            }
-        }
+        item { BrandHeader("Creator workspace", "Make your moment live") { StatusPill(session.status) } }
         item {
             Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
             ) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Image(
-                            painter = painterResource(com.unictoai.unictoos.R.drawable.logo_unictoos),
-                            contentDescription = null,
-                            modifier = Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)),
-                            contentScale = ContentScale.Crop,
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Creator studio", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                    }
-                    Text("Your broadcast, built for the phone.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("Compose a scene, check your signal, and go live without desktop-style clutter.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Button(onClick = onGoStudio, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.Default.PlayArrow, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(if (session.status == StreamStatus.LIVE) "Open live studio" else "Start a studio session")
+                Box(
+                    Modifier.background(
+                        Brush.linearGradient(listOf(Color(0xFF43209A), Color(0xFFAC2F83), Color(0xFF161630))),
+                    ).padding(22.dp),
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(color = Color.White.copy(alpha = 0.14f), shape = RoundedCornerShape(50)) {
+                                Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.FiberManualRecord, null, tint = Color(0xFFFF719B), modifier = Modifier.size(12.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("MOBILE LIVE STUDIO", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+                            }
+                        }
+                        Text("Your broadcast,\nbuilt for the phone.", style = MaterialTheme.typography.displaySmall, color = Color.White)
+                        Text("Set the scene, check your signal, and go live without desktop-style clutter.", color = Color.White.copy(alpha = 0.78f), style = MaterialTheme.typography.bodyMedium)
+                        Button(
+                            onClick = onGoStudio,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF2A125D)),
+                            shape = RoundedCornerShape(16.dp),
+                        ) {
+                            Icon(Icons.Default.PlayArrow, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (session.status == StreamStatus.LIVE) "Open live studio" else "Open studio")
+                        }
                     }
                 }
             }
         }
         item {
-            SectionHeader("Broadcast readiness", "Before you go live")
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            SectionHeader("Broadcast readiness", "Everything you need before the red button")
+            Spacer(Modifier.height(8.dp))
+            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    ReadinessRow("Scenes ready", "${scenes.size} saved scenes", true)
-                    ReadinessRow("Destinations", "${destinations.size} presets available", true)
-                    ReadinessRow("Capture engine", "Native pipeline scaffold", false)
-                    ReadinessRow("Stream health", if (session.status == StreamStatus.LIVE) "Monitoring live" else "Run a local test first", session.status == StreamStatus.LIVE)
+                    ReadinessRow("Scenes", "${scenes.size} ready", scenes.isNotEmpty())
+                    ReadinessRow("Destination", configuredDestinationLabel(destinations), destinations.any { it.isConfigured })
+                    ReadinessRow("Capture", "Screen permission on demand", true)
+                    ReadinessRow("Microphone", if (session.message?.contains("Microphone", true) == true) "Ready to test" else "Checked before live", session.status != StreamStatus.ERROR)
                 }
             }
         }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                SectionHeader("Your scenes", "")
+                SectionHeader("Quick actions", "Jump back into your workflow")
+                TextButton(onClick = onOpenSettings) { Text("Destinations") }
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                QuickAction(Icons.Default.Dashboard, "Scenes", "Build a layout", onOpenScenes, Modifier.weight(1f))
+                QuickAction(Icons.Default.Settings, "Setup", "Check keys", onOpenSettings, Modifier.weight(1f))
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                SectionHeader("Your scenes", "Layouts ready to launch")
                 TextButton(onClick = onOpenScenes) { Text("View all") }
             }
         }
         items(scenes.take(2), key = { it.id }) { scene -> SceneCard(scene) }
+    }
+}
+
+private fun configuredDestinationLabel(destinations: List<StreamDestination>): String =
+    destinations.firstOrNull { it.isConfigured }?.name ?: "Add a destination"
+
+@Composable
+private fun QuickAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(onClick = onClick, modifier = modifier, colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(icon, null, tint = UnictoosPalette.VioletBright, modifier = Modifier.size(22.dp))
+            Text(title, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 
@@ -309,19 +392,20 @@ private fun ScenesScreen(
     selectedSceneId: String,
     onSelect: (String) -> Unit,
     onAdd: () -> Unit,
+    onOpenStudio: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().padding(20.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("Scenes", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Text("Build layouts that feel like you.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        BrandHeader("Your layouts", "Scenes") {
+            IconButton(onClick = onAdd) {
+                Icon(Icons.Default.Add, "Create scene", tint = UnictoosPalette.Cyan)
             }
-            IconButton(onClick = onAdd) { Icon(Icons.Default.Add, "Create scene") }
         }
+        Spacer(Modifier.height(8.dp))
+        Text("Build a repeatable look for every kind of broadcast.", color = UnictoosPalette.TextMuted)
         Spacer(Modifier.height(18.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(scenes, key = { it.id }) { scene ->
-                SceneCard(scene, selected = scene.id == selectedSceneId, onClick = { onSelect(scene.id) })
+                SceneCard(scene, selected = scene.id == selectedSceneId, onClick = { onSelect(scene.id) }, onOpenStudio = onOpenStudio)
             }
         }
     }
@@ -330,122 +414,213 @@ private fun ScenesScreen(
 @Composable
 private fun StudioScreen(
     scene: Scene,
-    session: com.unictoai.unictoos.domain.StreamSessionState,
+    session: StreamSessionState,
     destination: DestinationConfig,
     onStart: () -> Unit,
     onStop: () -> Unit,
     onEditScenes: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
-    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("Studio", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Text(scene.name, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        item {
+            BrandHeader("Broadcast workspace", "Studio") { StatusPill(session.status) }
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(scene.name, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.width(8.dp))
+                Text("•", color = UnictoosPalette.TextMuted)
+                Spacer(Modifier.width(8.dp))
+                Text(scene.aspectRatio.label, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
             }
-            StatusPill(session.status)
         }
-        Box(
-            Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(28.dp)).background(Color(0xFF02070D)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Icon(Icons.Default.LiveTv, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
-                Text("Live preview", color = Color.White, style = MaterialTheme.typography.titleLarge)
-                Text("${scene.aspectRatio.label}  •  ${scene.sources.count { it.enabled }} active sources", color = Color(0xFFA8BDD4))
-                Text(if (destination.isConfigured) "${destination.platform.label} destination configured" else "Configure a destination in Settings before going live", color = Color(0xFFFFC857), style = MaterialTheme.typography.bodySmall)
-                if (session.status == StreamStatus.PREPARING) {
-                    LinearProgressIndicator(Modifier.fillMaxWidth(0.55f))
-                    Text(session.message.orEmpty(), color = Color(0xFFA8BDD4))
+        item {
+            Box(
+                Modifier.fillMaxWidth().height(330.dp).clip(RoundedCornerShape(26.dp)).background(Color(0xFF02030A)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Image(
+                        painter = painterResource(com.unictoai.unictoos.R.drawable.logo_unictoos),
+                        contentDescription = "Unictoos preview mark",
+                        modifier = Modifier.size(88.dp).clip(RoundedCornerShape(24.dp)),
+                        contentScale = ContentScale.Crop,
+                    )
+                    Text("LIVE PREVIEW", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                    Text("${scene.sources.count { it.enabled }} active sources  •  ${scene.aspectRatio.ratio}", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    if (session.status == StreamStatus.PREPARING || session.status == StreamStatus.RECONNECTING) {
+                        LinearProgressIndicator(Modifier.fillMaxWidth(0.6f), color = UnictoosPalette.VioletBright, trackColor = Color.White.copy(alpha = 0.14f))
+                        Text(session.message.orEmpty(), color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Surface(
+                    Modifier.align(Alignment.TopStart).padding(14.dp),
+                    color = if (session.status == StreamStatus.LIVE) UnictoosPalette.Magenta else Color.White.copy(alpha = 0.10f),
+                    shape = RoundedCornerShape(50),
+                ) {
+                    Text(if (session.status == StreamStatus.LIVE) "LIVE" else "PREVIEW", Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                 }
             }
         }
-        val audioLabel = when {
-            session.status == StreamStatus.LIVE -> "Mic live"
-            session.message?.contains("Microphone", ignoreCase = true) == true -> "Mic ready"
-            session.status == StreamStatus.ERROR -> "Check mic"
-            else -> "Not checked"
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MetricCard("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—", Modifier.weight(1f))
-            MetricCard("FPS", if (session.fps > 0) session.fps.toString() else "—", Modifier.weight(1f))
-            MetricCard("Audio", audioLabel, Modifier.weight(1f))
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onClick = onEditScenes, modifier = Modifier.weight(1f)) {
-                Icon(Icons.Default.Dashboard, null)
-                Spacer(Modifier.width(6.dp))
-                Text("Edit scene")
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MetricCard("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—", Modifier.weight(1f))
+                MetricCard("FPS", if (session.fps > 0) session.fps.toString() else "—", Modifier.weight(1f))
+                val audioLabel = when {
+                    session.status == StreamStatus.LIVE -> "Mic live"
+                    session.message?.contains("Microphone", true) == true -> "Mic ready"
+                    session.status == StreamStatus.ERROR -> "Check mic"
+                    else -> "Not checked"
+                }
+                MetricCard("Audio", audioLabel, Modifier.weight(1f))
             }
-            Button(
-                onClick = if (session.status == StreamStatus.LIVE) onStop else onStart,
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(if (session.status == StreamStatus.LIVE) Icons.Default.Stop else Icons.Default.FiberManualRecord, null)
-                Spacer(Modifier.width(6.dp))
-                Text(if (session.status == StreamStatus.LIVE) "Stop" else "Go live")
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
+                Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(if (destination.isConfigured) Icons.Default.Wifi else Icons.Default.Warning, null, tint = if (destination.isConfigured) UnictoosPalette.Mint else UnictoosPalette.Amber)
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(if (destination.isConfigured) "${destination.platform.label} is ready" else "No destination connected", fontWeight = FontWeight.SemiBold)
+                        Text(if (destination.isConfigured) "Your key is stored securely on this device" else "Add a YouTube, Twitch, Kick, or custom RTMP destination", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (!destination.isConfigured) TextButton(onClick = onOpenSettings) { Text("Set up") }
+                }
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = onEditScenes, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) {
+                    Icon(Icons.Default.Dashboard, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Edit scene")
+                }
+                Button(
+                    onClick = if (session.status == StreamStatus.LIVE) onStop else onStart,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = if (session.status == StreamStatus.LIVE) UnictoosPalette.Danger else UnictoosPalette.Magenta),
+                ) {
+                    Icon(if (session.status == StreamStatus.LIVE) Icons.Default.Stop else Icons.Default.FiberManualRecord, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (session.status == StreamStatus.LIVE) "Stop" else "Go live")
+                }
             }
         }
     }
 }
 
 @Composable
-private fun RecordingsScreen() {
+private fun LibraryScreen() {
     Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Recordings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-            Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Movie, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Your local library is ready", fontWeight = FontWeight.SemiBold)
-                    Text("Finished broadcasts will appear here without leaving your device.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+        BrandHeader("Your content", "Library")
+        Text("Recordings and reusable broadcast assets stay close to your workflow.", color = UnictoosPalette.TextMuted)
+        Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(24.dp)) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(Icons.Default.Movie, null, tint = UnictoosPalette.VioletBright, modifier = Modifier.size(32.dp))
+                Text("Recordings are coming into the Studio workflow", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+                Text("The local library surface is ready for saved broadcasts, playback, sharing, and cleanup in the next creator-feature pass.", color = UnictoosPalette.TextMuted)
+                FilledTonalButton(onClick = {}, enabled = false) { Text("No recordings yet") }
             }
         }
-        Text("No recordings yet", style = MaterialTheme.typography.titleMedium)
-        Text("Record a session from Studio to review, share, or delete it later.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SectionHeader("Creator assets", "Overlays, intros, and saved scene media")
+        ReadinessRow("Scene templates", "Available", true)
+        ReadinessRow("Overlay library", "Next milestone", false)
+        ReadinessRow("Cloud backup", "Not connected", false)
     }
 }
 
 @Composable
 private fun SettingsScreen(
     destination: DestinationConfig,
-    onSaveDestination: (com.unictoai.unictoos.domain.PlatformPreset, String, String) -> Unit,
+    onSaveDestination: (PlatformPreset, String, String) -> Unit,
+    onClearDestination: () -> Unit,
 ) {
     var microphoneEnabled by rememberSaveable { mutableStateOf(true) }
     var keepAwake by rememberSaveable { mutableStateOf(true) }
+    var selectedPlatformName by rememberSaveable(destination.platform.name) { mutableStateOf(destination.platform.name) }
     var serverUrl by rememberSaveable(destination.serverUrl) { mutableStateOf(destination.serverUrl) }
     var streamKey by rememberSaveable(destination.streamKey) { mutableStateOf(destination.streamKey) }
-    Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text("Settings", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text("Keep your broadcast setup simple and local.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        SettingToggle("Microphone", "Allow Unictoos to use your microphone while live", microphoneEnabled) { microphoneEnabled = it }
-        SettingToggle("Keep screen awake", "Prevent the display from sleeping in Studio", keepAwake) { keepAwake = it }
-        HorizontalDivider()
-        Text("Streaming destination", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text("Start with custom RTMP/RTMPS settings. This works with YouTube, Twitch, Kick, and other compatible destinations.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-        OutlinedTextField(
-            value = serverUrl,
-            onValueChange = { serverUrl = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Server URL") },
-            placeholder = { Text("rtmps://your-ingest-server/app") },
-            singleLine = true,
-        )
-        OutlinedTextField(
-            value = streamKey,
-            onValueChange = { streamKey = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Stream key") },
-            placeholder = { Text("Encrypted locally with Android Keystore") },
-            singleLine = true,
-        )
-        Button(onClick = { onSaveDestination(destination.platform, serverUrl, streamKey) }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (destination.isConfigured) "Update destination" else "Save destination")
+    val selectedPlatform = PlatformPreset.valueOf(selectedPlatformName)
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        item {
+            BrandHeader("Control center", "Settings")
+            Spacer(Modifier.height(6.dp))
+            Text("Keep your broadcast setup simple, secure, and ready to repeat.", color = UnictoosPalette.TextMuted)
         }
-        SettingRow(Icons.Default.ArrowUpward, "Upload guidance", "Use a stable connection and test before going live")
-        SettingRow(Icons.Default.Lock, "Credential protection", "Stream keys stay on this device")
-        SettingRow(Icons.Default.Warning, "Alpha engine", "Test on a physical device before a public broadcast")
+        item {
+            SectionHeader("Destination", "Choose where Unictoos should send your broadcast")
+            Spacer(Modifier.height(10.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(PlatformPreset.values().toList()) { platform ->
+                    FilterChip(
+                        selected = selectedPlatform == platform,
+                        onClick = { selectedPlatformName = platform.name },
+                        label = { Text(platform.label) },
+                    )
+                }
+            }
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(selectedPlatform.helper, fontWeight = FontWeight.SemiBold)
+                    Text("Use the current ingest URL shown in your platform dashboard. Never share your stream key in screenshots or logs.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(
+                        value = serverUrl,
+                        onValueChange = { serverUrl = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Server URL") },
+                        placeholder = { Text("rtmps://your-ingest-server/app") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                    OutlinedTextField(
+                        value = streamKey,
+                        onValueChange = { streamKey = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Stream key") },
+                        placeholder = { Text("Stored with Android Keystore") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp),
+                    )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(onClick = { onSaveDestination(selectedPlatform, serverUrl, streamKey) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
+                            Text(if (destination.isConfigured) "Update destination" else "Save destination")
+                        }
+                        if (destination.isConfigured) {
+                            OutlinedButton(onClick = onClearDestination, modifier = Modifier.weight(0.65f), shape = RoundedCornerShape(14.dp)) {
+                                Text("Clear")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            SectionHeader("Device controls", "Permissions and broadcast behavior")
+            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SettingToggle("Microphone", "Check audio access before going live", microphoneEnabled) { microphoneEnabled = it }
+                    HorizontalDivider(color = UnictoosPalette.Stroke)
+                    SettingToggle("Keep screen awake", "Prevent the display from sleeping in Studio", keepAwake) { keepAwake = it }
+                }
+            }
+        }
+        item {
+            SectionHeader("Privacy and trust", "What Unictoos promises")
+            TrustRow(Icons.Default.Lock, "Credential protection", "Stream keys stay encrypted on this device")
+            TrustRow(Icons.Default.Visibility, "Transparent capture", "Android asks for screen capture permission every time")
+            TrustRow(Icons.Default.Warning, "Alpha engine", "Test on a physical device before a public broadcast")
+        }
     }
 }
 
@@ -454,47 +629,121 @@ private fun SettingToggle(title: String, subtitle: String, checked: Boolean, onC
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Text(subtitle, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
 @Composable
-private fun SettingRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.primary)
+private fun TrustRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        Surface(color = UnictoosPalette.SurfaceRaised, shape = RoundedCornerShape(12.dp)) {
+            Icon(icon, null, tint = UnictoosPalette.Cyan, modifier = Modifier.padding(9.dp).size(19.dp))
+        }
         Spacer(Modifier.width(12.dp))
         Column {
             Text(title, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Text(subtitle, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 
 @Composable
-private fun SceneCard(scene: Scene, selected: Boolean = false, onClick: (() -> Unit)? = null) {
-    val colors = if (selected) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)) else CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    Card(onClick = onClick ?: {}, colors = colors) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(58.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFF142B45)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.LiveTv, null, tint = MaterialTheme.colorScheme.primary)
+private fun SceneCard(
+    scene: Scene,
+    selected: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    onOpenStudio: (() -> Unit)? = null,
+) {
+    val colors = if (selected) {
+        CardDefaults.cardColors(containerColor = UnictoosPalette.Violet.copy(alpha = 0.20f))
+    } else {
+        CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)
+    }
+    Card(onClick = onClick ?: {}, colors = colors, shape = RoundedCornerShape(22.dp)) {
+        Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(62.dp).clip(RoundedCornerShape(17.dp)).background(
+                    Brush.linearGradient(listOf(UnictoosPalette.Violet.copy(alpha = 0.8f), UnictoosPalette.Magenta.copy(alpha = 0.8f))),
+                ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(sceneIcon(scene), null, tint = Color.White, modifier = Modifier.size(25.dp))
             }
             Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(scene.name, fontWeight = FontWeight.SemiBold)
-                Text("${scene.aspectRatio.ratio}  •  ${scene.sources.size} sources", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                Text("${scene.aspectRatio.ratio}  •  ${scene.sources.size} sources", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    items(scene.sources.take(3), key = { it.id }) { source ->
+                        Surface(color = Color.White.copy(alpha = 0.07f), shape = RoundedCornerShape(50)) {
+                            Text(source.type.label, Modifier.padding(horizontal = 7.dp, vertical = 4.dp), color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
             }
-            Icon(Icons.Default.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (onOpenStudio != null) {
+                IconButton(onClick = onOpenStudio) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "Open studio", tint = UnictoosPalette.Cyan) }
+            }
+        }
+    }
+}
+
+private fun sceneIcon(scene: Scene) = when {
+    scene.sources.any { it.type == SourceType.CAMERA } -> Icons.Default.Videocam
+    scene.sources.any { it.type == SourceType.SCREEN } -> Icons.Default.LiveTv
+    else -> Icons.Default.Dashboard
+}
+
+@Composable
+private fun AddSceneDialog(onDismiss: () -> Unit, onCreate: (String, AspectRatio) -> Unit) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var ratioName by rememberSaveable { mutableStateOf(AspectRatio.PORTRAIT.name) }
+    val ratio = AspectRatio.valueOf(ratioName)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Create a scene") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Start with a layout designed for your phone.", color = UnictoosPalette.TextMuted)
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Scene name") }, singleLine = true)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AspectRatio.values().forEach { option ->
+                        FilterChip(selected = option == ratio, onClick = { ratioName = option.name }, label = { Text(option.label) })
+                    }
+                }
+            }
+        },
+        confirmButton = { Button(onClick = { onCreate(name, ratio) }) { Text("Create scene") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun StatusPill(status: StreamStatus) {
+    val (label, color) = when (status) {
+        StreamStatus.LIVE -> "LIVE" to UnictoosPalette.Mint
+        StreamStatus.PREPARING -> "PREPARING" to UnictoosPalette.Amber
+        StreamStatus.RECONNECTING -> "RECONNECTING" to UnictoosPalette.Amber
+        StreamStatus.STOPPING -> "STOPPING" to UnictoosPalette.Amber
+        StreamStatus.ERROR -> "CHECK SETUP" to UnictoosPalette.Danger
+        StreamStatus.IDLE -> "READY" to UnictoosPalette.TextMuted
+    }
+    Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(50)) {
+        Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(color))
+            Spacer(Modifier.width(6.dp))
+            Text(label, color = color, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
 private fun SectionHeader(title: String, subtitle: String) {
-    Column {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        if (subtitle.isNotBlank()) Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        if (subtitle.isNotBlank()) Text(subtitle, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -502,46 +751,21 @@ private fun SectionHeader(title: String, subtitle: String) {
 private fun ReadinessRow(label: String, value: String, ready: Boolean) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(if (ready) Color(0xFF45E09A) else Color(0xFFFFC857)))
+            Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(if (ready) UnictoosPalette.Mint else UnictoosPalette.Amber))
             Spacer(Modifier.width(10.dp))
             Text(label)
         }
-        Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        Text(value, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
 @Composable
 private fun MetricCard(label: String, value: String, modifier: Modifier) {
-    Card(modifier, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Card(modifier, colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(16.dp)) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = UnictoosPalette.TextMuted)
+            Spacer(Modifier.height(3.dp))
             Text(value, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
-}
-
-@Composable
-private fun StatusPill(status: StreamStatus) {
-    val (label, color) = when (status) {
-        StreamStatus.LIVE -> "LIVE" to Color(0xFF45E09A)
-        StreamStatus.PREPARING -> "PREPARING" to Color(0xFFFFC857)
-        StreamStatus.RECONNECTING -> "RECONNECTING" to Color(0xFFFFC857)
-        StreamStatus.ERROR -> "CHECK SETUP" to Color(0xFFFF6B6B)
-        else -> "READY" to MaterialTheme.colorScheme.primary
-    }
-    AssistChip(onClick = {}, label = { Text(label) }, leadingIcon = { Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(color)) })
-}
-
-@Composable
-private fun AddSceneDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
-    var name by rememberSaveable { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Create a scene") },
-        text = {
-            OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Scene name") }, singleLine = true)
-        },
-        confirmButton = { TextButton(onClick = { onCreate(name) }) { Text("Create") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
 }

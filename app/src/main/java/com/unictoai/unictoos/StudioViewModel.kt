@@ -80,20 +80,30 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     fun updateDestination(platform: PlatformPreset, serverUrl: String, streamKey: String) {
         credentialStore.save(serverUrl, streamKey)
         _destination.value = DestinationConfig(platform, serverUrl, streamKey)
+        _destinations.update { destinations ->
+            destinations.map { destination ->
+                if (destination.platform == platform) {
+                    destination.copy(serverUrl = serverUrl, streamKey = streamKey, isConfigured = serverUrl.isNotBlank() && streamKey.isNotBlank())
+                } else {
+                    destination
+                }
+            }
+        }
     }
 
     fun clearDestination() {
         credentialStore.clear()
         _destination.value = DestinationConfig()
+        _destinations.update { destinations -> destinations.map { it.copy(serverUrl = "", streamKey = "", isConfigured = false) } }
     }
 
-    fun addScene(name: String) {
+    fun addScene(name: String, aspectRatio: AspectRatio = AspectRatio.PORTRAIT) {
         val safeName = name.trim().ifBlank { "New Scene" }
         _scenes.update { current ->
             current + Scene(
                 id = "scene-${current.size + 1}",
                 name = safeName,
-                aspectRatio = AspectRatio.PORTRAIT,
+                aspectRatio = aspectRatio,
                 sources = listOf(Source("color-${current.size + 1}", "Background", SourceType.COLOR)),
             )
         }
