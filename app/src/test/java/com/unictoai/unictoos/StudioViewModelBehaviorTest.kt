@@ -18,6 +18,7 @@ import com.unictoai.unictoos.data.AudioSettingsRepository
 import com.unictoai.unictoos.data.AutoStopRepository
 import com.unictoai.unictoos.data.LatencyModeRepository
 import com.unictoai.unictoos.domain.AutoStopDuration
+import com.unictoai.unictoos.domain.AudioQuality
 import com.unictoai.unictoos.domain.LatencyMode
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.monetization.AdsPreferencesRepository
@@ -169,6 +170,26 @@ class StudioViewModelBehaviorTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun startupFallsBackWhenPersistenceRepositoriesFail() {
+        val fallback = StudioViewModel(
+            Application(),
+            ThrowingCredentialRepository(),
+            ThrowingSceneRepository(),
+            FakeAdsPreferences(),
+            ThrowingStreamQualityRepository(),
+            ThrowingThermalProtectionRepository(),
+            ThrowingAudioSettingsRepository(),
+            ThrowingAutoStopRepository(),
+            ThrowingLatencyModeRepository(),
+        )
+
+        assertEquals(StreamQualityPreset.BALANCED, fallback.streamQuality.value.preset)
+        assertEquals(AudioQuality.STANDARD, fallback.audioSettings.value.quality)
+        assertEquals(AutoStopDuration.OFF, fallback.autoStopDuration.value)
+        assertEquals(LatencyMode.STABLE, fallback.latencyMode.value)
+    }
 }
 
 private class FakeCredentialRepository : CredentialRepository {
@@ -251,6 +272,42 @@ private class FakeLatencyModeRepository : LatencyModeRepository {
     override fun save(mode: LatencyMode) {
         value = mode
     }
+}
+
+private class ThrowingCredentialRepository : CredentialRepository {
+    override fun save(platform: PlatformPreset, serverUrl: String, streamKey: String) = Unit
+    override fun load(platform: PlatformPreset): Pair<String, String> = error("simulated credential storage failure")
+    override fun clear(platform: PlatformPreset) = Unit
+}
+
+private class ThrowingSceneRepository : SceneRepository {
+    override fun loadOrDefault(defaults: List<Scene>): List<Scene> = error("simulated scene storage failure")
+    override fun save(scenes: List<Scene>) = Unit
+}
+
+private class ThrowingStreamQualityRepository : StreamQualityRepository {
+    override fun load(): StreamQuality = error("simulated quality storage failure")
+    override fun save(quality: StreamQuality) = Unit
+}
+
+private class ThrowingThermalProtectionRepository : ThermalProtectionRepository {
+    override fun isEnabled(): Boolean = error("simulated thermal storage failure")
+    override fun setEnabled(enabled: Boolean) = Unit
+}
+
+private class ThrowingAudioSettingsRepository : AudioSettingsRepository {
+    override fun load(): AudioSettings = error("simulated audio storage failure")
+    override fun save(settings: AudioSettings) = Unit
+}
+
+private class ThrowingAutoStopRepository : AutoStopRepository {
+    override fun load(): AutoStopDuration = error("simulated auto-stop storage failure")
+    override fun save(duration: AutoStopDuration) = Unit
+}
+
+private class ThrowingLatencyModeRepository : LatencyModeRepository {
+    override fun load(): LatencyMode = error("simulated latency storage failure")
+    override fun save(mode: LatencyMode) = Unit
 }
 
 private class FakeAdsPreferences : AdsPreferencesRepository {

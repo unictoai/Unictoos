@@ -43,6 +43,18 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.unictoai.unictoos.streaming.StreamingStatusBus
 
+private fun safeStreamQuality(repository: StreamQualityRepository): StreamQuality =
+    runCatching { repository.load() }.getOrElse { StreamQualityPreset.BALANCED.toQuality() }
+
+private fun safeAudioSettings(repository: AudioSettingsRepository): AudioSettings =
+    runCatching { repository.load() }.getOrDefault(AudioSettings())
+
+private fun safeAutoStop(repository: AutoStopRepository): AutoStopDuration =
+    runCatching { repository.load() }.getOrDefault(AutoStopDuration.OFF)
+
+private fun safeLatencyMode(repository: LatencyModeRepository): LatencyMode =
+    runCatching { repository.load() }.getOrDefault(LatencyMode.STABLE)
+
 data class DestinationConfig(
     val platform: PlatformPreset = PlatformPreset.YOUTUBE,
     val serverUrl: String = "",
@@ -101,19 +113,19 @@ class StudioViewModel(
     val healthHistory: StateFlow<List<StreamHealthSample>> = StreamingStatusBus.healthHistory
     val adsPolicy: StateFlow<AdsPolicy> = adsPreferences.policy
 
-    private val _streamQuality = MutableStateFlow(streamQualityStore.load())
+    private val _streamQuality = MutableStateFlow(safeStreamQuality(streamQualityStore))
     val streamQuality: StateFlow<StreamQuality> = _streamQuality.asStateFlow()
 
-    private val _thermalProtectionEnabled = MutableStateFlow(thermalProtectionStore.isEnabled())
+    private val _thermalProtectionEnabled = MutableStateFlow(runCatching { thermalProtectionStore.isEnabled() }.getOrDefault(true))
     val thermalProtectionEnabled: StateFlow<Boolean> = _thermalProtectionEnabled.asStateFlow()
 
-    private val _audioSettings = MutableStateFlow(audioSettingsStore.load())
+    private val _audioSettings = MutableStateFlow(safeAudioSettings(audioSettingsStore))
     val audioSettings: StateFlow<AudioSettings> = _audioSettings.asStateFlow()
 
-    private val _autoStopDuration = MutableStateFlow(autoStopStore.load())
+    private val _autoStopDuration = MutableStateFlow(safeAutoStop(autoStopStore))
     val autoStopDuration: StateFlow<AutoStopDuration> = _autoStopDuration.asStateFlow()
 
-    private val _latencyMode = MutableStateFlow(latencyModeStore.load())
+    private val _latencyMode = MutableStateFlow(safeLatencyMode(latencyModeStore))
     val latencyMode: StateFlow<LatencyMode> = _latencyMode.asStateFlow()
 
     private val _destination = MutableStateFlow(DestinationConfig())
@@ -123,8 +135,8 @@ class StudioViewModel(
     val activePlatform: StateFlow<PlatformPreset> = _activePlatform.asStateFlow()
 
     init {
-        _scenes.value = sceneStore.loadOrDefault(_scenes.value)
-        val saved = credentialStore.load(PlatformPreset.YOUTUBE)
+        _scenes.value = runCatching { sceneStore.loadOrDefault(_scenes.value) }.getOrDefault(_scenes.value)
+        val saved = runCatching { credentialStore.load(PlatformPreset.YOUTUBE) }.getOrDefault("" to "")
         _destination.value = DestinationConfig(platform = PlatformPreset.YOUTUBE, serverUrl = saved.first, streamKey = saved.second)
         viewModelScope.launch {
             StreamingStatusBus.state.collect { state -> _session.value = state }
