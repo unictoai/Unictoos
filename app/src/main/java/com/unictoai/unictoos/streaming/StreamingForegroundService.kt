@@ -61,6 +61,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var currentEndpoint: String = ""
     private var reconnectAttempt = 0
     private var startedAtElapsed = 0L
+    private var adaptiveTargetBitrate = 0
+    private var degradedSinceElapsed = 0L
+    private var recoveredSinceElapsed = 0L
+    private val bitrateHistory = java.util.ArrayDeque<Int>()
     private lateinit var historyStore: CreatorHistoryStore
     private lateinit var streamQuality: StreamQuality
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -267,6 +271,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
             )
         }
         startedAtElapsed = 0L
+        adaptiveTargetBitrate = 0
+        degradedSinceElapsed = 0L
+        recoveredSinceElapsed = 0L
+        bitrateHistory.clear()
         reconnectAttempt = 0
         currentEndpoint = ""
         publish(StreamStatus.IDLE, "Broadcast stopped")
@@ -356,6 +364,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val previous = StreamingStatusBus.state.value
         if (status == StreamStatus.LIVE && startedAtElapsed == 0L) {
             startedAtElapsed = SystemClock.elapsedRealtime()
+            adaptiveTargetBitrate = streamQuality.bitrate
+            degradedSinceElapsed = 0L
+            recoveredSinceElapsed = 0L
             handler.removeCallbacks(elapsedTicker)
             handler.post(elapsedTicker)
         }
@@ -455,8 +466,45 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     override fun onNewBitrate(bitrate: Long) {
-        val previous = StreamingStatusBus.state.value
-        StreamingStatusBus.update(previous.copy(bitrateKbps = (bitrate / 1000L).toInt()))
+        val reported = bitrate.coerceAtLeast(0L).toInt()
+        bitrateHistory.addLast(reported)
+        if (bitrateHistory.size > 5) bitrateHistory.removeFirst()
+        val average = if (bitrateHistory.isEmpty()) 0 else bitrateHistory.sum() / bitrateHistory.size
+        val target = adaptiveTargetBitrate.takeIf { it > 0 } ?: streamQuality.bitrate
+        val degraded = average < (target * 0.60f).toInt()
+        val recovered = average >= (target * 0.85f).toInt()
+        if (degraded) {
+            if (degradedSinceElapsed == 0L) degradedSinceElapsed = SystemClock.elapsedRealtime()
+            recoveredSinceElapsed = 0L
+        } else if (recovered) {
+            if (recoveredSinceElapsed == 0L) recoveredSinceElapsed = SystemClock.elapsedRealtime()
+            degradedSinceElapsed = 0L
+        } else {
+            degradedSinceElapsed = 0L
+            recoveredSinceElapsed = 0L
+        }
+        val degradedSeconds = if (degradedSinceElapsed > 0L) ((SystemClock.elapsedRealtime() - degradedSinceElapsed) / 1_000L).toInt() else 0
+        val recoveredSeconds = if (recoveredSinceElapsed > 0L) ((SystemClock.elapsedRealtime() - recoveredSinceElapsed) / 1_000L).toInt() else 0
+        val decision = decideAdaptiveBitrate(
+            currentTargetBitrate = target,
+            baselineTargetBitrate = streamQuality.bitrate,
+            rollingAverageBitrate = average,
+            degradedSeconds = degradedSeconds,
+            recoveredSeconds = recoveredSeconds,
+        )
+        if (decision.action != AdaptiveBitrateAction.HOLD && decision.bitrate != target) {
+            runCatching { genericStream.setVideoBitrateOnFly(decision.bitrate) }
+                .onSuccess {
+                    adaptiveTargetBitrate = decision.bitrate
+                    val message = if (decision.action == AdaptiveBitrateAction.STEP_DOWN) {
+                        "Reduced quality to maintain connection • ${decision.bitrate / 1000} kbps"
+                    } else {
+                        "Network recovered • quality raised to ${decision.bitrate / 1000} kbps"
+                    }
+                    publish(StreamStatus.LIVE, message)
+                }
+        }
+        StreamingStatusBus.update(StreamingStatusBus.state.value.copy(bitrateKbps = (bitrate / 1000L).toInt()))
     }
 
     override fun onConnectionFailed(reason: String) = scheduleReconnect("Connection failed")
