@@ -306,6 +306,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun startRecording(prefix: String = "unictoos") {
+        // RootEncoder 2.4.5 records the already encoded stream buffers; it does not expose a separate
+        // recording bitrate/resolution encoder. Local MP4 quality therefore follows the active stream profile.
         if (!prepared || StreamingStatusBus.state.value.recording) return
         val directory = File(filesDir, "recordings").apply { mkdirs() }
         val output = File(directory, "$prefix-${System.currentTimeMillis()}.mp4")
