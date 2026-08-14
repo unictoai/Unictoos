@@ -129,6 +129,7 @@ private enum class AppTab(val label: String) {
     STUDIO("Studio"),
     ENGAGEMENT("Engage"),
     LIBRARY("Library"),
+    MORE("More"),
     SETTINGS("Settings"),
 }
 
@@ -373,6 +374,10 @@ private fun UnictoosApp(
                 )
                 AppTab.ENGAGEMENT -> EngagementScreen()
                 AppTab.LIBRARY -> LibraryScreen()
+                AppTab.MORE -> MoreScreen(
+                    onOpenEngage = { selectedTab = AppTab.ENGAGEMENT },
+                    onOpenSettings = { selectedTab = AppTab.SETTINGS },
+                )
                 AppTab.SETTINGS -> SettingsScreen(
                     destination = destination,
                     onSelectPlatform = vm::selectDestination,
@@ -403,7 +408,7 @@ private fun UnictoosBottomBar(selectedTab: AppTab, onSelect: (AppTab) -> Unit) {
         containerColor = UnictoosPalette.InkSoft,
         tonalElevation = 8.dp,
     ) {
-        listOf(AppTab.HOME, AppTab.SCENES, AppTab.STUDIO, AppTab.ENGAGEMENT, AppTab.LIBRARY, AppTab.SETTINGS).forEach { tab ->
+        listOf(AppTab.HOME, AppTab.STUDIO, AppTab.SCENES, AppTab.LIBRARY, AppTab.MORE).forEach { tab ->
             NavigationBarItem(
                 selected = selectedTab == tab,
                 onClick = { onSelect(tab) },
@@ -427,6 +432,7 @@ private fun AppTab.icon() = when (this) {
     AppTab.STUDIO -> Icons.Default.LiveTv
     AppTab.ENGAGEMENT -> Icons.AutoMirrored.Filled.Chat
     AppTab.LIBRARY -> Icons.Default.Movie
+    AppTab.MORE -> Icons.Default.Tune
     AppTab.SETTINGS -> Icons.Default.Settings
 }
 
@@ -438,12 +444,14 @@ private fun BrandHeader(
 ) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Image(
-                painter = painterResource(com.unictoai.unictoos.R.drawable.logo_unictoos),
-                contentDescription = "Unictoos logo",
-                modifier = Modifier.size(48.dp).clip(RoundedCornerShape(15.dp)),
-                contentScale = ContentScale.Crop,
-            )
+            Surface(color = Color.White, shape = RoundedCornerShape(15.dp), modifier = Modifier.size(48.dp)) {
+                Image(
+                    painter = painterResource(com.unictoai.unictoos.R.drawable.logo_unictoos),
+                    contentDescription = "Unictoos logo",
+                    modifier = Modifier.fillMaxSize().padding(5.dp),
+                    contentScale = ContentScale.Fit,
+                )
+            }
             Spacer(Modifier.width(12.dp))
             Column {
                 Text(eyebrow.uppercase(), style = MaterialTheme.typography.labelSmall, color = UnictoosPalette.Cyan, fontWeight = FontWeight.Bold)
@@ -498,14 +506,14 @@ private fun HomeScreen(
                 visible = true,
                 enter = fadeIn(tween(440, delayMillis = 90)) + slideInVertically(tween(440, delayMillis = 90)) { it / 6 },
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SectionHeader("Quick actions", "Keep your setup within one tap")
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        QuickAction(Icons.Default.Dashboard, "Scenes", "Build a layout", onOpenScenes, Modifier.weight(1f))
-                        QuickAction(Icons.Default.Tune, "Destinations", "Manage keys", onOpenSettings, Modifier.weight(1f))
-                        QuickAction(Icons.Default.Movie, "Library", "View recordings", onOpenLibrary, Modifier.weight(1f))
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        SectionHeader("Quick actions", "Keep your setup within one tap")
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            QuickAction(Icons.Default.Dashboard, "Scenes", "Build a layout", onOpenScenes, Modifier.weight(1f))
+                            QuickAction(Icons.Default.Tune, "Destinations", "Manage keys", onOpenSettings, Modifier.weight(1f))
+                        }
+                        QuickAction(Icons.Default.Movie, "Library", "View recordings and session history", onOpenLibrary, Modifier.fillMaxWidth())
                     }
-                }
             }
         }
         item {
@@ -672,8 +680,10 @@ private fun ScenesScreen(
     var showAddSource by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().padding(20.dp)) {
         BrandHeader("Your layouts", "Scenes") {
-            IconButton(onClick = onAdd) {
-                Icon(Icons.Default.Add, "Create scene", tint = UnictoosPalette.Cyan)
+            FilledTonalButton(onClick = onAdd, shape = RoundedCornerShape(12.dp)) {
+                Icon(Icons.Default.Add, "Create scene", modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(5.dp))
+                Text("New scene")
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -757,12 +767,14 @@ private fun StudioScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Image(
-                        painter = painterResource(com.unictoai.unictoos.R.drawable.logo_unictoos),
-                        contentDescription = "Unictoos preview mark",
-                        modifier = Modifier.size(88.dp).clip(RoundedCornerShape(24.dp)),
-                        contentScale = ContentScale.Crop,
-                    )
+                    Surface(color = Color.White, shape = RoundedCornerShape(24.dp), modifier = Modifier.size(88.dp)) {
+                        Image(
+                            painter = painterResource(com.unictoai.unictoos.R.drawable.logo_unictoos),
+                            contentDescription = "Unictoos preview mark",
+                            modifier = Modifier.fillMaxSize().padding(9.dp),
+                            contentScale = ContentScale.Fit,
+                        )
+                    }
                     Text("LIVE PREVIEW", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
                     Text("${scene.sources.count { it.enabled }} active sources  •  ${scene.aspectRatio.ratio}", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
                     AnimatedVisibility(
@@ -824,40 +836,44 @@ private fun StudioScreen(
             }
         }
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = onToggleMute, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) {
-                    Icon(if (session.microphoneMuted) Icons.Default.MicOff else Icons.Default.Mic, null)
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (session.microphoneMuted) "Unmute" else "Mute")
-                }
-                OutlinedButton(onClick = onToggleRecording, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) {
-                    Icon(Icons.Default.Movie, null)
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (session.recording) "Stop record" else "Record")
-                }
-            }
-        }
-        item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = onEditScenes, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) {
-                    Icon(Icons.Default.Dashboard, null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Edit scene")
-                }
-                OutlinedButton(onClick = onPractice, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp), enabled = session.status == StreamStatus.IDLE || session.status == StreamStatus.ERROR) {
-                    Icon(Icons.Default.PlayArrow, null)
-                    Spacer(Modifier.width(6.dp))
-                    Text("Practice")
-                }
-                Button(
-                    onClick = if (session.status == StreamStatus.LIVE) onStop else onStart,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = if (session.status == StreamStatus.LIVE) UnictoosPalette.Danger else UnictoosPalette.Magenta),
-                ) {
-                    Icon(if (session.status == StreamStatus.LIVE) Icons.Default.Stop else Icons.Default.FiberManualRecord, null)
-                    Spacer(Modifier.width(6.dp))
-                    Text(if (session.status == StreamStatus.LIVE) "Stop" else "Go live")
+            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(22.dp)) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Session controls", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Button(
+                        onClick = if (session.status == StreamStatus.LIVE) onStop else onStart,
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        enabled = session.status == StreamStatus.IDLE || session.status == StreamStatus.ERROR || session.status == StreamStatus.LIVE,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (session.status == StreamStatus.LIVE) UnictoosPalette.Danger else UnictoosPalette.Magenta),
+                    ) {
+                        Icon(if (session.status == StreamStatus.LIVE) Icons.Default.Stop else Icons.Default.FiberManualRecord, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (session.status == StreamStatus.LIVE) "Stop broadcast" else "Go live", style = MaterialTheme.typography.labelLarge)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        OutlinedButton(onClick = onToggleMute, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
+                            Icon(if (session.microphoneMuted) Icons.Default.MicOff else Icons.Default.Mic, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text(if (session.microphoneMuted) "Unmute" else "Mute")
+                        }
+                        OutlinedButton(onClick = onToggleRecording, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
+                            Icon(Icons.Default.Movie, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text(if (session.recording) "Stop record" else "Record")
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        TextButton(onClick = onEditScenes, modifier = Modifier.weight(1f)) {
+                            Icon(Icons.Default.Dashboard, null)
+                            Spacer(Modifier.width(5.dp))
+                            Text("Edit scene")
+                        }
+                        TextButton(onClick = onPractice, modifier = Modifier.weight(1f), enabled = session.status == StreamStatus.IDLE || session.status == StreamStatus.ERROR) {
+                            Icon(Icons.Default.PlayArrow, null)
+                            Spacer(Modifier.width(5.dp))
+                            Text("Practice")
+                        }
+                    }
                 }
             }
         }
@@ -917,6 +933,62 @@ private fun PreflightCard() {
             ReadinessRow("Microphone", if (audioReady) "Permission granted" else "Permission needed", audioReady)
             ReadinessRow("Camera", if (cameraReady) "Permission granted" else "Requested for camera scenes", cameraReady)
             Text("Screen capture is requested by Android each time you begin a screen broadcast.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun MoreScreen(
+    onOpenEngage: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        item {
+            BrandHeader("Workspace", "More tools")
+            Spacer(Modifier.height(6.dp))
+            Text("Secondary creator tools stay here so the main navigation remains focused.", color = UnictoosPalette.TextMuted)
+        }
+        item {
+            MoreMenuCard(Icons.AutoMirrored.Filled.Chat, "Engage", "Chat, alerts, events, and moderation", onOpenEngage)
+        }
+        item {
+            MoreMenuCard(Icons.Default.Settings, "Settings", "Destinations, device controls, privacy, and sponsor policy", onOpenSettings)
+        }
+        item {
+            SectionHeader("Workspace principles", "Designed for reliable mobile broadcasting")
+            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    TrustRow(Icons.Default.CheckCircle, "One clear action", "Primary broadcast controls stay in Studio")
+                    TrustRow(Icons.Default.Bolt, "Battery-aware motion", "No continuous idle effects or unnecessary polling")
+                    TrustRow(Icons.Default.Lock, "Local-first trust", "Credentials, recordings, scenes, and analytics stay on device by default")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MoreMenuCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    Card(onClick = onClick, colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(20.dp)) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(color = UnictoosPalette.Violet.copy(alpha = 0.18f), shape = RoundedCornerShape(13.dp)) {
+                Icon(icon, null, tint = UnictoosPalette.Cyan, modifier = Modifier.padding(11.dp).size(22.dp))
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+            }
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = UnictoosPalette.TextMuted)
         }
     }
 }
@@ -1079,19 +1151,33 @@ private fun LibraryScreen() {
             item { SectionHeader("Saved recordings", "Stored locally on this device") }
             items(recordings, key = { it }) { name ->
                 Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface), shape = RoundedCornerShape(18.dp)) {
-                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Surface(color = UnictoosPalette.Violet.copy(alpha = 0.16f), shape = RoundedCornerShape(12.dp)) {
-                            Icon(Icons.Default.Movie, null, tint = UnictoosPalette.Cyan, modifier = Modifier.padding(9.dp).size(22.dp))
+                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(color = UnictoosPalette.Violet.copy(alpha = 0.16f), shape = RoundedCornerShape(12.dp)) {
+                                Icon(Icons.Default.Movie, null, tint = UnictoosPalette.Cyan, modifier = Modifier.padding(9.dp).size(22.dp))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(name.removeSuffix(".mp4"), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("MP4 • app-private storage", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                            }
                         }
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(name.removeSuffix(".mp4"), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("MP4 • app-private storage", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { play(name) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+                                Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Play")
+                            }
+                            OutlinedButton(onClick = { share(name) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+                                Icon(Icons.Default.Share, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Share")
+                            }
                         }
-                        IconButton(onClick = { play(name) }) { Icon(Icons.Default.PlayArrow, "Play recording", tint = UnictoosPalette.Cyan) }
-                        IconButton(onClick = { share(name) }) { Icon(Icons.Default.Share, "Share recording", tint = UnictoosPalette.Cyan) }
-                        IconButton(onClick = { renameTarget = name; renameValue = name.removeSuffix(".mp4") }) { Icon(Icons.Default.Edit, "Rename recording", tint = UnictoosPalette.TextMuted) }
-                        IconButton(onClick = { java.io.File(recordingsDirectory, name).delete(); refresh() }) { Icon(Icons.Default.Delete, "Delete recording", tint = UnictoosPalette.Danger) }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            TextButton(onClick = { renameTarget = name; renameValue = name.removeSuffix(".mp4") }) { Text("Rename") }
+                            TextButton(onClick = { java.io.File(recordingsDirectory, name).delete(); refresh() }) { Text("Delete", color = UnictoosPalette.Danger) }
+                        }
                     }
                 }
             }
@@ -1186,14 +1272,14 @@ private fun SettingsScreen(
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
                     )
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Button(onClick = { onSaveDestination(selectedPlatform, serverUrl, streamKey) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) {
-                            Text(if (destination.isConfigured) "Update destination" else "Save destination")
-                        }
-                        if (destination.isConfigured) {
-                            OutlinedButton(onClick = onClearDestination, modifier = Modifier.weight(0.65f), shape = RoundedCornerShape(14.dp)) {
-                                Text("Clear")
-                            }
+                    Button(onClick = { onSaveDestination(selectedPlatform, serverUrl, streamKey) }, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp)) {
+                        Icon(Icons.Default.Lock, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(7.dp))
+                        Text(if (destination.isConfigured) "Update secure destination" else "Save secure destination")
+                    }
+                    if (destination.isConfigured) {
+                        TextButton(onClick = onClearDestination, modifier = Modifier.fillMaxWidth()) {
+                            Text("Remove saved destination", color = UnictoosPalette.Danger)
                         }
                     }
                     val dashboardUrl = when (selectedPlatform) {
