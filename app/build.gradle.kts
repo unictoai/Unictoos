@@ -12,8 +12,8 @@ android {
         applicationId = "com.unictoai.unictoos"
         minSdk = 29
         targetSdk = 35
-        versionCode = 14
-        versionName = "0.1.0-alpha14"
+        versionCode = 15
+        versionName = "0.1.0-alpha15"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

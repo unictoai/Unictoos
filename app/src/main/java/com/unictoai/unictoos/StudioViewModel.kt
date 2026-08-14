@@ -43,6 +43,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.unictoai.unictoos.streaming.StreamingStatusBus
 
+private object UnavailableCredentialRepository : CredentialRepository {
+    override fun save(platform: PlatformPreset, serverUrl: String, streamKey: String) = Unit
+    override fun load(platform: PlatformPreset): Pair<String, String> = "" to ""
+    override fun clear(platform: PlatformPreset) = Unit
+}
+
+private fun safeCredentialRepository(application: Application): CredentialRepository =
+    runCatching { CredentialStore(application.applicationContext) }.getOrElse { UnavailableCredentialRepository }
+
 private fun safeStreamQuality(repository: StreamQualityRepository): StreamQuality =
     runCatching { repository.load() }.getOrElse { StreamQualityPreset.BALANCED.toQuality() }
 
@@ -66,7 +75,7 @@ data class DestinationConfig(
 
 class StudioViewModel(
     application: Application,
-    private val credentialStore: CredentialRepository = CredentialStore(application.applicationContext),
+    private val credentialStore: CredentialRepository = safeCredentialRepository(application),
     private val sceneStore: SceneRepository = SceneStore(application.applicationContext),
     private val adsPreferences: AdsPreferencesRepository = AdsPreferences(application.applicationContext),
     private val streamQualityStore: StreamQualityRepository = StreamQualityStore(application.applicationContext),
