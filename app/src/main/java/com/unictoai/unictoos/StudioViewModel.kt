@@ -142,6 +142,18 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun addSource(sceneId: String, name: String, type: SourceType) {
+        val safeName = name.trim().ifBlank { type.label }
+        _scenes.update { scenes ->
+            scenes.map { scene ->
+                if (scene.id != sceneId) scene else {
+                    val sourceId = "${type.name.lowercase()}-${scene.sources.size + 1}"
+                    scene.copy(sources = scene.sources + Source(sourceId, safeName, type, enabled = true))
+                }
+            }
+        }
+    }
+
     fun startPreparing() {
         _session.update { it.copy(status = StreamStatus.PREPARING, message = "Preparing capture and encoder") }
     }

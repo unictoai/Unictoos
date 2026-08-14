@@ -26,6 +26,7 @@ import com.pedro.library.base.recording.RecordController
 import com.pedro.library.generic.GenericStream
 import com.pedro.library.util.sources.audio.MicrophoneSource
 import com.pedro.library.util.sources.audio.NoAudioSource
+import com.pedro.library.util.sources.video.Camera2Source
 import com.pedro.library.util.sources.video.NoVideoSource
 import com.pedro.library.util.sources.video.ScreenSource
 import com.unictoai.unictoos.R
@@ -37,7 +38,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private lateinit var genericStream: GenericStream
     private var mediaProjection: MediaProjection? = null
     private var microphoneSource: MicrophoneSource? = null
+    private var cameraSource: Camera2Source? = null
     private var prepared = false
+    private var captureReady = false
     private var manualStop = false
     private var currentEndpoint: String = ""
     private var reconnectAttempt = 0
@@ -75,6 +78,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_PREPARE_PROJECTION -> prepareProjectionFromIntent(intent)
+            ACTION_PREPARE_CAMERA -> prepareCamera()
             ACTION_START -> {
                 startForegroundSafely()
                 startStream(intent.getStringExtra(EXTRA_ENDPOINT).orEmpty())
@@ -120,8 +124,40 @@ class StreamingForegroundService : Service(), ConnectChecker {
             genericStream.changeVideoSource(ScreenSource(applicationContext, projection))
             microphoneSource?.release()
             microphoneSource = MicrophoneSource().also { genericStream.changeAudioSource(it) }
+            captureReady = true
             true
         }.getOrDefault(false)
+    }
+
+    private fun prepareCamera() {
+        startForegroundSafely()
+        if (!hasAudioPermission()) {
+            publish(StreamStatus.ERROR, "Microphone permission is not granted")
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            publish(StreamStatus.ERROR, "Camera permission is not granted")
+            return
+        }
+        if (!checkMicrophoneInput()) {
+            publish(StreamStatus.ERROR, "Microphone is unavailable. Check Android privacy controls and other apps using the mic")
+            return
+        }
+        if (!prepared) {
+            publish(StreamStatus.ERROR, "This device cannot prepare the camera capture profile")
+            return
+        }
+        runCatching {
+            cameraSource?.release()
+            cameraSource = Camera2Source(applicationContext).also { genericStream.changeVideoSource(it) }
+            microphoneSource?.release()
+            microphoneSource = MicrophoneSource().also { genericStream.changeAudioSource(it) }
+            captureReady = true
+            publish(StreamStatus.PREPARING, "Camera and microphone ready")
+        }.onFailure {
+            captureReady = false
+            publish(StreamStatus.ERROR, "Camera could not start: ${it.message.orEmpty()}")
+        }
     }
 
     private fun hasAudioPermission(): Boolean =
@@ -144,7 +180,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun startStream(endpoint: String) {
-        if (!prepared || mediaProjection == null || microphoneSource == null) {
+        if (!prepared || !captureReady || microphoneSource == null) {
             publish(StreamStatus.ERROR, "Capture is not ready. Approve screen capture and microphone access first")
             return
         }
@@ -279,8 +315,11 @@ class StreamingForegroundService : Service(), ConnectChecker {
             genericStream.release()
         }
         microphoneSource?.release()
+        cameraSource?.release()
         mediaProjection?.stop()
         microphoneSource = null
+        cameraSource = null
+        captureReady = false
         mediaProjection = null
         startedAtElapsed = 0L
         super.onDestroy()
@@ -313,6 +352,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     companion object {
         const val ACTION_PREPARE_PROJECTION = "com.unictoai.unictoos.action.PREPARE_PROJECTION"
+        const val ACTION_PREPARE_CAMERA = "com.unictoai.unictoos.action.PREPARE_CAMERA"
         const val ACTION_START = "com.unictoai.unictoos.action.START_STREAMING"
         const val ACTION_STOP = "com.unictoai.unictoos.action.STOP_STREAMING"
         const val ACTION_TOGGLE_MUTE = "com.unictoai.unictoos.action.TOGGLE_MUTE"

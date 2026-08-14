@@ -31,6 +31,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Dashboard
@@ -104,15 +105,21 @@ private enum class AppTab(val label: String) {
     HOME("Home"),
     SCENES("Scenes"),
     STUDIO("Studio"),
+    ENGAGEMENT("Engage"),
     LIBRARY("Library"),
     SETTINGS("Settings"),
 }
 
 class MainActivity : ComponentActivity() {
     private var pendingEndpoint: String = ""
+    private var pendingCaptureMode: String = CAPTURE_SCREEN
 
     private val projectionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != RESULT_OK || result.data == null) return@registerForActivityResult
+        if (pendingCaptureMode == CAPTURE_CAMERA) {
+            startCameraCapture()
+            return@registerForActivityResult
+        }
         val prepareIntent = Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_PREPARE_PROJECTION
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_RESULT_CODE, result.resultCode)
@@ -126,8 +133,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-        if (androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            launchProjection()
+        val audioGranted = androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        val cameraGranted = pendingCaptureMode != CAPTURE_CAMERA || androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        if (audioGranted && cameraGranted) {
+            if (pendingCaptureMode == CAPTURE_CAMERA) startCameraCapture() else launchProjection()
         } else {
             Toast.makeText(this, "Microphone access is required to go live with audio", Toast.LENGTH_LONG).show()
         }
@@ -147,18 +156,37 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestStreamStart(endpoint: String) {
+    private fun requestStreamStart(endpoint: String, captureMode: String) {
         if (endpoint.isBlank()) {
             Toast.makeText(this, "Add a streaming destination before going live", Toast.LENGTH_LONG).show()
             return
         }
         pendingEndpoint = endpoint
+        pendingCaptureMode = captureMode
         val needsAudio = androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
-        if (needsAudio) {
-            permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS))
+        val needsCamera = captureMode == CAPTURE_CAMERA && androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
+        if (needsAudio || needsCamera) {
+            val permissions = buildList {
+                add(Manifest.permission.RECORD_AUDIO)
+                add(Manifest.permission.POST_NOTIFICATIONS)
+                if (needsCamera) add(Manifest.permission.CAMERA)
+            }
+            permissionLauncher.launch(permissions.toTypedArray())
+        } else if (captureMode == CAPTURE_CAMERA) {
+            startCameraCapture()
         } else {
             launchProjection()
         }
+    }
+
+    private fun startCameraCapture() {
+        androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
+            action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_PREPARE_CAMERA
+        })
+        startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
+            action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_ENDPOINT, pendingEndpoint)
+        })
     }
 
     private fun launchProjection() {
@@ -187,11 +215,16 @@ class MainActivity : ComponentActivity() {
             }
         })
     }
+
+    companion object {
+        private const val CAPTURE_SCREEN = "screen"
+        private const val CAPTURE_CAMERA = "camera"
+    }
 }
 
 @Composable
 private fun UnictoosApp(
-    onRequestStreamStart: (String) -> Unit,
+    onRequestStreamStart: (String, String) -> Unit,
     onStopStream: () -> Unit,
     onToggleMute: () -> Unit,
     onToggleRecording: (Boolean) -> Unit,
@@ -211,7 +244,7 @@ private fun UnictoosApp(
         containerColor = UnictoosPalette.Ink,
         bottomBar = {
             NavigationBar(containerColor = UnictoosPalette.InkSoft, tonalElevation = 0.dp) {
-                listOf(AppTab.HOME, AppTab.SCENES, AppTab.STUDIO, AppTab.LIBRARY, AppTab.SETTINGS).forEach { tab ->
+                listOf(AppTab.HOME, AppTab.SCENES, AppTab.STUDIO, AppTab.ENGAGEMENT, AppTab.LIBRARY, AppTab.SETTINGS).forEach { tab ->
                     NavigationBarItem(
                         selected = selectedTab == tab,
                         onClick = { selectedTab = tab },
@@ -247,19 +280,24 @@ private fun UnictoosApp(
                     onSelect = { selectedSceneId = it },
                     onAdd = { showAddScene = true },
                     onToggleSource = vm::toggleSource,
+                    onAddSource = vm::addSource,
                     onOpenStudio = { selectedTab = AppTab.STUDIO },
                 )
                 AppTab.STUDIO -> StudioScreen(
                     scene = selectedScene,
                     session = session,
                     destination = destination,
-                    onStart = { onRequestStreamStart(destination.endpoint) },
+                    onStart = {
+                        val captureMode = if (selectedScene.sources.any { it.type == SourceType.SCREEN && it.enabled }) "screen" else "camera"
+                        onRequestStreamStart(destination.endpoint, captureMode)
+                    },
                     onStop = onStopStream,
                     onToggleMute = onToggleMute,
                     onToggleRecording = { onToggleRecording(session.recording) },
                     onEditScenes = { selectedTab = AppTab.SCENES },
                     onOpenSettings = { selectedTab = AppTab.SETTINGS },
                 )
+                AppTab.ENGAGEMENT -> EngagementScreen()
                 AppTab.LIBRARY -> LibraryScreen()
                 AppTab.SETTINGS -> SettingsScreen(
                     destination = destination,
@@ -288,6 +326,7 @@ private fun AppTab.icon() = when (this) {
     AppTab.HOME -> Icons.Default.Home
     AppTab.SCENES -> Icons.Default.Dashboard
     AppTab.STUDIO -> Icons.Default.LiveTv
+    AppTab.ENGAGEMENT -> Icons.AutoMirrored.Filled.Chat
     AppTab.LIBRARY -> Icons.Default.Movie
     AppTab.SETTINGS -> Icons.Default.Settings
 }
@@ -373,6 +412,9 @@ private fun HomeScreen(
             }
         }
         item {
+            PreflightCard()
+        }
+        item {
             SectionHeader("Broadcast readiness", "Everything you need before the red button")
             Spacer(Modifier.height(8.dp))
             Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
@@ -434,8 +476,10 @@ private fun ScenesScreen(
     onSelect: (String) -> Unit,
     onAdd: () -> Unit,
     onToggleSource: (String, String) -> Unit,
+    onAddSource: (String, String, SourceType) -> Unit,
     onOpenStudio: () -> Unit,
 ) {
+    var showAddSource by rememberSaveable { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().padding(20.dp)) {
         BrandHeader("Your layouts", "Scenes") {
             IconButton(onClick = onAdd) {
@@ -451,7 +495,10 @@ private fun ScenesScreen(
             }
             item {
                 Spacer(Modifier.height(8.dp))
-                SectionHeader("Sources in ${selectedScene.name}", "Tap a source to include or hide it")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    SectionHeader("Sources in ${selectedScene.name}", "Tap a source to include or hide it")
+                    TextButton(onClick = { showAddSource = true }) { Text("Add source") }
+                }
                 Spacer(Modifier.height(8.dp))
                 Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
                     Column(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
@@ -462,6 +509,15 @@ private fun ScenesScreen(
                 }
             }
         }
+    }
+    if (showAddSource) {
+        AddSourceDialog(
+            onDismiss = { showAddSource = false },
+            onCreate = { name, type ->
+                onAddSource(selectedScene.id, name, type)
+                showAddSource = false
+            },
+        )
     }
 }
 
@@ -579,6 +635,50 @@ private fun StudioScreen(
                     Text(if (session.status == StreamStatus.LIVE) "Stop" else "Go live")
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PreflightCard() {
+    val context = LocalContext.current
+    val audioReady = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    val cameraReady = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    val networkReady = context.getSystemService(android.net.ConnectivityManager::class.java)?.activeNetwork != null
+    Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column { Text("Preflight check", fontWeight = FontWeight.Bold); Text("Know what is ready before you start", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall) }
+                Icon(Icons.Default.Wifi, null, tint = if (networkReady) UnictoosPalette.Mint else UnictoosPalette.Amber)
+            }
+            ReadinessRow("Network", if (networkReady) "Connected" else "Check connection", networkReady)
+            ReadinessRow("Microphone", if (audioReady) "Permission granted" else "Permission needed", audioReady)
+            ReadinessRow("Camera", if (cameraReady) "Permission granted" else "Requested for camera scenes", cameraReady)
+            Text("Screen capture is requested by Android each time you begin a screen broadcast.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun EngagementScreen() {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item { BrandHeader("Community control", "Engage") { StatusPill(StreamStatus.IDLE) }; Spacer(Modifier.height(6.dp)); Text("Bring chat, alerts, and creator actions into one calm mobile workspace.", color = UnictoosPalette.TextMuted) }
+        item { Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(24.dp)) { Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { Icon(Icons.AutoMirrored.Filled.Chat, null, tint = UnictoosPalette.Cyan, modifier = Modifier.size(30.dp)); Text("Unified chat inbox", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold); Text("Connect platform accounts to read chat, emotes, alerts, and moderation events without leaving Studio.", color = UnictoosPalette.TextMuted); Text("No accounts connected", color = UnictoosPalette.Amber, fontWeight = FontWeight.SemiBold) } } }
+        item { SectionHeader("Platform integrations", "OAuth is kept separate from stream keys") }
+        items(PlatformPreset.values().toList()) { platform -> IntegrationCard(platform) }
+        item { SectionHeader("Planned creator controls", "Built around explicit permissions") }
+        item { ReadinessRow("Chat and emotes", "OAuth integration", false); ReadinessRow("Alerts and follows", "Event connection", false); ReadinessRow("Moderation", "Permissioned tools", false); ReadinessRow("Clips and markers", "Platform API", false) }
+    }
+}
+
+@Composable
+private fun IntegrationCard(platform: PlatformPreset) {
+    Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface), shape = RoundedCornerShape(18.dp)) {
+        Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(color = UnictoosPalette.Violet.copy(alpha = 0.20f), shape = RoundedCornerShape(12.dp)) { Text(platform.label.take(1), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = UnictoosPalette.VioletBright, fontWeight = FontWeight.Bold) }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) { Text(platform.label, fontWeight = FontWeight.SemiBold); Text("Stream key works now • OAuth tools are separate", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall) }
+            Text("SOON", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -838,6 +938,30 @@ private fun sceneIcon(scene: Scene) = when {
     scene.sources.any { it.type == SourceType.CAMERA } -> Icons.Default.Videocam
     scene.sources.any { it.type == SourceType.SCREEN } -> Icons.Default.LiveTv
     else -> Icons.Default.Dashboard
+}
+
+@Composable
+private fun AddSourceDialog(onDismiss: () -> Unit, onCreate: (String, SourceType) -> Unit) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var typeName by rememberSaveable { mutableStateOf(SourceType.TEXT.name) }
+    val selectedType = SourceType.valueOf(typeName)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add a source") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Extend this scene with another layer.", color = UnictoosPalette.TextMuted)
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Source name") }, singleLine = true)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(SourceType.values().toList()) { option ->
+                        FilterChip(selected = option == selectedType, onClick = { typeName = option.name }, label = { Text(option.label) })
+                    }
+                }
+            }
+        },
+        confirmButton = { Button(onClick = { onCreate(name, selectedType) }) { Text("Add source") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

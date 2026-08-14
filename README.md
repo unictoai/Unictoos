@@ -6,9 +6,9 @@ The project is intentionally not a desktop OBS clone. It uses a touch-first work
 
 ## Current status
 
-The repository now contains the native Android alpha foundation and the first serious reliability/creator-feature pass. The app includes Kotlin and Jetpack Compose screens, the uploaded Unictoos brand identity, Home, Scenes, Studio, Library, and Settings areas, scene source visibility controls, portrait/landscape scene creation, per-platform destination setup, Keystore-backed credential storage, MediaProjection capture, microphone validation, RootEncoder RTMP/RTMPS transport, bounded reconnect attempts, mute control, local MP4 recording, recording indexing, and an opt-in app-only sponsor-space policy.
+The repository now contains the native Android alpha foundation and the benchmark-driven Creator Core Plus pass. The app includes Kotlin and Jetpack Compose screens, the uploaded Unictoos brand identity, Home, Scenes, Studio, Engage, Library, and Settings areas, scene source visibility controls, source creation for screen/camera/image/text/color layers, portrait/landscape scene creation, per-platform destination setup, Keystore-backed credential storage, MediaProjection screen capture, camera-only capture, microphone validation, RootEncoder RTMP/RTMPS transport, bounded reconnect attempts, preflight network and permission checks, mute control, local MP4 recording, recording indexing, and an opt-in app-only sponsor-space policy.
 
-The current build remains an **alpha engineering milestone**. It compiles and packages successfully, but real-device validation against YouTube, Twitch, and Kick is still required before it should be treated as production-stable. Do not use an important broadcast or an irreplaceable stream key with an unvalidated development build.
+The current build remains an **alpha engineering milestone**. It compiles and packages successfully, but real-device validation against YouTube, Twitch, and Kick is still required before it should be treated as production-stable. The current engine can use screen capture or camera-only capture; a true screen-plus-camera picture-in-picture compositor is a planned next media milestone and should not be assumed from a scene containing both source types. Do not use an important broadcast or an irreplaceable stream key with an unvalidated development build.
 
 ## Build locally
 
@@ -36,7 +36,7 @@ If the connection drops, the service reports a reconnecting state and attempts u
 
 Unictoos uses the platform-provided custom RTMP/RTMPS workflow for its reliable core path. This keeps platform credentials out of the media engine and allows a creator to stream without mandatory OAuth integration. YouTube and Twitch show common server hints in the app. Kick intentionally asks the creator to copy the current ingest URL from the Kick dashboard rather than relying on a stale hard-coded endpoint.
 
-Platform OAuth, chat, scheduling, thumbnails, metadata publishing, and multi-streaming remain separate integrations. They should not block the core path for starting a private test broadcast.
+Platform OAuth, unified chat, alerts, scheduling, thumbnails, metadata publishing, moderation, guests, and multi-streaming remain separate integrations. The new Engage surface makes that boundary visible without pretending those provider APIs are already connected. They should not block the core path for starting a private test broadcast. See `mobile-streaming-benchmark.md` and `FEATURE_ROADMAP.md` for the staged plan.
 
 ## Creator features in this milestone
 
