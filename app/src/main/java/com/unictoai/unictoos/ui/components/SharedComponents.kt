@@ -294,12 +294,21 @@ internal fun SceneCard(
     ) {
         Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(62.dp).clip(RoundedCornerShape(17.dp)).background(
-                    Brush.linearGradient(listOf(UnictoosPalette.Violet.copy(alpha = 0.8f), UnictoosPalette.Magenta.copy(alpha = 0.8f))),
-                ),
+                Modifier.size(72.dp).clip(RoundedCornerShape(17.dp)).background(UnictoosPalette.SurfaceRaised),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(sceneIcon(scene), null, tint = Color.White, modifier = Modifier.size(25.dp))
+                val activeSources = scene.sources.filter { it.enabled }.sortedBy { it.zIndex }.takeLast(4)
+                if (activeSources.isEmpty()) {
+                    Icon(sceneIcon(scene), contentDescription = "Empty ${scene.name} scene", tint = UnictoosPalette.TextMuted, modifier = Modifier.size(25.dp))
+                } else {
+                    Column(Modifier.fillMaxSize().padding(7.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        activeSources.forEach { source ->
+                            Box(
+                                Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(5.dp)).background(sourcePreviewColor(source.type).copy(alpha = source.opacity.coerceIn(0.35f, 1f))),
+                            )
+                        }
+                    }
+                }
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -318,6 +327,14 @@ internal fun SceneCard(
             }
         }
     }
+}
+
+private fun sourcePreviewColor(type: SourceType): Color = when (type) {
+    SourceType.SCREEN -> UnictoosPalette.Cyan
+    SourceType.CAMERA -> UnictoosPalette.Magenta
+    SourceType.IMAGE -> UnictoosPalette.VioletBright
+    SourceType.TEXT -> UnictoosPalette.Mint
+    SourceType.COLOR -> UnictoosPalette.Amber.copy(alpha = 0.72f)
 }
 
 internal fun sceneIcon(scene: Scene) = when {
