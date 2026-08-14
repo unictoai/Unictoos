@@ -80,8 +80,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             ACTION_PREPARE_PROJECTION -> prepareProjectionFromIntent(intent)
             ACTION_PREPARE_CAMERA -> prepareCamera()
             ACTION_START -> {
-                startForegroundSafely()
-                startStream(intent.getStringExtra(EXTRA_ENDPOINT).orEmpty())
+                if (startForegroundSafely(mediaProjection != null)) startStream(intent.getStringExtra(EXTRA_ENDPOINT).orEmpty())
             }
             ACTION_STOP -> stopStreaming()
             ACTION_TOGGLE_MUTE -> toggleMute()
@@ -92,7 +91,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun prepareProjectionFromIntent(intent: Intent) {
-        startForegroundSafely()
+        if (!startForegroundSafely(includeProjection = true)) return
         if (!hasAudioPermission()) {
             publish(StreamStatus.ERROR, "Microphone permission is not granted")
             return
@@ -130,7 +129,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun prepareCamera() {
-        startForegroundSafely()
+        if (!startForegroundSafely(includeProjection = false)) return
         if (!hasAudioPermission()) {
             publish(StreamStatus.ERROR, "Microphone permission is not granted")
             return
@@ -166,9 +165,17 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private fun checkMicrophoneInput(): Boolean {
         val bufferSize = AudioRecord.getMinBufferSize(AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         if (bufferSize <= 0) return false
-        val recorder = runCatching {
+        val recorder = try {
             AudioRecord(MediaRecorder.AudioSource.MIC, AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize * 2)
-        }.getOrNull() ?: return false
+        } catch (_: SecurityException) {
+            return false
+        } catch (_: IllegalArgumentException) {
+            return false
+        }
+        if (recorder.state != AudioRecord.STATE_INITIALIZED) {
+            recorder.release()
+            return false
+        }
         return runCatching {
             recorder.startRecording()
             val samples = ShortArray((bufferSize / 2).coerceAtLeast(256))
@@ -258,11 +265,25 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }, delay)
     }
 
-    private fun startForegroundSafely() {
-        val serviceTypes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-        } else 0
-        ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), serviceTypes)
+    private fun startForegroundSafely(includeProjection: Boolean): Boolean {
+        val serviceTypes = when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && includeProjection -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && includeProjection -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            else -> 0
+        }
+        return try {
+            ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), serviceTypes)
+            true
+        } catch (error: SecurityException) {
+            publish(StreamStatus.ERROR, "Android rejected the capture service: ${error.message.orEmpty()}")
+            stopSelf()
+            false
+        } catch (error: IllegalArgumentException) {
+            publish(StreamStatus.ERROR, "Capture service configuration is invalid: ${error.message.orEmpty()}")
+            stopSelf()
+            false
+        }
     }
 
     private fun publish(status: StreamStatus, message: String? = null) {

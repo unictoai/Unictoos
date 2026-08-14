@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -168,7 +169,7 @@ class MainActivity : ComponentActivity() {
         if (needsAudio || needsCamera) {
             val permissions = buildList {
                 add(Manifest.permission.RECORD_AUDIO)
-                add(Manifest.permission.POST_NOTIFICATIONS)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
                 if (needsCamera) add(Manifest.permission.CAMERA)
             }
             permissionLauncher.launch(permissions.toTypedArray())
@@ -238,7 +239,12 @@ private fun UnictoosApp(
     val session by vm.session.collectAsStateWithLifecycle()
     val destination by vm.destination.collectAsStateWithLifecycle()
     val adsPolicy by vm.adsPolicy.collectAsStateWithLifecycle()
-    val selectedScene = scenes.firstOrNull { it.id == selectedSceneId } ?: scenes.first()
+    val selectedScene = scenes.firstOrNull { it.id == selectedSceneId } ?: scenes.firstOrNull() ?: Scene(
+        id = "fallback",
+        name = "Quick Start",
+        aspectRatio = AspectRatio.PORTRAIT,
+        sources = emptyList(),
+    )
 
     Scaffold(
         containerColor = UnictoosPalette.Ink,
@@ -288,7 +294,11 @@ private fun UnictoosApp(
                     session = session,
                     destination = destination,
                     onStart = {
-                        val captureMode = if (selectedScene.sources.any { it.type == SourceType.SCREEN && it.enabled }) "screen" else "camera"
+                        val captureMode = when {
+                            selectedScene.sources.any { it.type == SourceType.SCREEN && it.enabled } -> "screen"
+                            selectedScene.sources.any { it.type == SourceType.CAMERA && it.enabled } -> "camera"
+                            else -> "screen"
+                        }
                         onRequestStreamStart(destination.endpoint, captureMode)
                     },
                     onStop = onStopStream,
@@ -373,6 +383,7 @@ private fun HomeScreen(
                 item {
             BrandHeader("Creator workspace", "Make your moment live") { StatusPill(session.status) }
         }
+        if (session.status == StreamStatus.ERROR) item { SessionErrorCard(session.message.orEmpty(), onGoStudio) }
         if (showAdSlot) item { SponsorBanner() }
 
         item {
@@ -577,6 +588,7 @@ private fun StudioScreen(
                 }
             }
         }
+        if (session.status == StreamStatus.ERROR) item { SessionErrorCard(session.message.orEmpty(), onOpenSettings) }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricCard("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—", Modifier.weight(1f))
@@ -742,7 +754,7 @@ private fun SettingsScreen(
     var selectedPlatformName by rememberSaveable(destination.platform.name) { mutableStateOf(destination.platform.name) }
     var serverUrl by rememberSaveable(destination.serverUrl) { mutableStateOf(destination.serverUrl) }
     var streamKey by rememberSaveable(destination.streamKey) { mutableStateOf(destination.streamKey) }
-    val selectedPlatform = PlatformPreset.valueOf(selectedPlatformName)
+    val selectedPlatform = PlatformPreset.values().firstOrNull { it.name == selectedPlatformName } ?: PlatformPreset.YOUTUBE
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -827,6 +839,21 @@ private fun SettingsScreen(
             TrustRow(Icons.Default.Lock, "Credential protection", "Stream keys stay encrypted on this device")
             TrustRow(Icons.Default.Visibility, "Transparent capture", "Android asks for screen capture permission every time")
             TrustRow(Icons.Default.Warning, "Alpha engine", "Test on a physical device before a public broadcast")
+        }
+    }
+}
+
+@Composable
+private fun SessionErrorCard(message: String, onAction: () -> Unit) {
+    Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Danger.copy(alpha = 0.14f)), shape = RoundedCornerShape(18.dp)) {
+        Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Warning, null, tint = UnictoosPalette.Danger)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Action needed", fontWeight = FontWeight.Bold)
+                Text(message.ifBlank { "Unictoos could not prepare the broadcast" }, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+            }
+            TextButton(onClick = onAction) { Text("Fix") }
         }
     }
 }
@@ -944,7 +971,7 @@ private fun sceneIcon(scene: Scene) = when {
 private fun AddSourceDialog(onDismiss: () -> Unit, onCreate: (String, SourceType) -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
     var typeName by rememberSaveable { mutableStateOf(SourceType.TEXT.name) }
-    val selectedType = SourceType.valueOf(typeName)
+    val selectedType = SourceType.values().firstOrNull { it.name == typeName } ?: SourceType.TEXT
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add a source") },
@@ -968,7 +995,7 @@ private fun AddSourceDialog(onDismiss: () -> Unit, onCreate: (String, SourceType
 private fun AddSceneDialog(onDismiss: () -> Unit, onCreate: (String, AspectRatio) -> Unit) {
     var name by rememberSaveable { mutableStateOf("") }
     var ratioName by rememberSaveable { mutableStateOf(AspectRatio.PORTRAIT.name) }
-    val ratio = AspectRatio.valueOf(ratioName)
+    val ratio = AspectRatio.values().firstOrNull { it.name == ratioName } ?: AspectRatio.PORTRAIT
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Create a scene") },

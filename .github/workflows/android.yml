@@ -29,5 +29,8 @@ jobs:
       - name: Install Android platform
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
-      - name: Run tests and build APK
-        run: ./gradlew test assembleDebug --stacktrace
+      - name: Run lint, tests, and build APK
+        run: ./gradlew lintDebug test assembleDebug --stacktrace
+
+      - name: Run static feature smoke suite
+        run: python3 tools/feature_smoke_test.py
