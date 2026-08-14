@@ -42,6 +42,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bolt
@@ -95,11 +97,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -147,6 +151,9 @@ internal fun StudioScreen(
     onEditScenes: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    val primaryActionSource = remember { MutableInteractionSource() }
+    val primaryActionPressed by primaryActionSource.collectIsPressedAsState()
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
@@ -268,8 +275,13 @@ internal fun StudioScreen(
                     Text("Session controls", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Button(
                         onClick = if (session.status == StreamStatus.LIVE) onStop else onStart,
-                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        modifier = Modifier.fillMaxWidth().height(54.dp).graphicsLayer {
+                            val scale = if (primaryActionPressed) 0.97f else 1f
+                            scaleX = scale
+                            scaleY = scale
+                        },
                         enabled = session.status == StreamStatus.IDLE || session.status == StreamStatus.ERROR || session.status == StreamStatus.LIVE,
+                        interactionSource = primaryActionSource,
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = if (session.status == StreamStatus.LIVE) UnictoosPalette.Danger else UnictoosPalette.Magenta),
                     ) {

@@ -4,8 +4,12 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -105,7 +109,12 @@ internal fun UnictoosApp(
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            when (selectedTab) {
+            AnimatedContent(
+                targetState = selectedTab,
+                transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(180)) },
+                label = "tabTransition",
+            ) { tab ->
+            when (tab) {
                 AppTab.HOME -> HomeScreen(
                     scenes = scenes,
                     destinations = destinations,
@@ -181,6 +190,7 @@ internal fun UnictoosApp(
                     onEchoCancelerChange = vm::setEchoCanceler,
                     onNoiseSuppressorChange = vm::setNoiseSuppressor,
                 )
+            }
             }
         }
     }
