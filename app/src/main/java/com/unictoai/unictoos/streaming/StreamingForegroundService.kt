@@ -38,6 +38,8 @@ import com.unictoai.unictoos.data.StreamQualityStore
 import com.unictoai.unictoos.data.ThermalProtectionStore
 import com.unictoai.unictoos.data.AudioSettingsStore
 import com.unictoai.unictoos.data.AutoStopStore
+import com.unictoai.unictoos.data.LatencyModeStore
+import com.unictoai.unictoos.domain.LatencyMode
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.SessionMode
@@ -74,6 +76,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private lateinit var streamQuality: StreamQuality
     private lateinit var audioSettings: AudioSettings
     private var autoStopSeconds = 0L
+    private lateinit var latencyMode: LatencyMode
     private var currentSessionId = ""
     private val sessionHealthSamples = mutableListOf<StreamHealthSample>()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -104,9 +107,14 @@ class StreamingForegroundService : Service(), ConnectChecker {
         historyStore = CreatorHistoryStore(applicationContext)
         streamQuality = StreamQualityStore(applicationContext).load()
         audioSettings = AudioSettingsStore(applicationContext).load()
+        latencyMode = LatencyModeStore(applicationContext).load()
         createNotificationChannel()
         genericStream = GenericStream(this, this, NoVideoSource(), NoAudioSource()).apply {
             getGlInterface().setForceRender(true, streamQuality.fps)
+        }
+        if (latencyMode == LatencyMode.LOW_LATENCY) {
+            // RootEncoder exposes client-cache sizing, but no public keyframe-interval override in this version.
+            genericStream.getStreamClient().resizeCache(0)
         }
         prepared = runCatching {
             genericStream.prepareVideo(streamQuality.width, streamQuality.height, streamQuality.bitrate, rotation = 0) &&

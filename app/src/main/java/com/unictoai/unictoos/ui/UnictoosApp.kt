@@ -97,6 +97,7 @@ internal fun UnictoosApp(
     val thermalProtectionEnabled by vm.thermalProtectionEnabled.collectAsStateWithLifecycle()
     val audioSettings by vm.audioSettings.collectAsStateWithLifecycle()
     val autoStopDuration by vm.autoStopDuration.collectAsStateWithLifecycle()
+    val latencyMode by vm.latencyMode.collectAsStateWithLifecycle()
     val selectedScene = scenes.firstOrNull { it.id == selectedSceneId } ?: scenes.firstOrNull() ?: Scene(
         id = "fallback",
         name = "Quick Start",
@@ -195,6 +196,8 @@ internal fun UnictoosApp(
                     onAudioQualityChange = vm::setAudioQuality,
                     onEchoCancelerChange = vm::setEchoCanceler,
                     onNoiseSuppressorChange = vm::setNoiseSuppressor,
+                    latencyMode = latencyMode,
+                    onLatencyModeChange = vm::setLatencyMode,
                     onExportConfig = { onShareConfig(vm.exportConfigJson()) },
                 )
             }

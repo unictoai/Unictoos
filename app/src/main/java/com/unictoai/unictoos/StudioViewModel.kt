@@ -16,11 +16,14 @@ import com.unictoai.unictoos.data.AudioSettingsRepository
 import com.unictoai.unictoos.data.AudioSettingsStore
 import com.unictoai.unictoos.data.AutoStopRepository
 import com.unictoai.unictoos.data.AutoStopStore
+import com.unictoai.unictoos.data.LatencyModeRepository
+import com.unictoai.unictoos.data.LatencyModeStore
 import com.unictoai.unictoos.monetization.AdsPolicy
 import com.unictoai.unictoos.monetization.AdsPreferences
 import com.unictoai.unictoos.monetization.AdsPreferencesRepository
 import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.AutoStopDuration
+import com.unictoai.unictoos.domain.LatencyMode
 import com.unictoai.unictoos.domain.AudioQuality
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.PlatformPreset
@@ -58,6 +61,7 @@ class StudioViewModel(
     private val thermalProtectionStore: ThermalProtectionRepository = ThermalProtectionStore(application.applicationContext),
     private val audioSettingsStore: AudioSettingsRepository = AudioSettingsStore(application.applicationContext),
     private val autoStopStore: AutoStopRepository = AutoStopStore(application.applicationContext),
+    private val latencyModeStore: LatencyModeRepository = LatencyModeStore(application.applicationContext),
 ) : AndroidViewModel(application) {
     private val _scenes = MutableStateFlow(
         listOf(
@@ -109,6 +113,9 @@ class StudioViewModel(
     private val _autoStopDuration = MutableStateFlow(autoStopStore.load())
     val autoStopDuration: StateFlow<AutoStopDuration> = _autoStopDuration.asStateFlow()
 
+    private val _latencyMode = MutableStateFlow(latencyModeStore.load())
+    val latencyMode: StateFlow<LatencyMode> = _latencyMode.asStateFlow()
+
     private val _destination = MutableStateFlow(DestinationConfig())
     val destination: StateFlow<DestinationConfig> = _destination.asStateFlow()
 
@@ -138,6 +145,11 @@ class StudioViewModel(
     fun setAutoStopDuration(duration: AutoStopDuration) {
         _autoStopDuration.value = duration
         autoStopStore.save(duration)
+    }
+
+    fun setLatencyMode(mode: LatencyMode) {
+        _latencyMode.value = mode
+        latencyModeStore.save(mode)
     }
 
     fun setAudioQuality(quality: AudioQuality) {

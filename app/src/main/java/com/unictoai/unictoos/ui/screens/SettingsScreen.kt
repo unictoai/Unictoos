@@ -125,6 +125,7 @@ import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.StreamQualityPreset
 import com.unictoai.unictoos.domain.AudioQuality
 import com.unictoai.unictoos.domain.AudioSettings
+import com.unictoai.unictoos.domain.LatencyMode
 import com.unictoai.unictoos.ui.theme.UnictoosPalette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
 import com.unictoai.unictoos.DestinationConfig
@@ -150,6 +151,8 @@ internal fun SettingsScreen(
     onAudioQualityChange: (AudioQuality) -> Unit,
     onEchoCancelerChange: (Boolean) -> Unit,
     onNoiseSuppressorChange: (Boolean) -> Unit,
+    latencyMode: LatencyMode,
+    onLatencyModeChange: (LatencyMode) -> Unit,
     onExportConfig: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -246,6 +249,9 @@ internal fun SettingsScreen(
                 onEchoChange = onEchoCancelerChange,
                 onNoiseChange = onNoiseSuppressorChange,
             )
+        }
+        item {
+            LatencyModeCard(mode = latencyMode, onModeChange = onLatencyModeChange)
         }
         item {
             SectionHeader("Device controls", "Permissions and broadcast behavior")
@@ -383,6 +389,29 @@ private fun AudioSettingsCard(
                 HorizontalDivider(color = UnictoosPalette.Stroke)
                 SettingToggle("Noise suppression", "Reduce steady background noise from the microphone", settings.noiseSuppressor, onNoiseChange)
                 Text("Some Android devices may not support every audio effect identically.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun LatencyModeCard(mode: LatencyMode, onModeChange: (LatencyMode) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionHeader("Latency mode", "Choose interaction speed or upload resilience")
+        Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LatencyMode.values().forEach { option ->
+                        FilterChip(
+                            selected = mode == option,
+                            onClick = { onModeChange(option) },
+                            label = { Text(option.label) },
+                        )
+                    }
+                }
+                Text(mode.description, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                Text("Applied when the next capture session is prepared; low latency can be less forgiving on weak upload.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
             }
         }
     }

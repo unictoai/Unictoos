@@ -16,7 +16,9 @@ import com.unictoai.unictoos.data.StreamQualityRepository
 import com.unictoai.unictoos.data.ThermalProtectionRepository
 import com.unictoai.unictoos.data.AudioSettingsRepository
 import com.unictoai.unictoos.data.AutoStopRepository
+import com.unictoai.unictoos.data.LatencyModeRepository
 import com.unictoai.unictoos.domain.AutoStopDuration
+import com.unictoai.unictoos.domain.LatencyMode
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.monetization.AdsPreferencesRepository
 import kotlinx.coroutines.Dispatchers
@@ -43,6 +45,7 @@ class StudioViewModelBehaviorTest {
     private lateinit var thermal: FakeThermalProtectionRepository
     private lateinit var audio: FakeAudioSettingsRepository
     private lateinit var autoStop: FakeAutoStopRepository
+    private lateinit var latency: FakeLatencyModeRepository
     private lateinit var viewModel: StudioViewModel
 
     @Before
@@ -55,7 +58,8 @@ class StudioViewModelBehaviorTest {
         thermal = FakeThermalProtectionRepository()
         audio = FakeAudioSettingsRepository()
         autoStop = FakeAutoStopRepository()
-        viewModel = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal, audio, autoStop)
+        latency = FakeLatencyModeRepository()
+        viewModel = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal, audio, autoStop, latency)
     }
 
     @After
@@ -236,6 +240,16 @@ private class FakeAutoStopRepository : AutoStopRepository {
 
     override fun save(duration: AutoStopDuration) {
         value = duration
+    }
+}
+
+private class FakeLatencyModeRepository : LatencyModeRepository {
+    private var value = LatencyMode.STABLE
+
+    override fun load(): LatencyMode = value
+
+    override fun save(mode: LatencyMode) {
+        value = mode
     }
 }
 
