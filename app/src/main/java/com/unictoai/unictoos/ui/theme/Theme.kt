@@ -12,20 +12,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 object UnictoosPalette {
-    val Ink = Color(0xFF060711)
-    val InkSoft = Color(0xFF0B0D19)
-    val Surface = Color(0xFF111426)
-    val SurfaceRaised = Color(0xFF181C34)
-    val Stroke = Color(0xFF2A2E4A)
-    val Violet = Color(0xFF7C4DFF)
-    val VioletBright = Color(0xFF9B73FF)
-    val Magenta = Color(0xFFE83E9E)
-    val Cyan = Color(0xFF67E8F9)
-    val Mint = Color(0xFF48E5A4)
-    val Amber = Color(0xFFFFC857)
-    val Danger = Color(0xFFFF6B81)
-    val TextPrimary = Color(0xFFF5F3FF)
-    val TextMuted = Color(0xFFA3A7C2)
+    val Ink = Color(0xFF101214)
+    val InkSoft = Color(0xFF171A1D)
+    val Surface = Color(0xFF1C2023)
+    val SurfaceRaised = Color(0xFF24292D)
+    val Stroke = Color(0xFF30363B)
+    val Violet = Color(0xFF516F86)
+    val VioletBright = Color(0xFF86A9C4)
+    val Magenta = Color(0xFFE8617E)
+    val Cyan = Color(0xFFA9D0DB)
+    val Mint = Color(0xFF68D6A5)
+    val Amber = Color(0xFFF2C56B)
+    val Danger = Color(0xFFF06A76)
+    val TextPrimary = Color(0xFFF4F6F7)
+    val TextMuted = Color(0xFFA6ADB7)
 }
 
 private val UnictoosDarkColors = darkColorScheme(
@@ -69,14 +69,16 @@ private val UnictoosLightColors = lightColorScheme(
 
 private val UnictoosTypography = Typography().run {
     copy(
-        displaySmall = displaySmall.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, letterSpacing = (-0.8).sp),
-        headlineLarge = headlineLarge.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp),
-        headlineMedium = headlineMedium.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold),
-        titleLarge = titleLarge.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold),
-        titleMedium = titleMedium.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold),
-        bodyLarge = bodyLarge.copy(fontFamily = FontFamily.SansSerif, lineHeight = 24.sp),
-        bodyMedium = bodyMedium.copy(fontFamily = FontFamily.SansSerif, lineHeight = 21.sp),
-        labelLarge = labelLarge.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold),
+        displaySmall = displaySmall.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, fontSize = 36.sp, lineHeight = 40.sp, letterSpacing = (-1.0).sp),
+        headlineLarge = headlineLarge.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, fontSize = 32.sp, lineHeight = 38.sp, letterSpacing = (-0.6).sp),
+        headlineMedium = headlineMedium.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, fontSize = 26.sp, lineHeight = 32.sp, letterSpacing = (-0.35).sp),
+        titleLarge = titleLarge.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 22.sp, lineHeight = 28.sp),
+        titleMedium = titleMedium.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 23.sp),
+        bodyLarge = bodyLarge.copy(fontFamily = FontFamily.SansSerif, fontSize = 16.sp, lineHeight = 24.sp),
+        bodyMedium = bodyMedium.copy(fontFamily = FontFamily.SansSerif, fontSize = 14.sp, lineHeight = 21.sp),
+        bodySmall = bodySmall.copy(fontFamily = FontFamily.SansSerif, fontSize = 12.sp, lineHeight = 18.sp),
+        labelLarge = labelLarge.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, letterSpacing = 0.15.sp),
+        labelMedium = labelMedium.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, letterSpacing = 0.2.sp),
     )
 }
 

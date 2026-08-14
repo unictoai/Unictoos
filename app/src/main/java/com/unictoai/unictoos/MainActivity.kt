@@ -10,6 +10,18 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -32,6 +44,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -42,6 +56,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
@@ -90,6 +105,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.unictoai.unictoos.domain.AspectRatio
@@ -249,23 +265,7 @@ private fun UnictoosApp(
     Scaffold(
         containerColor = UnictoosPalette.Ink,
         bottomBar = {
-            NavigationBar(containerColor = UnictoosPalette.InkSoft, tonalElevation = 0.dp) {
-                listOf(AppTab.HOME, AppTab.SCENES, AppTab.STUDIO, AppTab.ENGAGEMENT, AppTab.LIBRARY, AppTab.SETTINGS).forEach { tab ->
-                    NavigationBarItem(
-                        selected = selectedTab == tab,
-                        onClick = { selectedTab = tab },
-                        icon = { Icon(tab.icon(), contentDescription = tab.label) },
-                        label = { Text(tab.label, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color.White,
-                            selectedTextColor = UnictoosPalette.VioletBright,
-                            indicatorColor = UnictoosPalette.Violet.copy(alpha = 0.24f),
-                            unselectedIconColor = UnictoosPalette.TextMuted,
-                            unselectedTextColor = UnictoosPalette.TextMuted,
-                        ),
-                    )
-                }
-            }
+            UnictoosBottomBar(selectedTab = selectedTab, onSelect = { selectedTab = it })
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
@@ -276,6 +276,7 @@ private fun UnictoosApp(
                     session = session,
                     onGoStudio = { selectedTab = AppTab.STUDIO },
                     onOpenScenes = { selectedTab = AppTab.SCENES },
+                    onOpenLibrary = { selectedTab = AppTab.LIBRARY },
                     onOpenSettings = { selectedTab = AppTab.SETTINGS },
                     showAdSlot = adsPolicy.enabled && adsPolicy.consentGranted && session.status != StreamStatus.LIVE,
                 )
@@ -332,6 +333,31 @@ private fun UnictoosApp(
     }
 }
 
+@Composable
+private fun UnictoosBottomBar(selectedTab: AppTab, onSelect: (AppTab) -> Unit) {
+    NavigationBar(
+        modifier = Modifier.animateContentSize(tween(220)),
+        containerColor = UnictoosPalette.InkSoft,
+        tonalElevation = 8.dp,
+    ) {
+        listOf(AppTab.HOME, AppTab.SCENES, AppTab.STUDIO, AppTab.ENGAGEMENT, AppTab.LIBRARY, AppTab.SETTINGS).forEach { tab ->
+            NavigationBarItem(
+                selected = selectedTab == tab,
+                onClick = { onSelect(tab) },
+                icon = { Icon(tab.icon(), contentDescription = tab.label) },
+                label = { Text(tab.label, maxLines = 1) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = Color.White,
+                    selectedTextColor = UnictoosPalette.TextPrimary,
+                    indicatorColor = UnictoosPalette.Violet.copy(alpha = 0.24f),
+                    unselectedIconColor = UnictoosPalette.TextMuted,
+                    unselectedTextColor = UnictoosPalette.TextMuted,
+                ),
+            )
+        }
+    }
+}
+
 private fun AppTab.icon() = when (this) {
     AppTab.HOME -> Icons.Default.Home
     AppTab.SCENES -> Icons.Default.Dashboard
@@ -372,95 +398,176 @@ private fun HomeScreen(
     session: StreamSessionState,
     onGoStudio: () -> Unit,
     onOpenScenes: () -> Unit,
+    onOpenLibrary: () -> Unit,
     onOpenSettings: () -> Unit,
     showAdSlot: Boolean = false,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp),
+        contentPadding = PaddingValues(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-                item {
-            BrandHeader("Creator workspace", "Make your moment live") { StatusPill(session.status) }
-        }
+        item { BrandHeader("Creator workspace", "Your broadcast desk") { StatusPill(session.status) } }
         if (session.status == StreamStatus.ERROR) item { SessionErrorCard(session.message.orEmpty(), onGoStudio) }
         if (showAdSlot) item { SponsorBanner() }
-
+        item { ExecutiveHero(session = session, onOpenStudio = onGoStudio) }
+        item { PreflightCard() }
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(tween(380)) + slideInVertically(tween(380)) { it / 5 },
             ) {
-                Box(
-                    Modifier.background(
-                        Brush.linearGradient(listOf(Color(0xFF43209A), Color(0xFFAC2F83), Color(0xFF161630))),
-                    ).padding(22.dp),
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(color = Color.White.copy(alpha = 0.14f), shape = RoundedCornerShape(50)) {
-                                Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.FiberManualRecord, null, tint = Color(0xFFFF719B), modifier = Modifier.size(12.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("MOBILE LIVE STUDIO", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color.White)
-                                }
-                            }
-                        }
-                        Text("Your broadcast,\nbuilt for the phone.", style = MaterialTheme.typography.displaySmall, color = Color.White)
-                        Text("Set the scene, check your signal, and go live without desktop-style clutter.", color = Color.White.copy(alpha = 0.78f), style = MaterialTheme.typography.bodyMedium)
-                        Button(
-                            onClick = onGoStudio,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFF2A125D)),
-                            shape = RoundedCornerShape(16.dp),
-                        ) {
-                            Icon(Icons.Default.PlayArrow, null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(if (session.status == StreamStatus.LIVE) "Open live studio" else "Open studio")
-                        }
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionHeader("Broadcast readiness", "A quick check before you go live")
+                    ReadinessGrid(
+                        scenesReady = scenes.isNotEmpty(),
+                        sceneValue = "${scenes.size} ready",
+                        destinationReady = destinations.any { it.isConfigured },
+                        destinationValue = configuredDestinationLabel(destinations),
+                        microphoneReady = session.status != StreamStatus.ERROR,
+                        microphoneValue = if (session.message?.contains("Microphone", true) == true) "Ready to test" else "Checked before live",
+                    )
+                }
+            }
+        }
+        item {
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(tween(440, delayMillis = 90)) + slideInVertically(tween(440, delayMillis = 90)) { it / 6 },
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SectionHeader("Quick actions", "Keep your setup within one tap")
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        QuickAction(Icons.Default.Dashboard, "Scenes", "Build a layout", onOpenScenes, Modifier.weight(1f))
+                        QuickAction(Icons.Default.Tune, "Destinations", "Manage keys", onOpenSettings, Modifier.weight(1f))
+                        QuickAction(Icons.Default.Movie, "Library", "View recordings", onOpenLibrary, Modifier.weight(1f))
                     }
                 }
             }
         }
         item {
-            PreflightCard()
-        }
-        item {
-            SectionHeader("Broadcast readiness", "Everything you need before the red button")
-            Spacer(Modifier.height(8.dp))
-            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    ReadinessRow("Scenes", "${scenes.size} ready", scenes.isNotEmpty())
-                    ReadinessRow("Destination", configuredDestinationLabel(destinations), destinations.any { it.isConfigured })
-                    ReadinessRow("Capture", "Screen permission on demand", true)
-                    ReadinessRow("Microphone", if (session.message?.contains("Microphone", true) == true) "Ready to test" else "Checked before live", session.status != StreamStatus.ERROR)
+            AnimatedVisibility(
+                visible = scenes.isNotEmpty(),
+                enter = fadeIn(tween(500, delayMillis = 150)) + slideInVertically(tween(500, delayMillis = 150)) { it / 7 },
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        SectionHeader("Your scenes", "Layouts ready to launch")
+                        TextButton(onClick = onOpenScenes) { Text("View all") }
+                    }
+                    scenes.take(2).forEach { scene -> SceneCard(scene) }
                 }
             }
         }
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                SectionHeader("Quick actions", "Jump back into your workflow")
-                TextButton(onClick = onOpenSettings) { Text("Destinations") }
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = UnictoosPalette.Surface.copy(alpha = 0.68f),
+                shape = RoundedCornerShape(18.dp),
+            ) {
+                Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = UnictoosPalette.Mint, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Your stream keys stay encrypted on this device.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
-        item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                QuickAction(Icons.Default.Dashboard, "Scenes", "Build a layout", onOpenScenes, Modifier.weight(1f))
-                QuickAction(Icons.Default.Settings, "Setup", "Check keys", onOpenSettings, Modifier.weight(1f))
-            }
-        }
-        item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                SectionHeader("Your scenes", "Layouts ready to launch")
-                TextButton(onClick = onOpenScenes) { Text("View all") }
-            }
-        }
-        items(scenes.take(2), key = { it.id }) { scene -> SceneCard(scene) }
     }
 }
 
 private fun configuredDestinationLabel(destinations: List<StreamDestination>): String =
     destinations.firstOrNull { it.isConfigured }?.name ?: "Add a destination"
+
+@Composable
+private fun ExecutiveHero(session: StreamSessionState, onOpenStudio: () -> Unit) {
+    val isLive = session.status == StreamStatus.LIVE
+    Card(
+        modifier = Modifier.fillMaxWidth().animateContentSize(tween(320, easing = FastOutSlowInEasing)),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface),
+        border = BorderStroke(1.dp, UnictoosPalette.Stroke.copy(alpha = 0.65f)),
+    ) {
+        Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(if (isLive) "BROADCAST IN PROGRESS" else "BROADCAST READINESS", style = MaterialTheme.typography.labelMedium, color = if (isLive) UnictoosPalette.Mint else UnictoosPalette.Cyan, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    AnimatedContent(targetState = isLive, label = "heroTitle") { live ->
+                        Text(if (live) "You are live." else "Ready when you are.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Surface(color = (if (isLive) UnictoosPalette.Mint else UnictoosPalette.Cyan).copy(alpha = 0.12f), shape = RoundedCornerShape(16.dp)) {
+                    Icon(if (isLive) Icons.Default.FiberManualRecord else Icons.Default.Bolt, contentDescription = null, tint = if (isLive) UnictoosPalette.Mint else UnictoosPalette.Cyan, modifier = Modifier.padding(12.dp).size(22.dp))
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isLive) LivePulseDot() else Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(UnictoosPalette.Mint))
+                Spacer(Modifier.width(9.dp))
+                Text(if (isLive) "Session is active" else "All essential checks are ready", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodyMedium)
+            }
+            Button(
+                onClick = onOpenStudio,
+                modifier = Modifier.fillMaxWidth().height(54.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = if (isLive) UnictoosPalette.Danger else Color.White, contentColor = if (isLive) Color.White else UnictoosPalette.Ink),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                Icon(if (isLive) Icons.Default.LiveTv else Icons.Default.PlayArrow, contentDescription = null)
+                Spacer(Modifier.width(9.dp))
+                Text(if (isLive) "Open live studio" else "Open broadcast studio", style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LivePulseDot() {
+    val transition = rememberInfiniteTransition(label = "livePulse")
+    val alpha by transition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1000), RepeatMode.Reverse),
+        label = "livePulseAlpha",
+    )
+    Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(UnictoosPalette.Mint.copy(alpha = alpha)))
+}
+
+@Composable
+private fun ReadinessGrid(
+    scenesReady: Boolean,
+    sceneValue: String,
+    destinationReady: Boolean,
+    destinationValue: String,
+    microphoneReady: Boolean,
+    microphoneValue: String,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ReadinessCard(Icons.Default.Dashboard, "Scenes", sceneValue, scenesReady, Modifier.weight(1f))
+            ReadinessCard(Icons.Default.Wifi, "Network", "Checked before live", true, Modifier.weight(1f))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ReadinessCard(Icons.Default.Tune, "Destination", destinationValue, destinationReady, Modifier.weight(1f))
+            ReadinessCard(Icons.Default.Mic, "Microphone", microphoneValue, microphoneReady, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun ReadinessCard(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, ready: Boolean, modifier: Modifier) {
+    Card(
+        modifier = modifier.animateContentSize(tween(240)),
+        colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised),
+        shape = RoundedCornerShape(18.dp),
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, contentDescription = null, tint = if (ready) UnictoosPalette.Mint else UnictoosPalette.Amber, modifier = Modifier.size(18.dp))
+                Icon(if (ready) Icons.Default.CheckCircle else Icons.Default.Warning, contentDescription = null, tint = if (ready) UnictoosPalette.Mint else UnictoosPalette.Amber, modifier = Modifier.size(17.dp))
+            }
+            Text(label, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelMedium)
+            Text(value, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
 
 @Composable
 private fun QuickAction(
@@ -470,11 +577,18 @@ private fun QuickAction(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(onClick = onClick, modifier = modifier, colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(20.dp)) {
-        Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(icon, null, tint = UnictoosPalette.VioletBright, modifier = Modifier.size(22.dp))
-            Text(title, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+    Card(
+        onClick = onClick,
+        modifier = modifier.animateContentSize(tween(220)),
+        colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised),
+        shape = RoundedCornerShape(20.dp),
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+            Surface(color = UnictoosPalette.Violet.copy(alpha = 0.16f), shape = RoundedCornerShape(12.dp)) {
+                Icon(icon, null, tint = UnictoosPalette.VioletBright, modifier = Modifier.padding(8.dp).size(20.dp))
+            }
+            Text(title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -562,7 +676,7 @@ private fun StudioScreen(
         }
         item {
             Box(
-                Modifier.fillMaxWidth().height(330.dp).clip(RoundedCornerShape(26.dp)).background(Color(0xFF02030A)),
+                Modifier.fillMaxWidth().height(330.dp).clip(RoundedCornerShape(26.dp)).background(Color(0xFF111417)).animateContentSize(tween(280)),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -574,9 +688,14 @@ private fun StudioScreen(
                     )
                     Text("LIVE PREVIEW", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
                     Text("${scene.sources.count { it.enabled }} active sources  •  ${scene.aspectRatio.ratio}", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
-                    if (session.status == StreamStatus.PREPARING || session.status == StreamStatus.RECONNECTING) {
-                        LinearProgressIndicator(Modifier.fillMaxWidth(0.6f), color = UnictoosPalette.VioletBright, trackColor = Color.White.copy(alpha = 0.14f))
-                        Text(session.message.orEmpty(), color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    AnimatedVisibility(
+                        visible = session.status == StreamStatus.PREPARING || session.status == StreamStatus.RECONNECTING,
+                        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 4 },
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            LinearProgressIndicator(Modifier.fillMaxWidth(0.6f), color = UnictoosPalette.Cyan, trackColor = Color.White.copy(alpha = 0.14f))
+                            Text(session.message.orEmpty(), color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
                 Surface(
@@ -1025,11 +1144,13 @@ private fun StatusPill(status: StreamStatus) {
         StreamStatus.ERROR -> "CHECK SETUP" to UnictoosPalette.Danger
         StreamStatus.IDLE -> "READY" to UnictoosPalette.TextMuted
     }
-    Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(50)) {
+    Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(50), modifier = Modifier.animateContentSize(tween(220))) {
         Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(color))
+            if (status == StreamStatus.LIVE) LivePulseDot() else Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(color))
             Spacer(Modifier.width(6.dp))
-            Text(label, color = color, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            AnimatedContent(targetState = label, label = "statusLabel") { animatedLabel ->
+                Text(animatedLabel, color = color, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -1056,7 +1177,7 @@ private fun ReadinessRow(label: String, value: String, ready: Boolean) {
 
 @Composable
 private fun MetricCard(label: String, value: String, modifier: Modifier) {
-    Card(modifier, colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(16.dp)) {
+    Card(modifier.animateContentSize(tween(220)), colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(16.dp)) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = UnictoosPalette.TextMuted)
             Spacer(Modifier.height(3.dp))
