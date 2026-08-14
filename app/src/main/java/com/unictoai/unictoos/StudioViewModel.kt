@@ -305,6 +305,23 @@ class StudioViewModel @JvmOverloads constructor(
         }
     }
 
+    fun setSourceGeometry(sceneId: String, sourceId: String, x: Float, y: Float, width: Float, height: Float) {
+        _scenes.update { scenes ->
+            scenes.map { scene ->
+                if (scene.id != sceneId) scene else scene.copy(
+                    sources = scene.sources.map { source ->
+                        if (source.id != sourceId) source else source.copy(
+                            x = x.coerceIn(0f, 0.95f),
+                            y = y.coerceIn(0f, 0.95f),
+                            width = width.coerceIn(0.05f, 1f),
+                            height = height.coerceIn(0.05f, 1f),
+                        )
+                    },
+                )
+            }.also(sceneStore::save)
+        }
+    }
+
     fun setSourceOpacity(sceneId: String, sourceId: String, opacity: Float) {
         _scenes.update { scenes ->
             scenes.map { scene ->

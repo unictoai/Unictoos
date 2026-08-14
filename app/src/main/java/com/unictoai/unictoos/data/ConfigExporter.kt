@@ -23,6 +23,12 @@ object ConfigExporter {
                     .append(",\"textContent\":").append(quote(source.textContent))
                     .append(",\"textColor\":").append(source.textColor)
                     .append(",\"textSizeSp\":").append(source.textSizeSp)
+                    .append(",\"x\":").append(source.x)
+                    .append(",\"y\":").append(source.y)
+                    .append(",\"width\":").append(source.width)
+                    .append(",\"height\":").append(source.height)
+                    .append(",\"fillColor\":").append(source.fillColor)
+                    .append(",\"imageUri\":").append(quote(source.imageUri))
                     .append('}')
             }
             append("]}")

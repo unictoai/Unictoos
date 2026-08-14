@@ -15,6 +15,7 @@ import com.unictoai.unictoos.ui.theme.UnictoosTheme
 
 class MainActivity : ComponentActivity() {
     private var pendingEndpoint: String = ""
+    private var pendingSceneJson: String = ""
     private var pendingCaptureMode: String = CAPTURE_SCREEN
     private var pendingPractice: Boolean = false
 
@@ -40,6 +41,7 @@ class MainActivity : ComponentActivity() {
                 com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START
             }
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_ENDPOINT, pendingEndpoint)
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_SCENE_JSON, pendingSceneJson)
         })
         pendingPractice = false
     }
@@ -74,12 +76,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    internal fun requestStreamStart(endpoint: String, captureMode: String) {
+    internal fun requestStreamStart(endpoint: String, captureMode: String, sceneJson: String) {
         if (endpoint.isBlank()) {
             Toast.makeText(this, "Add a streaming destination before going live", Toast.LENGTH_LONG).show()
             return
         }
         pendingEndpoint = endpoint
+        pendingSceneJson = sceneJson
         pendingCaptureMode = captureMode
         val needsAudio = androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
         val needsCamera = captureMode == CAPTURE_CAMERA && androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
@@ -108,6 +111,7 @@ class MainActivity : ComponentActivity() {
                 com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START
             }
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_ENDPOINT, pendingEndpoint)
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_SCENE_JSON, pendingSceneJson)
         })
         pendingPractice = false
     }
@@ -117,8 +121,9 @@ class MainActivity : ComponentActivity() {
         projectionLauncher.launch(manager.createScreenCaptureIntent())
     }
 
-    internal fun requestPracticeStart(captureMode: String) {
+    internal fun requestPracticeStart(captureMode: String, sceneJson: String) {
         pendingEndpoint = ""
+        pendingSceneJson = sceneJson
         pendingCaptureMode = captureMode
         pendingPractice = true
         val needsAudio = androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED

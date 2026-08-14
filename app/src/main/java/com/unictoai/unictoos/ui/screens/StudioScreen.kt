@@ -219,7 +219,7 @@ internal fun StudioScreen(
                                     color = UnictoosPalette.TextMuted,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
-                                if (session.status == StreamStatus.PREPARING || session.status == StreamStatus.RECONNECTING) {
+                                if (session.status == StreamStatus.PREPARING || session.status == StreamStatus.CONNECTING || session.status == StreamStatus.RECONNECTING) {
                                     LinearProgressIndicator(Modifier.fillMaxWidth(0.72f), color = UnictoosPalette.Cyan, trackColor = Color.White.copy(alpha = 0.14f))
                                 }
                             }
@@ -329,7 +329,7 @@ internal fun StudioScreen(
                             scaleX = scale
                             scaleY = scale
                         },
-                        enabled = session.status == StreamStatus.IDLE || session.status == StreamStatus.ERROR || session.status == StreamStatus.LIVE,
+                        enabled = session.status == StreamStatus.IDLE || session.status == StreamStatus.STOPPED || session.status == StreamStatus.ERROR || session.status == StreamStatus.LIVE,
                         interactionSource = primaryActionSource,
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = if (session.status == StreamStatus.LIVE) UnictoosPalette.Danger else UnictoosPalette.Magenta),
@@ -356,7 +356,7 @@ internal fun StudioScreen(
                             Spacer(Modifier.width(5.dp))
                             Text("Edit scene")
                         }
-                        TextButton(onClick = onPractice, modifier = Modifier.weight(1f), enabled = session.status == StreamStatus.IDLE || session.status == StreamStatus.ERROR) {
+                        TextButton(onClick = onPractice, modifier = Modifier.weight(1f), enabled = session.status == StreamStatus.IDLE || session.status == StreamStatus.STOPPED || session.status == StreamStatus.ERROR) {
                             Icon(Icons.Default.PlayArrow, null)
                             Spacer(Modifier.width(5.dp))
                             Text("Practice")
@@ -398,9 +398,9 @@ private fun HealthCenterCard(history: List<StreamHealthSample>, session: StreamS
                 Text("Health telemetry appears here once a session is active.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
             } else {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MetricCard("Bitrate", "${latest.bitrateKbps} kbps", Modifier.weight(1f))
-                    MetricCard("FPS", latest.fps.toString(), Modifier.weight(1f))
-                    MetricCard("Drops", latest.droppedFrames.toString(), Modifier.weight(1f))
+                    MetricCard("Bitrate", if (latest.bitrateKbps > 0) "${latest.bitrateKbps} kbps" else "—", Modifier.weight(1f))
+                    MetricCard("FPS", if (latest.fps > 0) latest.fps.toString() else "—", Modifier.weight(1f))
+                    MetricCard("Drops", if (latest.droppedFrames >= 0) latest.droppedFrames.toString() else "—", Modifier.weight(1f))
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Network  ${latest.networkLabel}", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
@@ -409,12 +409,12 @@ private fun HealthCenterCard(history: List<StreamHealthSample>, session: StreamS
                 }
                 Text("Audio level", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
                 LinearProgressIndicator(
-                    progress = { latest.audioLevel.coerceIn(0, 100) / 100f },
+                    progress = { if (latest.audioLevel >= 0) latest.audioLevel.coerceIn(0, 100) / 100f else 0f },
                     modifier = Modifier.fillMaxWidth(),
                     color = UnictoosPalette.Mint,
                     trackColor = Color.White.copy(alpha = 0.10f),
                 )
-                Text(if (latest.audioLevel > 0) "${latest.audioLevel}% peak" else "Waiting for microphone level telemetry", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
+                Text(if (latest.audioLevel >= 0) "${latest.audioLevel}% peak" else "Microphone level telemetry unavailable from the active encoder", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
                 Text("${history.size} samples retained locally for this session", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
             }
         }

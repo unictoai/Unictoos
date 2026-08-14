@@ -21,7 +21,13 @@ class SceneStore(context: Context) : SceneRepository {
         return runCatching {
             val scenes = JSONArray(raw).toSceneList()
             if (scenes.isEmpty()) defaults else scenes
-        }.getOrElse { defaults }
+        }.getOrElse {
+            preferences.edit()
+                .putString(KEY_CORRUPT_BACKUP, raw.take(MAX_CORRUPT_BACKUP_CHARS))
+                .remove(KEY_SCENES)
+                .apply()
+            defaults
+        }
     }
 
     override fun save(scenes: List<Scene>) {
@@ -43,6 +49,12 @@ class SceneStore(context: Context) : SceneRepository {
                             put("textContent", source.textContent)
                             put("textColor", source.textColor)
                             put("textSizeSp", source.textSizeSp.toDouble())
+                            put("x", source.x.toDouble())
+                            put("y", source.y.toDouble())
+                            put("width", source.width.toDouble())
+                            put("height", source.height.toDouble())
+                            put("fillColor", source.fillColor)
+                            put("imageUri", source.imageUri)
                         })
                     }
                 })
@@ -77,6 +89,12 @@ class SceneStore(context: Context) : SceneRepository {
                     textContent = sourceJson.optString("textContent", ""),
                     textColor = sourceJson.optLong("textColor", 0xFFFFFFFF),
                     textSizeSp = sourceJson.optDouble("textSizeSp", 22.0).toFloat().coerceIn(10f, 72f),
+                    x = sourceJson.optDouble("x", 0.05).toFloat().coerceIn(0f, 1f),
+                    y = sourceJson.optDouble("y", 0.08).toFloat().coerceIn(0f, 1f),
+                    width = sourceJson.optDouble("width", 0.90).toFloat().coerceIn(0.05f, 1f),
+                    height = sourceJson.optDouble("height", 0.24).toFloat().coerceIn(0.05f, 1f),
+                    fillColor = sourceJson.optLong("fillColor", 0xFF101216),
+                    imageUri = sourceJson.optString("imageUri", ""),
                 ),
             )
         }
@@ -84,5 +102,7 @@ class SceneStore(context: Context) : SceneRepository {
 
     private companion object {
         const val KEY_SCENES = "scenes_json_v1"
+        const val KEY_CORRUPT_BACKUP = "scenes_corrupt_backup_v1"
+        const val MAX_CORRUPT_BACKUP_CHARS = 512_000
     }
 }

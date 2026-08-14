@@ -232,6 +232,11 @@ internal fun SourceToggleRow(
     onMoveDown: () -> Unit = {},
     opacity: Float = 1f,
     onOpacityChange: (Float) -> Unit = {},
+    x: Float = 0.05f,
+    y: Float = 0.08f,
+    width: Float = 0.90f,
+    height: Float = 0.24f,
+    onGeometryChange: (Float, Float, Float, Float) -> Unit = { _, _, _, _ -> },
     textContent: String = "",
     textSizeSp: Float = 22f,
     onTextChange: (String, Float) -> Unit = { _, _ -> },
@@ -289,6 +294,22 @@ internal fun SourceToggleRow(
             androidx.compose.material3.Slider(value = opacity, onValueChange = onOpacityChange, enabled = enabled, modifier = Modifier.weight(1f))
             Text("${(opacity * 100).toInt()}%", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(42.dp))
         }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("Layout", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
+            GeometrySlider("X", x, 0f..0.95f, enabled) { onGeometryChange(it, y, width, height) }
+            GeometrySlider("Y", y, 0f..0.95f, enabled) { onGeometryChange(x, it, width, height) }
+            GeometrySlider("W", width, 0.05f..1f, enabled) { onGeometryChange(x, y, it, height) }
+            GeometrySlider("H", height, 0.05f..1f, enabled) { onGeometryChange(x, y, width, it) }
+        }
+    }
+}
+
+@Composable
+private fun GeometrySlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, enabled: Boolean, onValueChange: (Float) -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(20.dp))
+        Slider(value = value, onValueChange = onValueChange, valueRange = range, enabled = enabled, modifier = Modifier.weight(1f))
+        Text("${(value * 100).toInt()}%", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(42.dp))
     }
 }
 
@@ -429,8 +450,10 @@ internal fun StatusPill(status: StreamStatus) {
     val (label, color) = when (status) {
         StreamStatus.LIVE -> "LIVE" to UnictoosPalette.Mint
         StreamStatus.PREPARING -> "PREPARING" to UnictoosPalette.Amber
+        StreamStatus.CONNECTING -> "CONNECTING" to UnictoosPalette.Amber
         StreamStatus.RECONNECTING -> "RECONNECTING" to UnictoosPalette.Amber
         StreamStatus.STOPPING -> "STOPPING" to UnictoosPalette.Amber
+        StreamStatus.STOPPED -> "STOPPED" to UnictoosPalette.TextMuted
         StreamStatus.ERROR -> "CHECK SETUP" to UnictoosPalette.Danger
         StreamStatus.IDLE -> "READY" to UnictoosPalette.TextMuted
     }

@@ -21,6 +21,12 @@ data class Source(
     val textContent: String = "",
     val textColor: Long = 0xFFFFFFFF,
     val textSizeSp: Float = 22f,
+    val x: Float = 0.05f,
+    val y: Float = 0.08f,
+    val width: Float = 0.90f,
+    val height: Float = 0.24f,
+    val fillColor: Long = 0xFF101216,
+    val imageUri: String = "",
 )
 
 enum class SourceType(val label: String) {
@@ -56,9 +62,11 @@ enum class PlatformPreset(val label: String, val helper: String, val serverHint:
 enum class StreamStatus {
     IDLE,
     PREPARING,
+    CONNECTING,
     LIVE,
     RECONNECTING,
     STOPPING,
+    STOPPED,
     ERROR,
 }
 
@@ -73,8 +81,8 @@ data class StreamHealthSample(
     val sessionId: String = "",
     val bitrateKbps: Int,
     val fps: Int,
-    val droppedFrames: Int,
-    val audioLevel: Int,
+    val droppedFrames: Int = -1,
+    val audioLevel: Int = -1,
     val batteryPercent: Int,
     val thermalStatus: Int,
     val networkLabel: String,
@@ -87,8 +95,8 @@ data class StreamSessionState(
     val elapsedSeconds: Long = 0,
     val bitrateKbps: Int = 0,
     val fps: Int = 0,
-    val droppedFrames: Int = 0,
-    val audioLevel: Int = 0,
+    val droppedFrames: Int = -1,
+    val audioLevel: Int = -1,
     val microphoneMuted: Boolean = false,
     val recording: Boolean = false,
     val reconnectAttempt: Int = 0,

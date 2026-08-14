@@ -75,8 +75,8 @@ internal fun AppTab.icon() = when (this) {
 
 @Composable
 internal fun UnictoosApp(
-    onRequestStreamStart: (String, String) -> Unit,
-    onRequestPracticeStart: (String) -> Unit,
+    onRequestStreamStart: (String, String, String) -> Unit,
+    onRequestPracticeStart: (String, String) -> Unit,
     onStopStream: () -> Unit,
     onToggleMute: () -> Unit,
     onToggleRecording: (Boolean) -> Unit,
@@ -141,6 +141,7 @@ internal fun UnictoosApp(
                     onAddSource = vm::addSource,
                     onMoveSource = vm::moveSource,
                     onSetSourceOpacity = vm::setSourceOpacity,
+                    onSetSourceGeometry = vm::setSourceGeometry,
                     onUpdateTextSource = vm::updateTextSource,
                     onOpenStudio = { selectedTab = AppTab.STUDIO },
                 )
@@ -159,7 +160,7 @@ internal fun UnictoosApp(
                                 selectedScene.sources.any { it.type == SourceType.CAMERA && it.enabled } -> "camera"
                                 else -> "screen"
                             }
-                            onRequestStreamStart(destination.endpoint, captureMode)
+                            onRequestStreamStart(destination.endpoint, captureMode, com.unictoai.unictoos.streaming.ScenePayloadCodec.encode(selectedScene))
                         },
                         onPractice = {
                             val captureMode = when {
@@ -167,7 +168,7 @@ internal fun UnictoosApp(
                                 selectedScene.sources.any { it.type == SourceType.CAMERA && it.enabled } -> "camera"
                                 else -> "screen"
                             }
-                            onRequestPracticeStart(captureMode)
+                            onRequestPracticeStart(captureMode, com.unictoai.unictoos.streaming.ScenePayloadCodec.encode(selectedScene))
                         },
                         onStop = onStopStream,
                     onToggleMute = onToggleMute,
