@@ -37,6 +37,7 @@ import com.unictoai.unictoos.data.CreatorHistoryStore
 import com.unictoai.unictoos.data.StreamQualityStore
 import com.unictoai.unictoos.data.ThermalProtectionStore
 import com.unictoai.unictoos.data.AudioSettingsStore
+import com.unictoai.unictoos.data.AutoStopStore
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.SessionMode
@@ -72,6 +73,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private lateinit var historyStore: CreatorHistoryStore
     private lateinit var streamQuality: StreamQuality
     private lateinit var audioSettings: AudioSettings
+    private var autoStopSeconds = 0L
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val handler = Handler(Looper.getMainLooper())
@@ -82,6 +84,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
         override fun run() {
             if (startedAtElapsed > 0L) {
                 val elapsed = (SystemClock.elapsedRealtime() - startedAtElapsed) / 1_000L
+                if (autoStopSeconds > 0L && elapsed >= autoStopSeconds) {
+                    stopStreaming("Auto-stop completed after ${formatElapsed(autoStopSeconds)}")
+                    return
+                }
                 val previous = StreamingStatusBus.state.value
                 StreamingStatusBus.update(previous.copy(elapsedSeconds = elapsed))
                 recordHealthSample(elapsed, previous)
@@ -231,6 +237,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         manualStop = false
         currentEndpoint = ""
         reconnectAttempt = 0
+        autoStopSeconds = AutoStopStore(applicationContext).load().seconds
         StreamingStatusBus.clearHealth()
         val previous = StreamingStatusBus.state.value
         StreamingStatusBus.update(previous.copy(mode = SessionMode.PRACTICE, message = "Starting local practice recording"))
@@ -252,13 +259,14 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
         if (genericStream.isStreaming) return
         manualStop = false
+        autoStopSeconds = AutoStopStore(applicationContext).load().seconds
         currentEndpoint = endpoint
         publish(StreamStatus.PREPARING, "Connecting to your destination")
         runCatching { genericStream.startStream(endpoint) }
             .onFailure { publish(StreamStatus.ERROR, "Unable to start the stream: ${it.message.orEmpty()}") }
     }
 
-    private fun stopStreaming() {
+    private fun stopStreaming(reason: String = "Broadcast stopped") {
         manualStop = true
         handler.removeCallbacksAndMessages(null)
         if (::genericStream.isInitialized && genericStream.isStreaming) genericStream.stopStream()
@@ -285,7 +293,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         bitrateHistory.clear()
         reconnectAttempt = 0
         currentEndpoint = ""
-        publish(StreamStatus.IDLE, "Broadcast stopped")
+        autoStopSeconds = 0L
+        publish(StreamStatus.IDLE, reason)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }

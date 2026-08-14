@@ -15,6 +15,8 @@ import com.unictoai.unictoos.domain.StreamQualityPreset
 import com.unictoai.unictoos.data.StreamQualityRepository
 import com.unictoai.unictoos.data.ThermalProtectionRepository
 import com.unictoai.unictoos.data.AudioSettingsRepository
+import com.unictoai.unictoos.data.AutoStopRepository
+import com.unictoai.unictoos.domain.AutoStopDuration
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.monetization.AdsPreferencesRepository
 import kotlinx.coroutines.Dispatchers
@@ -40,6 +42,7 @@ class StudioViewModelBehaviorTest {
     private lateinit var quality: FakeStreamQualityRepository
     private lateinit var thermal: FakeThermalProtectionRepository
     private lateinit var audio: FakeAudioSettingsRepository
+    private lateinit var autoStop: FakeAutoStopRepository
     private lateinit var viewModel: StudioViewModel
 
     @Before
@@ -51,7 +54,8 @@ class StudioViewModelBehaviorTest {
         quality = FakeStreamQualityRepository()
         thermal = FakeThermalProtectionRepository()
         audio = FakeAudioSettingsRepository()
-        viewModel = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal, audio)
+        autoStop = FakeAutoStopRepository()
+        viewModel = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal, audio, autoStop)
     }
 
     @After
@@ -222,6 +226,16 @@ private class FakeAudioSettingsRepository : AudioSettingsRepository {
 
     override fun save(settings: AudioSettings) {
         value = settings
+    }
+}
+
+private class FakeAutoStopRepository : AutoStopRepository {
+    private var value = AutoStopDuration.OFF
+
+    override fun load(): AutoStopDuration = value
+
+    override fun save(duration: AutoStopDuration) {
+        value = duration
     }
 }
 

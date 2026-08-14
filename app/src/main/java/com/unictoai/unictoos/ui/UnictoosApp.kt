@@ -95,6 +95,7 @@ internal fun UnictoosApp(
     val streamQuality by vm.streamQuality.collectAsStateWithLifecycle()
     val thermalProtectionEnabled by vm.thermalProtectionEnabled.collectAsStateWithLifecycle()
     val audioSettings by vm.audioSettings.collectAsStateWithLifecycle()
+    val autoStopDuration by vm.autoStopDuration.collectAsStateWithLifecycle()
     val selectedScene = scenes.firstOrNull { it.id == selectedSceneId } ?: scenes.firstOrNull() ?: Scene(
         id = "fallback",
         name = "Quick Start",
@@ -144,6 +145,8 @@ internal fun UnictoosApp(
                     destination = destination,
                     streamQuality = streamQuality,
                     audioSettings = audioSettings,
+                    autoStopDuration = autoStopDuration,
+                    onAutoStopDurationChange = vm::setAutoStopDuration,
                         onStart = {
                             val captureMode = when {
                                 selectedScene.sources.any { it.type == SourceType.SCREEN && it.enabled } -> "screen"

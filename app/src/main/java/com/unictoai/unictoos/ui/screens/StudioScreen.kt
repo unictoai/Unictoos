@@ -116,6 +116,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.unictoai.unictoos.domain.AspectRatio
+import com.unictoai.unictoos.domain.AutoStopDuration
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.formatEstimatedDataPerHour
 import com.unictoai.unictoos.domain.PlatformPreset
@@ -144,6 +145,8 @@ internal fun StudioScreen(
     destination: DestinationConfig,
     streamQuality: StreamQuality,
     audioSettings: AudioSettings,
+    autoStopDuration: AutoStopDuration,
+    onAutoStopDurationChange: (AutoStopDuration) -> Unit,
     onStart: () -> Unit,
     onPractice: () -> Unit,
     onStop: () -> Unit,
@@ -283,6 +286,16 @@ internal fun StudioScreen(
             Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(22.dp)) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Session controls", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Auto-stop after", style = MaterialTheme.typography.labelLarge, color = UnictoosPalette.TextMuted)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        items(AutoStopDuration.values().toList()) { duration ->
+                            FilterChip(
+                                selected = autoStopDuration == duration,
+                                onClick = { onAutoStopDurationChange(duration) },
+                                label = { Text(duration.label) },
+                            )
+                        }
+                    }
                     Button(
                         onClick = if (session.status == StreamStatus.LIVE) onStop else onStart,
                         modifier = Modifier.fillMaxWidth().height(54.dp).graphicsLayer {

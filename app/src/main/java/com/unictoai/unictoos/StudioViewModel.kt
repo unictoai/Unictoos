@@ -13,10 +13,13 @@ import com.unictoai.unictoos.data.ThermalProtectionRepository
 import com.unictoai.unictoos.data.ThermalProtectionStore
 import com.unictoai.unictoos.data.AudioSettingsRepository
 import com.unictoai.unictoos.data.AudioSettingsStore
+import com.unictoai.unictoos.data.AutoStopRepository
+import com.unictoai.unictoos.data.AutoStopStore
 import com.unictoai.unictoos.monetization.AdsPolicy
 import com.unictoai.unictoos.monetization.AdsPreferences
 import com.unictoai.unictoos.monetization.AdsPreferencesRepository
 import com.unictoai.unictoos.domain.AspectRatio
+import com.unictoai.unictoos.domain.AutoStopDuration
 import com.unictoai.unictoos.domain.AudioQuality
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.PlatformPreset
@@ -53,6 +56,7 @@ class StudioViewModel(
     private val streamQualityStore: StreamQualityRepository = StreamQualityStore(application.applicationContext),
     private val thermalProtectionStore: ThermalProtectionRepository = ThermalProtectionStore(application.applicationContext),
     private val audioSettingsStore: AudioSettingsRepository = AudioSettingsStore(application.applicationContext),
+    private val autoStopStore: AutoStopRepository = AutoStopStore(application.applicationContext),
 ) : AndroidViewModel(application) {
     private val _scenes = MutableStateFlow(
         listOf(
@@ -101,6 +105,9 @@ class StudioViewModel(
     private val _audioSettings = MutableStateFlow(audioSettingsStore.load())
     val audioSettings: StateFlow<AudioSettings> = _audioSettings.asStateFlow()
 
+    private val _autoStopDuration = MutableStateFlow(autoStopStore.load())
+    val autoStopDuration: StateFlow<AutoStopDuration> = _autoStopDuration.asStateFlow()
+
     private val _destination = MutableStateFlow(DestinationConfig())
     val destination: StateFlow<DestinationConfig> = _destination.asStateFlow()
 
@@ -123,6 +130,11 @@ class StudioViewModel(
     fun setThermalProtectionEnabled(enabled: Boolean) {
         _thermalProtectionEnabled.value = enabled
         thermalProtectionStore.setEnabled(enabled)
+    }
+
+    fun setAutoStopDuration(duration: AutoStopDuration) {
+        _autoStopDuration.value = duration
+        autoStopStore.save(duration)
     }
 
     fun setAudioQuality(quality: AudioQuality) {
