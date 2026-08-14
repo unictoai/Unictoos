@@ -125,6 +125,7 @@ import com.unictoai.unictoos.ui.theme.UnictoosPalette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
 import com.unictoai.unictoos.DestinationConfig
 import com.unictoai.unictoos.ui.components.BrandHeader
+import com.unictoai.unictoos.ui.components.LivePulseDot
 import com.unictoai.unictoos.ui.components.MetricCard
 import com.unictoai.unictoos.ui.components.SessionErrorCard
 import com.unictoai.unictoos.ui.components.StatusPill
@@ -194,10 +195,16 @@ internal fun StudioScreen(
                 }
                 Surface(
                     Modifier.align(Alignment.TopStart).padding(14.dp),
-                    color = if (session.status == StreamStatus.LIVE) UnictoosPalette.Magenta else Color.White.copy(alpha = 0.10f),
+                    color = if (session.status == StreamStatus.LIVE) UnictoosPalette.Magenta.copy(alpha = 0.96f) else Color.White.copy(alpha = 0.10f),
+                    contentColor = Color.White,
                     shape = RoundedCornerShape(50),
+                    border = if (session.status == StreamStatus.LIVE) BorderStroke(1.dp, UnictoosPalette.Mint.copy(alpha = 0.72f)) else null,
                 ) {
-                    Text(if (session.status == StreamStatus.LIVE) "LIVE" else "PREVIEW", Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Row(Modifier.padding(horizontal = 13.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (session.status == StreamStatus.LIVE) LivePulseDot()
+                        Spacer(Modifier.width(if (session.status == StreamStatus.LIVE) 7.dp else 0.dp))
+                        Text(if (session.status == StreamStatus.LIVE) "LIVE • STREAMING" else "PREVIEW", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -215,16 +222,19 @@ internal fun StudioScreen(
             }
         }
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricCard("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—", Modifier.weight(1f))
-                MetricCard("FPS", if (session.fps > 0) session.fps.toString() else "—", Modifier.weight(1f))
-                val audioLabel = when {
-                    session.status == StreamStatus.LIVE -> "Mic live"
-                    session.message?.contains("Microphone", true) == true -> "Mic ready"
-                    session.status == StreamStatus.ERROR -> "Check mic"
-                    else -> "Not checked"
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(if (session.status == StreamStatus.LIVE) "Live health" else "Session health", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = if (session.status == StreamStatus.LIVE) UnictoosPalette.Mint else UnictoosPalette.TextMuted)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MetricCard("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—", Modifier.weight(1f))
+                    MetricCard("FPS", if (session.fps > 0) session.fps.toString() else "—", Modifier.weight(1f))
+                    val audioLabel = when {
+                        session.status == StreamStatus.LIVE -> "Mic live"
+                        session.message?.contains("Microphone", true) == true -> "Mic ready"
+                        session.status == StreamStatus.ERROR -> "Check mic"
+                        else -> "Not checked"
+                    }
+                    MetricCard("Audio", audioLabel, Modifier.weight(1f))
                 }
-                MetricCard("Audio", audioLabel, Modifier.weight(1f))
             }
         }
         item {
