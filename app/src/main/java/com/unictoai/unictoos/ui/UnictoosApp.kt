@@ -143,6 +143,7 @@ internal fun UnictoosApp(
                     healthHistory = healthHistory,
                     destination = destination,
                     streamQuality = streamQuality,
+                    audioSettings = audioSettings,
                         onStart = {
                             val captureMode = when {
                                 selectedScene.sources.any { it.type == SourceType.SCREEN && it.enabled } -> "screen"

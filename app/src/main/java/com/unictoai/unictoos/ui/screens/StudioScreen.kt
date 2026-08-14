@@ -116,6 +116,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.unictoai.unictoos.domain.AspectRatio
+import com.unictoai.unictoos.domain.AudioSettings
+import com.unictoai.unictoos.domain.formatEstimatedDataPerHour
 import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
@@ -141,6 +143,7 @@ internal fun StudioScreen(
     healthHistory: List<StreamHealthSample>,
     destination: DestinationConfig,
     streamQuality: StreamQuality,
+    audioSettings: AudioSettings,
     onStart: () -> Unit,
     onPractice: () -> Unit,
     onStop: () -> Unit,
@@ -173,6 +176,13 @@ internal fun StudioScreen(
                     Text(streamQuality.displayName, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), color = UnictoosPalette.Cyan, style = MaterialTheme.typography.labelSmall)
                 }
             }
+        }
+        item {
+            Text(
+                "${formatEstimatedDataPerHour(streamQuality.bitrate, audioSettings.bitrate)} estimated at the active profile • protocol overhead varies",
+                color = UnictoosPalette.TextMuted,
+                style = MaterialTheme.typography.labelSmall,
+            )
         }
         item {
             Box(
