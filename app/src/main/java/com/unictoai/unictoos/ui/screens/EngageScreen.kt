@@ -128,7 +128,7 @@ import com.unictoai.unictoos.ui.components.StatusPill
 import com.unictoai.unictoos.ui.components.ReadinessRow
 
 @Composable
-internal fun EngagementScreen() {
+internal fun EngagementScreen(onOpenSettings: () -> Unit = {}) {
     var selectedChannel by rememberSaveable { mutableStateOf("All") }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
@@ -153,6 +153,11 @@ internal fun EngagementScreen() {
                     }
                     Text("No accounts connected", color = UnictoosPalette.Amber, fontWeight = FontWeight.SemiBold)
                     Text("Connect OAuth accounts to read chat and events. Stream keys remain separate and are never used as chat credentials.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = onOpenSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Review integrations")
+                    }
                 }
             }
         }

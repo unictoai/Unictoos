@@ -127,7 +127,7 @@ import com.unictoai.unictoos.ui.components.ReadinessRow
 import com.unictoai.unictoos.ui.components.SectionHeader
 
 @Composable
-internal fun LibraryScreen() {
+internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
     val context = LocalContext.current
     val recordingsDirectory = java.io.File(context.filesDir, "recordings")
     var recordings by rememberSaveable { mutableStateOf(emptyList<String>()) }
@@ -208,6 +208,11 @@ internal fun LibraryScreen() {
                         Icon(Icons.Default.Movie, null, tint = UnictoosPalette.VioletBright, modifier = Modifier.size(32.dp))
                         Text("No recordings yet", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
                         Text("Press Record in Studio or start Practice mode. Saved MP4 sessions will appear here.", color = UnictoosPalette.TextMuted)
+                        FilledTonalButton(onClick = onOpenStudio, shape = RoundedCornerShape(12.dp)) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(Modifier.width(6.dp))
+                            Text("Open Studio")
+                        }
                     }
                 }
             }

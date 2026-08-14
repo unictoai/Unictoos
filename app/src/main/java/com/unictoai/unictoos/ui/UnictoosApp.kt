@@ -158,8 +158,8 @@ internal fun UnictoosApp(
                     onEditScenes = { selectedTab = AppTab.SCENES },
                     onOpenSettings = { selectedTab = AppTab.SETTINGS },
                 )
-                AppTab.ENGAGEMENT -> EngagementScreen()
-                AppTab.LIBRARY -> LibraryScreen()
+                AppTab.ENGAGEMENT -> EngagementScreen(onOpenSettings = { selectedTab = AppTab.SETTINGS })
+                AppTab.LIBRARY -> LibraryScreen(onOpenStudio = { selectedTab = AppTab.STUDIO })
                 AppTab.MORE -> MoreScreen(
                     onOpenEngage = { selectedTab = AppTab.ENGAGEMENT },
                     onOpenSettings = { selectedTab = AppTab.SETTINGS },
