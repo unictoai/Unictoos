@@ -90,6 +90,7 @@ internal fun UnictoosApp(
     val adsPolicy by vm.adsPolicy.collectAsStateWithLifecycle()
     val streamQuality by vm.streamQuality.collectAsStateWithLifecycle()
     val thermalProtectionEnabled by vm.thermalProtectionEnabled.collectAsStateWithLifecycle()
+    val audioSettings by vm.audioSettings.collectAsStateWithLifecycle()
     val selectedScene = scenes.firstOrNull { it.id == selectedSceneId } ?: scenes.firstOrNull() ?: Scene(
         id = "fallback",
         name = "Quick Start",
@@ -175,6 +176,10 @@ internal fun UnictoosApp(
                     onCustomStreamQualityChange = vm::updateCustomStreamQuality,
                     thermalProtectionEnabled = thermalProtectionEnabled,
                     onThermalProtectionChange = vm::setThermalProtectionEnabled,
+                    audioSettings = audioSettings,
+                    onAudioQualityChange = vm::setAudioQuality,
+                    onEchoCancelerChange = vm::setEchoCanceler,
+                    onNoiseSuppressorChange = vm::setNoiseSuppressor,
                 )
             }
         }

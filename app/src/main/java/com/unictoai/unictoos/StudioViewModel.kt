@@ -11,10 +11,14 @@ import com.unictoai.unictoos.data.StreamQualityRepository
 import com.unictoai.unictoos.data.StreamQualityStore
 import com.unictoai.unictoos.data.ThermalProtectionRepository
 import com.unictoai.unictoos.data.ThermalProtectionStore
+import com.unictoai.unictoos.data.AudioSettingsRepository
+import com.unictoai.unictoos.data.AudioSettingsStore
 import com.unictoai.unictoos.monetization.AdsPolicy
 import com.unictoai.unictoos.monetization.AdsPreferences
 import com.unictoai.unictoos.monetization.AdsPreferencesRepository
 import com.unictoai.unictoos.domain.AspectRatio
+import com.unictoai.unictoos.domain.AudioQuality
+import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.Source
@@ -48,6 +52,7 @@ class StudioViewModel(
     private val adsPreferences: AdsPreferencesRepository = AdsPreferences(application.applicationContext),
     private val streamQualityStore: StreamQualityRepository = StreamQualityStore(application.applicationContext),
     private val thermalProtectionStore: ThermalProtectionRepository = ThermalProtectionStore(application.applicationContext),
+    private val audioSettingsStore: AudioSettingsRepository = AudioSettingsStore(application.applicationContext),
 ) : AndroidViewModel(application) {
     private val _scenes = MutableStateFlow(
         listOf(
@@ -93,6 +98,9 @@ class StudioViewModel(
     private val _thermalProtectionEnabled = MutableStateFlow(thermalProtectionStore.isEnabled())
     val thermalProtectionEnabled: StateFlow<Boolean> = _thermalProtectionEnabled.asStateFlow()
 
+    private val _audioSettings = MutableStateFlow(audioSettingsStore.load())
+    val audioSettings: StateFlow<AudioSettings> = _audioSettings.asStateFlow()
+
     private val _destination = MutableStateFlow(DestinationConfig())
     val destination: StateFlow<DestinationConfig> = _destination.asStateFlow()
 
@@ -115,6 +123,24 @@ class StudioViewModel(
     fun setThermalProtectionEnabled(enabled: Boolean) {
         _thermalProtectionEnabled.value = enabled
         thermalProtectionStore.setEnabled(enabled)
+    }
+
+    fun setAudioQuality(quality: AudioQuality) {
+        val updated = _audioSettings.value.copy(quality = quality)
+        _audioSettings.value = updated
+        audioSettingsStore.save(updated)
+    }
+
+    fun setEchoCanceler(enabled: Boolean) {
+        val updated = _audioSettings.value.copy(echoCanceler = enabled)
+        _audioSettings.value = updated
+        audioSettingsStore.save(updated)
+    }
+
+    fun setNoiseSuppressor(enabled: Boolean) {
+        val updated = _audioSettings.value.copy(noiseSuppressor = enabled)
+        _audioSettings.value = updated
+        audioSettingsStore.save(updated)
     }
 
     fun setStreamQualityPreset(preset: StreamQualityPreset) {

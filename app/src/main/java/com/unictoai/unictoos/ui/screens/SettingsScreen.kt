@@ -123,6 +123,8 @@ import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
 import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.StreamQualityPreset
+import com.unictoai.unictoos.domain.AudioQuality
+import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.ui.theme.UnictoosPalette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
 import com.unictoai.unictoos.DestinationConfig
@@ -144,6 +146,10 @@ internal fun SettingsScreen(
     onCustomStreamQualityChange: (Int, Int) -> Unit,
     thermalProtectionEnabled: Boolean,
     onThermalProtectionChange: (Boolean) -> Unit,
+    audioSettings: AudioSettings,
+    onAudioQualityChange: (AudioQuality) -> Unit,
+    onEchoCancelerChange: (Boolean) -> Unit,
+    onNoiseSuppressorChange: (Boolean) -> Unit,
 ) {
     val context = LocalContext.current
     var microphoneEnabled by rememberSaveable { mutableStateOf(true) }
@@ -230,6 +236,14 @@ internal fun SettingsScreen(
                 quality = streamQuality,
                 onPresetSelected = onStreamQualityPreset,
                 onCustomChanged = onCustomStreamQualityChange,
+            )
+        }
+        item {
+            AudioSettingsCard(
+                settings = audioSettings,
+                onQualityChange = onAudioQualityChange,
+                onEchoChange = onEchoCancelerChange,
+                onNoiseChange = onNoiseSuppressorChange,
             )
         }
         item {
@@ -323,6 +337,38 @@ private fun StreamQualitySettingsCard(
                     }
                 }
                 Text("Changes apply when the next capture session is prepared.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun AudioSettingsCard(
+    settings: AudioSettings,
+    onQualityChange: (AudioQuality) -> Unit,
+    onEchoChange: (Boolean) -> Unit,
+    onNoiseChange: (Boolean) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionHeader("Audio quality", "Tune voice detail and microphone cleanup for the next session")
+        Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AudioQuality.values().forEach { option ->
+                        FilterChip(
+                            selected = settings.quality == option,
+                            onClick = { onQualityChange(option) },
+                            label = { Text(option.label) },
+                        )
+                    }
+                }
+                Text(settings.quality.description, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                HorizontalDivider(color = UnictoosPalette.Stroke)
+                SettingToggle("Echo cancellation", "Reduce acoustic feedback when monitoring nearby", settings.echoCanceler, onEchoChange)
+                HorizontalDivider(color = UnictoosPalette.Stroke)
+                SettingToggle("Noise suppression", "Reduce steady background noise from the microphone", settings.noiseSuppressor, onNoiseChange)
+                Text("Some Android devices may not support every audio effect identically.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
             }
         }
     }

@@ -36,6 +36,8 @@ import com.unictoai.unictoos.R
 import com.unictoai.unictoos.data.CreatorHistoryStore
 import com.unictoai.unictoos.data.StreamQualityStore
 import com.unictoai.unictoos.data.ThermalProtectionStore
+import com.unictoai.unictoos.data.AudioSettingsStore
+import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.SessionMode
 import com.unictoai.unictoos.domain.StreamHealthSample
@@ -69,6 +71,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private val bitrateHistory = java.util.ArrayDeque<Int>()
     private lateinit var historyStore: CreatorHistoryStore
     private lateinit var streamQuality: StreamQuality
+    private lateinit var audioSettings: AudioSettings
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val handler = Handler(Looper.getMainLooper())
@@ -92,13 +95,14 @@ class StreamingForegroundService : Service(), ConnectChecker {
         super.onCreate()
         historyStore = CreatorHistoryStore(applicationContext)
         streamQuality = StreamQualityStore(applicationContext).load()
+        audioSettings = AudioSettingsStore(applicationContext).load()
         createNotificationChannel()
         genericStream = GenericStream(this, this, NoVideoSource(), NoAudioSource()).apply {
             getGlInterface().setForceRender(true, streamQuality.fps)
         }
         prepared = runCatching {
             genericStream.prepareVideo(streamQuality.width, streamQuality.height, streamQuality.bitrate, rotation = 0) &&
-                genericStream.prepareAudio(AUDIO_SAMPLE_RATE, false, AUDIO_BITRATE, echoCanceler = true, noiseSuppressor = true)
+                genericStream.prepareAudio(audioSettings.sampleRate, false, audioSettings.bitrate, echoCanceler = audioSettings.echoCanceler, noiseSuppressor = audioSettings.noiseSuppressor)
         }.getOrDefault(false)
         if (!prepared) publish(StreamStatus.ERROR, "This device cannot prepare the requested capture profile")
     }
@@ -196,10 +200,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     private suspend fun checkMicrophoneInput(): Boolean = withContext(Dispatchers.IO) {
-        val bufferSize = AudioRecord.getMinBufferSize(AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        val bufferSize = AudioRecord.getMinBufferSize(audioSettings.sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         if (bufferSize <= 0) return@withContext false
         val recorder = try {
-            AudioRecord(MediaRecorder.AudioSource.MIC, AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize * 2)
+            AudioRecord(MediaRecorder.AudioSource.MIC, audioSettings.sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize * 2)
         } catch (_: SecurityException) {
             return@withContext false
         } catch (_: IllegalArgumentException) {
@@ -569,8 +573,6 @@ class StreamingForegroundService : Service(), ConnectChecker {
         const val EXTRA_MARKER_LABEL = "extra_marker_label"
         private const val CHANNEL_ID = "unictoos-broadcasting"
         private const val NOTIFICATION_ID = 4101
-        private const val AUDIO_SAMPLE_RATE = 44_100
-        private const val AUDIO_BITRATE = 128_000
         private const val MAX_RECONNECT_ATTEMPTS = 3
         private val RECONNECT_DELAYS_MS = longArrayOf(2_000L, 5_000L, 10_000L)
 

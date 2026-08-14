@@ -14,6 +14,8 @@ import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.StreamQualityPreset
 import com.unictoai.unictoos.data.StreamQualityRepository
 import com.unictoai.unictoos.data.ThermalProtectionRepository
+import com.unictoai.unictoos.data.AudioSettingsRepository
+import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.monetization.AdsPreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -37,6 +39,7 @@ class StudioViewModelBehaviorTest {
     private lateinit var ads: FakeAdsPreferences
     private lateinit var quality: FakeStreamQualityRepository
     private lateinit var thermal: FakeThermalProtectionRepository
+    private lateinit var audio: FakeAudioSettingsRepository
     private lateinit var viewModel: StudioViewModel
 
     @Before
@@ -47,7 +50,8 @@ class StudioViewModelBehaviorTest {
         ads = FakeAdsPreferences()
         quality = FakeStreamQualityRepository()
         thermal = FakeThermalProtectionRepository()
-        viewModel = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal)
+        audio = FakeAudioSettingsRepository()
+        viewModel = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal, audio)
     }
 
     @After
@@ -208,6 +212,16 @@ private class FakeThermalProtectionRepository : ThermalProtectionRepository {
 
     override fun setEnabled(enabled: Boolean) {
         enabledState = enabled
+    }
+}
+
+private class FakeAudioSettingsRepository : AudioSettingsRepository {
+    private var value = AudioSettings()
+
+    override fun load(): AudioSettings = value
+
+    override fun save(settings: AudioSettings) {
+        value = settings
     }
 }
 
