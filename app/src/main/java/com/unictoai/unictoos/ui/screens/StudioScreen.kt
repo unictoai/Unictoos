@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
+import android.view.Surface
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -112,6 +113,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -136,6 +138,7 @@ import com.unictoai.unictoos.ui.components.LivePulseDot
 import com.unictoai.unictoos.ui.components.MetricCard
 import com.unictoai.unictoos.ui.components.SessionErrorCard
 import com.unictoai.unictoos.ui.components.StatusPill
+import com.unictoai.unictoos.ui.PreviewSurfaceView
 
 @Composable
 internal fun StudioScreen(
@@ -156,6 +159,8 @@ internal fun StudioScreen(
     onDismissStatusMessage: () -> Unit,
     onEditScenes: () -> Unit,
     onOpenSettings: () -> Unit,
+    onPreviewSurfaceAvailable: (Surface, Int, Int) -> Unit,
+    onPreviewSurfaceDestroyed: (Surface) -> Unit,
 ) {
     val primaryActionSource = remember { MutableInteractionSource() }
     val primaryActionPressed by primaryActionSource.collectIsPressedAsState()
@@ -192,30 +197,42 @@ internal fun StudioScreen(
                 Modifier.fillMaxWidth().height(330.dp).clip(RoundedCornerShape(26.dp)).background(Color(0xFF111417)).animateContentSize(tween(280)),
                 contentAlignment = Alignment.Center,
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Surface(color = Color.White, shape = RoundedCornerShape(24.dp), modifier = Modifier.size(88.dp)) {
-                        Image(
-                            painter = painterResource(com.unictoai.unictoos.R.drawable.logo_unictoos),
-                            contentDescription = "Unictoos preview mark",
-                            modifier = Modifier.fillMaxSize().padding(9.dp),
-                            contentScale = ContentScale.Fit,
-                        )
-                    }
-                    Text("LIVE PREVIEW", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
-                    Text("${scene.sources.count { it.enabled }} active sources  •  ${scene.aspectRatio.ratio}", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
-                    AnimatedVisibility(
-                        visible = session.status == StreamStatus.PREPARING || session.status == StreamStatus.RECONNECTING,
-                        enter = fadeIn(tween(220)) + slideInVertically(tween(220)) { it / 4 },
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            LinearProgressIndicator(Modifier.fillMaxWidth(0.6f), color = UnictoosPalette.Cyan, trackColor = Color.White.copy(alpha = 0.14f))
-                            Text(session.message.orEmpty(), color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                AndroidView(
+                    factory = { context ->
+                        PreviewSurfaceView(context).apply {
+                            setPreviewListener(previewSurfaceListener(onPreviewSurfaceAvailable, onPreviewSurfaceDestroyed))
+                        }
+                    },
+                    update = { view ->
+                        view.setPreviewListener(previewSurfaceListener(onPreviewSurfaceAvailable, onPreviewSurfaceDestroyed))
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+                if (!session.previewReady) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Surface(color = Color.Black.copy(alpha = 0.72f), shape = RoundedCornerShape(18.dp), modifier = Modifier.padding(24.dp)) {
+                            Column(Modifier.padding(horizontal = 22.dp, vertical = 18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Default.Videocam, contentDescription = null, tint = UnictoosPalette.Cyan, modifier = Modifier.size(30.dp))
+                                Text("LIVE PREVIEW", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                                Text(
+                                    session.message ?: "Approve capture to start the real preview",
+                                    color = UnictoosPalette.TextMuted,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                                if (session.status == StreamStatus.PREPARING || session.status == StreamStatus.RECONNECTING) {
+                                    LinearProgressIndicator(Modifier.fillMaxWidth(0.72f), color = UnictoosPalette.Cyan, trackColor = Color.White.copy(alpha = 0.14f))
+                                }
+                            }
                         }
                     }
                 }
                 Surface(
                     Modifier.align(Alignment.TopStart).padding(14.dp),
-                    color = if (session.status == StreamStatus.LIVE) UnictoosPalette.Magenta.copy(alpha = 0.96f) else Color.White.copy(alpha = 0.10f),
+                    color = when {
+                        session.status == StreamStatus.LIVE -> UnictoosPalette.Magenta.copy(alpha = 0.96f)
+                        session.previewReady -> UnictoosPalette.Mint.copy(alpha = 0.86f)
+                        else -> Color.White.copy(alpha = 0.10f)
+                    },
                     contentColor = Color.White,
                     shape = RoundedCornerShape(50),
                     border = if (session.status == StreamStatus.LIVE) BorderStroke(1.dp, UnictoosPalette.Mint.copy(alpha = 0.72f)) else null,
@@ -223,7 +240,16 @@ internal fun StudioScreen(
                     Row(Modifier.padding(horizontal = 13.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (session.status == StreamStatus.LIVE) LivePulseDot()
                         Spacer(Modifier.width(if (session.status == StreamStatus.LIVE) 7.dp else 0.dp))
-                        Text(if (session.status == StreamStatus.LIVE) "LIVE • STREAMING" else "PREVIEW", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            when {
+                                session.status == StreamStatus.LIVE -> "LIVE • STREAMING"
+                                session.previewReady -> "PREVIEW READY"
+                                else -> "PREVIEW WAITING"
+                            },
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
             }
@@ -340,6 +366,14 @@ internal fun StudioScreen(
             }
         }
     }
+}
+
+private fun previewSurfaceListener(
+    onAvailable: (Surface, Int, Int) -> Unit,
+    onDestroyed: (Surface) -> Unit,
+): PreviewSurfaceView.Listener = object : PreviewSurfaceView.Listener {
+    override fun onSurfaceAvailable(surface: Surface, width: Int, height: Int) = onAvailable(surface, width, height)
+    override fun onSurfaceDestroyed(surface: Surface) = onDestroyed(surface)
 }
 
 @Composable

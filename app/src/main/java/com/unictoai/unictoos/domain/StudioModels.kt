@@ -92,5 +92,7 @@ data class StreamSessionState(
     val microphoneMuted: Boolean = false,
     val recording: Boolean = false,
     val reconnectAttempt: Int = 0,
+    val captureReady: Boolean = false,
+    val previewReady: Boolean = false,
     val message: String? = null,
 )

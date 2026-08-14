@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
+import android.view.Surface
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -66,6 +67,8 @@ class MainActivity : ComponentActivity() {
                     onCreateMarker = ::createMarker,
                     onDismissStatusMessage = ::dismissStatusMessage,
                     onShareConfig = ::shareConfig,
+                    onPreviewSurfaceAvailable = ::attachPreviewSurface,
+                    onPreviewSurfaceDestroyed = ::detachPreviewSurface,
                 )
             }
         }
@@ -166,6 +169,21 @@ class MainActivity : ComponentActivity() {
     internal fun dismissStatusMessage() {
         startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_DISMISS_STATUS
+        })
+    }
+
+    private fun attachPreviewSurface(surface: Surface, width: Int, height: Int) {
+        startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
+            action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_ATTACH_PREVIEW
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PREVIEW_SURFACE, surface)
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PREVIEW_WIDTH, width)
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PREVIEW_HEIGHT, height)
+        })
+    }
+
+    private fun detachPreviewSurface(surface: Surface) {
+        startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
+            action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_DETACH_PREVIEW
         })
     }
 

@@ -21,6 +21,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.os.Looper
 import android.os.SystemClock
+import android.view.Surface
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -63,6 +64,11 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var cameraSource: Camera2Source? = null
     private var prepared = false
     private var captureReady = false
+    private var previewSurface: Surface? = null
+    private var previewWidth = 0
+    private var previewHeight = 0
+    private var previewAttached = false
+    private var pendingStart: PendingStart? = null
     private var manualStop = false
     private var currentEndpoint: String = ""
     private var reconnectAttempt = 0
@@ -85,6 +91,14 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private val projectionManager: MediaProjectionManager by lazy {
         getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
     }
+    private val captureTimeout = Runnable {
+        val state = StreamingStatusBus.state.value
+        if (state.status == StreamStatus.PREPARING && pendingStart != null && (!captureReady || !previewAttached)) {
+            pendingStart = null
+            publish(StreamStatus.ERROR, "Preview did not start within 30 seconds. Check capture permission and try again")
+        }
+    }
+
     private val elapsedTicker = object : Runnable {
         override fun run() {
             if (startedAtElapsed > 0L) {
@@ -125,13 +139,23 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_PREPARE_PROJECTION -> serviceScope.launch { prepareProjectionFromIntent(intent) }
-            ACTION_PREPARE_CAMERA -> serviceScope.launch { prepareCamera() }
+            ACTION_PREPARE_PROJECTION -> serviceScope.launch {
+                prepareProjectionFromIntent(intent)
+                tryStartPending()
+            }
+            ACTION_PREPARE_CAMERA -> serviceScope.launch {
+                prepareCamera()
+                tryStartPending()
+            }
+            ACTION_ATTACH_PREVIEW -> attachPreview(readPreviewSurface(intent), intent.getIntExtra(EXTRA_PREVIEW_WIDTH, 0), intent.getIntExtra(EXTRA_PREVIEW_HEIGHT, 0))
+            ACTION_DETACH_PREVIEW -> detachPreview()
             ACTION_START -> {
-                if (startForegroundSafely(mediaProjection != null)) startStream(intent.getStringExtra(EXTRA_ENDPOINT).orEmpty())
+                pendingStart = PendingStart(intent.getStringExtra(EXTRA_ENDPOINT).orEmpty(), practice = false)
+                if (startForegroundSafely(mediaProjection != null)) tryStartPending()
             }
             ACTION_START_PRACTICE -> {
-                if (startForegroundSafely(mediaProjection != null)) startPractice()
+                pendingStart = PendingStart(endpoint = "", practice = true)
+                if (startForegroundSafely(mediaProjection != null)) tryStartPending()
             }
             ACTION_CREATE_MARKER -> createMarker(intent.getStringExtra(EXTRA_MARKER_LABEL).orEmpty())
             ACTION_STOP -> stopStreaming()
@@ -163,7 +187,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         if (projectionData == null || !prepareProjection(resultCode, projectionData)) {
             publish(StreamStatus.ERROR, "Screen capture permission was not available")
         } else {
-            publish(StreamStatus.PREPARING, "Microphone ready • capture is ready")
+            publish(StreamStatus.PREPARING, "Microphone ready • waiting for Studio preview")
+            attachPreviewIfPossible()
         }
     }
 
@@ -178,7 +203,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
             microphoneSource = MicrophoneSource().also { genericStream.changeAudioSource(it) }
             captureReady = true
             true
-        }.getOrDefault(false)
+        }.getOrDefault(false).also {
+            if (!it) captureReady = false
+        }
     }
 
     private suspend fun prepareCamera() {
@@ -205,7 +232,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
             microphoneSource?.release()
             microphoneSource = MicrophoneSource().also { genericStream.changeAudioSource(it) }
             captureReady = true
-            publish(StreamStatus.PREPARING, "Camera and microphone ready")
+            publish(StreamStatus.PREPARING, "Camera and microphone ready • waiting for Studio preview")
+            attachPreviewIfPossible()
         }.onFailure {
             captureReady = false
             publish(StreamStatus.ERROR, "Camera could not start: ${it.message.orEmpty()}")
@@ -239,9 +267,75 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
     }
 
+    private fun attachPreview(surface: Surface?, width: Int, height: Int) {
+        if (surface == null || !surface.isValid || width <= 0 || height <= 0) {
+            publish(StreamStatus.ERROR, "Studio preview surface is unavailable")
+            return
+        }
+        previewSurface = surface
+        previewWidth = width
+        previewHeight = height
+        attachPreviewIfPossible()
+        tryStartPending()
+    }
+
+    private fun attachPreviewIfPossible() {
+        val surface = previewSurface ?: return
+        if (!prepared || !captureReady || !surface.isValid || previewWidth <= 0 || previewHeight <= 0) return
+        runCatching {
+            if (genericStream.isOnPreview) genericStream.stopPreview()
+            genericStream.startPreview(surface, previewWidth, previewHeight)
+            previewAttached = true
+            val previous = StreamingStatusBus.state.value
+            StreamingStatusBus.update(previous.copy(captureReady = captureReady, previewReady = true, message = if (pendingStart != null) "Preview is ready • starting capture" else previous.message))
+        }.onFailure {
+            previewAttached = false
+            publish(StreamStatus.ERROR, "Preview could not start: ${it.message.orEmpty()}")
+        }
+    }
+
+    private fun detachPreview() {
+        if (::genericStream.isInitialized && genericStream.isOnPreview) {
+            runCatching { genericStream.stopPreview() }
+        }
+        previewAttached = false
+        previewSurface = null
+        previewWidth = 0
+        previewHeight = 0
+        val previous = StreamingStatusBus.state.value
+        if (previous.status == StreamStatus.PREPARING && pendingStart != null) {
+            publish(StreamStatus.PREPARING, "Waiting for Studio preview surface")
+        } else {
+            StreamingStatusBus.update(previous.copy(previewReady = false, message = previous.message))
+        }
+    }
+
+    private fun tryStartPending() {
+        val request = pendingStart ?: return
+        if (!prepared || !captureReady || !previewAttached) {
+            val state = StreamingStatusBus.state.value
+            if (state.status != StreamStatus.ERROR) publish(StreamStatus.PREPARING, if (!previewAttached) "Waiting for Studio preview surface" else "Preparing capture")
+            handler.removeCallbacks(captureTimeout)
+            handler.postDelayed(captureTimeout, CAPTURE_TIMEOUT_MS)
+            return
+        }
+        pendingStart = null
+        handler.removeCallbacks(captureTimeout)
+        if (request.practice) startPractice() else startStream(request.endpoint)
+    }
+
+    private fun readPreviewSurface(intent: Intent): Surface? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        intent.getParcelableExtra(EXTRA_PREVIEW_SURFACE, Surface::class.java)
+    } else {
+        @Suppress("DEPRECATION")
+        intent.getParcelableExtra(EXTRA_PREVIEW_SURFACE)
+    }
+
+    private data class PendingStart(val endpoint: String, val practice: Boolean)
+
     private fun startPractice() {
-        if (!prepared || !captureReady || microphoneSource == null) {
-            publish(StreamStatus.ERROR, "Practice capture is not ready. Approve capture and microphone access first")
+        if (!prepared || !captureReady || !previewAttached || microphoneSource == null) {
+            publish(StreamStatus.ERROR, "Practice capture is not ready. Approve capture and wait for the live preview first")
             return
         }
         manualStop = false
@@ -261,8 +355,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         StreamingStatusBus.clearHealth()
         val previous = StreamingStatusBus.state.value
         StreamingStatusBus.update(previous.copy(mode = SessionMode.BROADCAST))
-        if (!prepared || !captureReady || microphoneSource == null) {
-            publish(StreamStatus.ERROR, "Capture is not ready. Approve screen capture and microphone access first")
+        if (!prepared || !captureReady || !previewAttached || microphoneSource == null) {
+            publish(StreamStatus.ERROR, "Capture is not ready. Approve capture and wait for the live preview first")
             return
         }
         if (endpoint.isBlank()) {
@@ -282,6 +376,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private fun stopStreaming(reason: String = "Broadcast stopped") {
         manualStop = true
+        pendingStart = null
         handler.removeCallbacksAndMessages(null)
         if (::genericStream.isInitialized && genericStream.isStreaming) genericStream.stopStream()
         if (StreamingStatusBus.state.value.recording) stopRecording()
@@ -411,6 +506,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 status = status,
                 fps = if (status == StreamStatus.LIVE) streamQuality.fps else previous.fps,
                 reconnectAttempt = reconnectAttempt,
+                captureReady = captureReady,
+                previewReady = previewAttached,
                 message = message,
             ),
         )
@@ -518,6 +615,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
         microphoneSource = null
         cameraSource = null
         captureReady = false
+        previewAttached = false
+        previewSurface = null
+        pendingStart = null
         mediaProjection = null
         startedAtElapsed = 0L
         super.onDestroy()
@@ -588,6 +688,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
     companion object {
         const val ACTION_PREPARE_PROJECTION = "com.unictoai.unictoos.action.PREPARE_PROJECTION"
         const val ACTION_PREPARE_CAMERA = "com.unictoai.unictoos.action.PREPARE_CAMERA"
+        const val ACTION_ATTACH_PREVIEW = "com.unictoai.unictoos.action.ATTACH_PREVIEW"
+        const val ACTION_DETACH_PREVIEW = "com.unictoai.unictoos.action.DETACH_PREVIEW"
         const val ACTION_START = "com.unictoai.unictoos.action.START_STREAMING"
         const val ACTION_START_PRACTICE = "com.unictoai.unictoos.action.START_PRACTICE"
         const val ACTION_CREATE_MARKER = "com.unictoai.unictoos.action.CREATE_MARKER"
@@ -599,10 +701,14 @@ class StreamingForegroundService : Service(), ConnectChecker {
         const val EXTRA_RESULT_CODE = "extra_result_code"
         const val EXTRA_PROJECTION_DATA = "extra_projection_data"
         const val EXTRA_ENDPOINT = "extra_endpoint"
+        const val EXTRA_PREVIEW_SURFACE = "extra_preview_surface"
+        const val EXTRA_PREVIEW_WIDTH = "extra_preview_width"
+        const val EXTRA_PREVIEW_HEIGHT = "extra_preview_height"
         const val EXTRA_MARKER_LABEL = "extra_marker_label"
         private const val CHANNEL_ID = "unictoos-broadcasting"
         private const val NOTIFICATION_ID = 4101
         private const val MAX_RECONNECT_ATTEMPTS = 3
+        private const val CAPTURE_TIMEOUT_MS = 30_000L
         private val RECONNECT_DELAYS_MS = longArrayOf(2_000L, 5_000L, 10_000L)
 
         private fun formatElapsed(seconds: Long): String = "%02d:%02d".format(seconds / 60, seconds % 60)

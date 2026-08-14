@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.view.Surface
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
@@ -82,6 +83,8 @@ internal fun UnictoosApp(
     onCreateMarker: () -> Unit,
     onDismissStatusMessage: () -> Unit,
     onShareConfig: (String) -> Unit,
+    onPreviewSurfaceAvailable: (Surface, Int, Int) -> Unit,
+    onPreviewSurfaceDestroyed: (Surface) -> Unit,
     vm: StudioViewModel = viewModel(),
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.HOME) }
@@ -173,6 +176,8 @@ internal fun UnictoosApp(
                     onDismissStatusMessage = onDismissStatusMessage,
                     onEditScenes = { selectedTab = AppTab.SCENES },
                     onOpenSettings = { selectedTab = AppTab.SETTINGS },
+                    onPreviewSurfaceAvailable = onPreviewSurfaceAvailable,
+                    onPreviewSurfaceDestroyed = onPreviewSurfaceDestroyed,
                 )
                 AppTab.ENGAGEMENT -> EngagementScreen(onOpenSettings = { selectedTab = AppTab.SETTINGS })
                 AppTab.LIBRARY -> LibraryScreen(onOpenStudio = { selectedTab = AppTab.STUDIO })
