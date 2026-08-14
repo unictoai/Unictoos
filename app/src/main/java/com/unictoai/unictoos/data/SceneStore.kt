@@ -33,6 +33,8 @@ class SceneStore(context: Context) {
                             put("name", source.name)
                             put("type", source.type.name)
                             put("enabled", source.enabled)
+                            put("zIndex", source.zIndex)
+                            put("opacity", source.opacity.toDouble())
                         })
                     }
                 })
@@ -62,6 +64,8 @@ class SceneStore(context: Context) {
                     name = sourceJson.optString("name").ifBlank { type.label },
                     type = type,
                     enabled = sourceJson.optBoolean("enabled", true),
+                    zIndex = sourceJson.optInt("zIndex", index),
+                    opacity = sourceJson.optDouble("opacity", 1.0).toFloat().coerceIn(0f, 1f),
                 ),
             )
         }

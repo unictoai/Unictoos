@@ -153,8 +153,30 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             scenes.map { scene ->
                 if (scene.id != sceneId) scene else {
                     val sourceId = "${type.name.lowercase()}-${scene.sources.size + 1}"
-                    scene.copy(sources = scene.sources + Source(sourceId, safeName, type, enabled = true))
+                    scene.copy(sources = scene.sources + Source(sourceId, safeName, type, enabled = true, zIndex = scene.sources.size))
                 }
+            }.also(sceneStore::save)
+        }
+    }
+
+    fun moveSource(sceneId: String, sourceId: String, direction: Int) {
+        _scenes.update { scenes ->
+            scenes.map { scene ->
+                if (scene.id != sceneId) return@map scene
+                val currentIndex = scene.sources.indexOfFirst { it.id == sourceId }
+                val targetIndex = (currentIndex + direction).coerceIn(0, scene.sources.lastIndex)
+                if (currentIndex < 0 || currentIndex == targetIndex) return@map scene
+                val reordered = scene.sources.toMutableList().apply { add(targetIndex, removeAt(currentIndex)) }
+                    .mapIndexed { index, source -> source.copy(zIndex = index) }
+                scene.copy(sources = reordered)
+            }.also(sceneStore::save)
+        }
+    }
+
+    fun setSourceOpacity(sceneId: String, sourceId: String, opacity: Float) {
+        _scenes.update { scenes ->
+            scenes.map { scene ->
+                if (scene.id != sceneId) scene else scene.copy(sources = scene.sources.map { source -> if (source.id == sourceId) source.copy(opacity = opacity.coerceIn(0f, 1f)) else source })
             }.also(sceneStore::save)
         }
     }

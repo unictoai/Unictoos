@@ -16,6 +16,8 @@ data class Source(
     val name: String,
     val type: SourceType,
     val enabled: Boolean = true,
+    val zIndex: Int = 0,
+    val opacity: Float = 1f,
 )
 
 enum class SourceType(val label: String) {

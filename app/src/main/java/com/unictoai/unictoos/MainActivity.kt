@@ -329,6 +329,8 @@ private fun UnictoosApp(
                     onAdd = { showAddScene = true },
                     onToggleSource = vm::toggleSource,
                     onAddSource = vm::addSource,
+                    onMoveSource = vm::moveSource,
+                    onSetSourceOpacity = vm::setSourceOpacity,
                     onOpenStudio = { selectedTab = AppTab.STUDIO },
                 )
                 AppTab.STUDIO -> StudioScreen(
@@ -652,6 +654,8 @@ private fun ScenesScreen(
     onAdd: () -> Unit,
     onToggleSource: (String, String) -> Unit,
     onAddSource: (String, String, SourceType) -> Unit,
+    onMoveSource: (String, String, Int) -> Unit,
+    onSetSourceOpacity: (String, String, Float) -> Unit,
     onOpenStudio: () -> Unit,
 ) {
     var showAddSource by rememberSaveable { mutableStateOf(false) }
@@ -678,7 +682,16 @@ private fun ScenesScreen(
                 Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
                     Column(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
                         selectedScene.sources.forEach { source ->
-                            SourceToggleRow(source.name, source.type.label, source.enabled) { onToggleSource(selectedScene.id, source.id) }
+                            SourceToggleRow(
+                                title = source.name,
+                                type = "${source.type.label} • layer ${source.zIndex + 1}",
+                                enabled = source.enabled,
+                                onClick = { onToggleSource(selectedScene.id, source.id) },
+                                onMoveUp = { onMoveSource(selectedScene.id, source.id, -1) },
+                                onMoveDown = { onMoveSource(selectedScene.id, source.id, 1) },
+                                opacity = source.opacity,
+                                onOpacityChange = { onSetSourceOpacity(selectedScene.id, source.id, it) },
+                            )
                         }
                     }
                 }
@@ -1232,11 +1245,21 @@ private fun SettingToggle(title: String, subtitle: String, checked: Boolean, onC
 }
 
 @Composable
-private fun SourceToggleRow(title: String, type: String, enabled: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun SourceToggleRow(
+    title: String,
+    type: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    onMoveUp: () -> Unit = {},
+    onMoveDown: () -> Unit = {},
+    opacity: Float = 1f,
+    onOpacityChange: (Float) -> Unit = {},
+) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Surface(color = UnictoosPalette.SurfaceRaised, shape = RoundedCornerShape(10.dp)) {
             Icon(
-                if (type == "Camera") Icons.Default.Videocam else if (type == "Screen") Icons.Default.LiveTv else Icons.Default.Dashboard,
+                if (type.startsWith("Camera")) Icons.Default.Videocam else if (type.startsWith("Screen")) Icons.Default.LiveTv else Icons.Default.Dashboard,
                 null,
                 tint = UnictoosPalette.Cyan,
                 modifier = Modifier.padding(8.dp).size(18.dp),
@@ -1247,7 +1270,15 @@ private fun SourceToggleRow(title: String, type: String, enabled: Boolean, onCli
             Text(title, fontWeight = FontWeight.SemiBold)
             Text(type, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
         }
-        Switch(checked = enabled, onCheckedChange = { onClick() })
+        TextButton(onClick = onMoveUp, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("↑") }
+        TextButton(onClick = onMoveDown, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("↓") }
+            Switch(checked = enabled, onCheckedChange = { onClick() })
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Opacity", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(54.dp))
+            androidx.compose.material3.Slider(value = opacity, onValueChange = onOpacityChange, enabled = enabled, modifier = Modifier.weight(1f))
+            Text("${(opacity * 100).toInt()}%", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(42.dp))
+        }
     }
 }
 
