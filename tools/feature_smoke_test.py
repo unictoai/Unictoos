@@ -58,6 +58,7 @@ check("preflight path", "PreflightCard" in UI and "ACCESS_NETWORK_STATE" in MANI
 check("stale enum state is guarded", "firstOrNull { it.name == selectedPlatformName }" in UI)
 check("empty scene state is guarded", "scenes.firstOrNull() ?: Scene(" in MAIN)
 check("AudioRecord security is guarded", "catch (_: SecurityException)" in SERVICE)
+check("microphone probe is off main thread", "withContext(Dispatchers.IO)" in SERVICE and "serviceScope.cancel()" in SERVICE)
 check("foreground start is guarded", "startForegroundSafely" in SERVICE and "catch (error: SecurityException)" in SERVICE)
 check("backup rules exist", (ROOT / "app/src/main/res/xml/data_extraction_rules.xml").exists())
 

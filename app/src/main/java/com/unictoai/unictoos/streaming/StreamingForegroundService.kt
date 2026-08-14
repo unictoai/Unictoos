@@ -41,6 +41,12 @@ import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.SessionSummary
 import com.unictoai.unictoos.domain.StreamStatus
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class StreamingForegroundService : Service(), ConnectChecker {
     private lateinit var genericStream: GenericStream
@@ -54,6 +60,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var reconnectAttempt = 0
     private var startedAtElapsed = 0L
     private lateinit var historyStore: CreatorHistoryStore
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val handler = Handler(Looper.getMainLooper())
     private val projectionManager: MediaProjectionManager by lazy {
@@ -88,8 +95,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_PREPARE_PROJECTION -> prepareProjectionFromIntent(intent)
-            ACTION_PREPARE_CAMERA -> prepareCamera()
+            ACTION_PREPARE_PROJECTION -> serviceScope.launch { prepareProjectionFromIntent(intent) }
+            ACTION_PREPARE_CAMERA -> serviceScope.launch { prepareCamera() }
             ACTION_START -> {
                 if (startForegroundSafely(mediaProjection != null)) startStream(intent.getStringExtra(EXTRA_ENDPOINT).orEmpty())
             }
@@ -105,7 +112,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         return START_NOT_STICKY
     }
 
-    private fun prepareProjectionFromIntent(intent: Intent) {
+    private suspend fun prepareProjectionFromIntent(intent: Intent) {
         if (!startForegroundSafely(includeProjection = true)) return
         if (!hasAudioPermission()) {
             publish(StreamStatus.ERROR, "Microphone permission is not granted")
@@ -143,7 +150,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }.getOrDefault(false)
     }
 
-    private fun prepareCamera() {
+    private suspend fun prepareCamera() {
         if (!startForegroundSafely(includeProjection = false)) return
         if (!hasAudioPermission()) {
             publish(StreamStatus.ERROR, "Microphone permission is not granted")
@@ -177,21 +184,21 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private fun hasAudioPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
-    private fun checkMicrophoneInput(): Boolean {
+    private suspend fun checkMicrophoneInput(): Boolean = withContext(Dispatchers.IO) {
         val bufferSize = AudioRecord.getMinBufferSize(AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-        if (bufferSize <= 0) return false
+        if (bufferSize <= 0) return@withContext false
         val recorder = try {
             AudioRecord(MediaRecorder.AudioSource.MIC, AUDIO_SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize * 2)
         } catch (_: SecurityException) {
-            return false
+            return@withContext false
         } catch (_: IllegalArgumentException) {
-            return false
+            return@withContext false
         }
         if (recorder.state != AudioRecord.STATE_INITIALIZED) {
             recorder.release()
-            return false
+            return@withContext false
         }
-        return runCatching {
+        runCatching {
             recorder.startRecording()
             val samples = ShortArray((bufferSize / 2).coerceAtLeast(256))
             recorder.read(samples, 0, samples.size) > 0
@@ -416,6 +423,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     override fun onDestroy() {
         manualStop = true
+        serviceScope.cancel()
         handler.removeCallbacksAndMessages(null)
         if (::genericStream.isInitialized) {
             if (StreamingStatusBus.state.value.recording) genericStream.stopRecord()
