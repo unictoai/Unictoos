@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.unictoai.unictoos.data.CredentialStore
+import com.unictoai.unictoos.monetization.AdsPolicy
+import com.unictoai.unictoos.monetization.AdsPreferences
 import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
@@ -30,6 +32,7 @@ data class DestinationConfig(
 
 class StudioViewModel(application: Application) : AndroidViewModel(application) {
     private val credentialStore = CredentialStore(application.applicationContext)
+    private val adsPreferences = AdsPreferences(application.applicationContext)
     private val _scenes = MutableStateFlow(
         listOf(
             Scene(
@@ -65,20 +68,35 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     private val _session = MutableStateFlow(StreamSessionState())
     val session: StateFlow<StreamSessionState> = _session.asStateFlow()
+    val adsPolicy: StateFlow<AdsPolicy> = adsPreferences.policy
 
     private val _destination = MutableStateFlow(DestinationConfig())
     val destination: StateFlow<DestinationConfig> = _destination.asStateFlow()
 
+    private val _activePlatform = MutableStateFlow(PlatformPreset.YOUTUBE)
+    val activePlatform: StateFlow<PlatformPreset> = _activePlatform.asStateFlow()
+
     init {
-        val saved = credentialStore.load()
-        _destination.value = DestinationConfig(serverUrl = saved.first, streamKey = saved.second)
+        val saved = credentialStore.load(PlatformPreset.YOUTUBE)
+        _destination.value = DestinationConfig(platform = PlatformPreset.YOUTUBE, serverUrl = saved.first, streamKey = saved.second)
         viewModelScope.launch {
             StreamingStatusBus.state.collect { state -> _session.value = state }
         }
     }
 
+    fun setAdsEnabled(enabled: Boolean) {
+        adsPreferences.setEnabled(enabled)
+    }
+
+    fun selectDestination(platform: PlatformPreset) {
+        _activePlatform.value = platform
+        val saved = credentialStore.load(platform)
+        _destination.value = DestinationConfig(platform = platform, serverUrl = saved.first, streamKey = saved.second)
+    }
+
     fun updateDestination(platform: PlatformPreset, serverUrl: String, streamKey: String) {
-        credentialStore.save(serverUrl, streamKey)
+        credentialStore.save(platform, serverUrl, streamKey)
+        _activePlatform.value = platform
         _destination.value = DestinationConfig(platform, serverUrl, streamKey)
         _destinations.update { destinations ->
             destinations.map { destination ->
@@ -92,9 +110,12 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun clearDestination() {
-        credentialStore.clear()
-        _destination.value = DestinationConfig()
-        _destinations.update { destinations -> destinations.map { it.copy(serverUrl = "", streamKey = "", isConfigured = false) } }
+        val platform = _activePlatform.value
+        credentialStore.clear(platform)
+        _destination.value = DestinationConfig(platform = platform)
+        _destinations.update { destinations -> destinations.map { destination ->
+            if (destination.platform == platform) destination.copy(serverUrl = "", streamKey = "", isConfigured = false) else destination
+        } }
     }
 
     fun addScene(name: String, aspectRatio: AspectRatio = AspectRatio.PORTRAIT) {

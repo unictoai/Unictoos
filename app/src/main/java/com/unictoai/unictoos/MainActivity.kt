@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
@@ -71,6 +72,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -82,6 +84,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -134,7 +137,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             UnictoosTheme {
-                UnictoosApp(onRequestStreamStart = ::requestStreamStart, onStopStream = ::stopStream)
+                UnictoosApp(
+                    onRequestStreamStart = ::requestStreamStart,
+                    onStopStream = ::stopStream,
+                    onToggleMute = ::toggleMute,
+                    onToggleRecording = ::toggleRecording,
+                )
             }
         }
     }
@@ -163,12 +171,30 @@ class MainActivity : ComponentActivity() {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_STOP
         })
     }
+
+    private fun toggleMute() {
+        startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
+            action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_TOGGLE_MUTE
+        })
+    }
+
+    private fun toggleRecording(recording: Boolean) {
+        startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
+            action = if (recording) {
+                com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_STOP_RECORDING
+            } else {
+                com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START_RECORDING
+            }
+        })
+    }
 }
 
 @Composable
 private fun UnictoosApp(
     onRequestStreamStart: (String) -> Unit,
     onStopStream: () -> Unit,
+    onToggleMute: () -> Unit,
+    onToggleRecording: (Boolean) -> Unit,
     vm: StudioViewModel = viewModel(),
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.HOME) }
@@ -178,6 +204,7 @@ private fun UnictoosApp(
     val destinations by vm.destinations.collectAsStateWithLifecycle()
     val session by vm.session.collectAsStateWithLifecycle()
     val destination by vm.destination.collectAsStateWithLifecycle()
+    val adsPolicy by vm.adsPolicy.collectAsStateWithLifecycle()
     val selectedScene = scenes.firstOrNull { it.id == selectedSceneId } ?: scenes.first()
 
     Scaffold(
@@ -211,12 +238,15 @@ private fun UnictoosApp(
                     onGoStudio = { selectedTab = AppTab.STUDIO },
                     onOpenScenes = { selectedTab = AppTab.SCENES },
                     onOpenSettings = { selectedTab = AppTab.SETTINGS },
+                    showAdSlot = adsPolicy.enabled && adsPolicy.consentGranted && session.status != StreamStatus.LIVE,
                 )
                 AppTab.SCENES -> ScenesScreen(
                     scenes = scenes,
                     selectedSceneId = selectedSceneId,
+                    selectedScene = selectedScene,
                     onSelect = { selectedSceneId = it },
                     onAdd = { showAddScene = true },
+                    onToggleSource = vm::toggleSource,
                     onOpenStudio = { selectedTab = AppTab.STUDIO },
                 )
                 AppTab.STUDIO -> StudioScreen(
@@ -225,14 +255,19 @@ private fun UnictoosApp(
                     destination = destination,
                     onStart = { onRequestStreamStart(destination.endpoint) },
                     onStop = onStopStream,
+                    onToggleMute = onToggleMute,
+                    onToggleRecording = { onToggleRecording(session.recording) },
                     onEditScenes = { selectedTab = AppTab.SCENES },
                     onOpenSettings = { selectedTab = AppTab.SETTINGS },
                 )
                 AppTab.LIBRARY -> LibraryScreen()
                 AppTab.SETTINGS -> SettingsScreen(
                     destination = destination,
+                    onSelectPlatform = vm::selectDestination,
                     onSaveDestination = vm::updateDestination,
                     onClearDestination = vm::clearDestination,
+                    adsEnabled = adsPolicy.enabled,
+                    onAdsEnabledChange = vm::setAdsEnabled,
                 )
             }
         }
@@ -289,13 +324,18 @@ private fun HomeScreen(
     onGoStudio: () -> Unit,
     onOpenScenes: () -> Unit,
     onOpenSettings: () -> Unit,
+    showAdSlot: Boolean = false,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        item { BrandHeader("Creator workspace", "Make your moment live") { StatusPill(session.status) } }
+                item {
+            BrandHeader("Creator workspace", "Make your moment live") { StatusPill(session.status) }
+        }
+        if (showAdSlot) item { SponsorBanner() }
+
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -390,8 +430,10 @@ private fun QuickAction(
 private fun ScenesScreen(
     scenes: List<Scene>,
     selectedSceneId: String,
+    selectedScene: Scene,
     onSelect: (String) -> Unit,
     onAdd: () -> Unit,
+    onToggleSource: (String, String) -> Unit,
     onOpenStudio: () -> Unit,
 ) {
     Column(Modifier.fillMaxSize().padding(20.dp)) {
@@ -407,6 +449,18 @@ private fun ScenesScreen(
             items(scenes, key = { it.id }) { scene ->
                 SceneCard(scene, selected = scene.id == selectedSceneId, onClick = { onSelect(scene.id) }, onOpenStudio = onOpenStudio)
             }
+            item {
+                Spacer(Modifier.height(8.dp))
+                SectionHeader("Sources in ${selectedScene.name}", "Tap a source to include or hide it")
+                Spacer(Modifier.height(8.dp))
+                Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
+                    Column(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
+                        selectedScene.sources.forEach { source ->
+                            SourceToggleRow(source.name, source.type.label, source.enabled) { onToggleSource(selectedScene.id, source.id) }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -418,6 +472,8 @@ private fun StudioScreen(
     destination: DestinationConfig,
     onStart: () -> Unit,
     onStop: () -> Unit,
+    onToggleMute: () -> Unit,
+    onToggleRecording: () -> Unit,
     onEditScenes: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -493,6 +549,20 @@ private fun StudioScreen(
         }
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = onToggleMute, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) {
+                    Icon(if (session.microphoneMuted) Icons.Default.MicOff else Icons.Default.Mic, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (session.microphoneMuted) "Unmute" else "Mute")
+                }
+                OutlinedButton(onClick = onToggleRecording, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) {
+                    Icon(Icons.Default.Movie, null)
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (session.recording) "Stop record" else "Record")
+                }
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(onClick = onEditScenes, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) {
                     Icon(Icons.Default.Dashboard, null)
                     Spacer(Modifier.width(6.dp))
@@ -515,15 +585,40 @@ private fun StudioScreen(
 
 @Composable
 private fun LibraryScreen() {
+    val context = LocalContext.current
+    var recordings by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    LaunchedEffect(Unit) {
+        recordings = java.io.File(context.filesDir, "recordings")
+            .listFiles()
+            ?.filter { it.extension.equals("mp4", ignoreCase = true) }
+            ?.sortedByDescending { it.lastModified() }
+            ?.map { it.name }
+            .orEmpty()
+    }
     Column(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         BrandHeader("Your content", "Library")
         Text("Recordings and reusable broadcast assets stay close to your workflow.", color = UnictoosPalette.TextMuted)
-        Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(24.dp)) {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Icon(Icons.Default.Movie, null, tint = UnictoosPalette.VioletBright, modifier = Modifier.size(32.dp))
-                Text("Recordings are coming into the Studio workflow", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-                Text("The local library surface is ready for saved broadcasts, playback, sharing, and cleanup in the next creator-feature pass.", color = UnictoosPalette.TextMuted)
-                FilledTonalButton(onClick = {}, enabled = false) { Text("No recordings yet") }
+        if (recordings.isEmpty()) {
+            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(24.dp)) {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(Icons.Default.Movie, null, tint = UnictoosPalette.VioletBright, modifier = Modifier.size(32.dp))
+                    Text("No recordings yet", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+                    Text("Press Record in Studio. Saved MP4 sessions will appear here in app storage.", color = UnictoosPalette.TextMuted)
+                }
+            }
+        } else {
+            SectionHeader("Saved recordings", "Stored locally on this device")
+            recordings.forEach { name ->
+                Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
+                    Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Movie, null, tint = UnictoosPalette.Cyan)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("MP4 • app-private storage", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
             }
         }
         SectionHeader("Creator assets", "Overlays, intros, and saved scene media")
@@ -536,8 +631,11 @@ private fun LibraryScreen() {
 @Composable
 private fun SettingsScreen(
     destination: DestinationConfig,
+    onSelectPlatform: (PlatformPreset) -> Unit,
     onSaveDestination: (PlatformPreset, String, String) -> Unit,
     onClearDestination: () -> Unit,
+    adsEnabled: Boolean,
+    onAdsEnabledChange: (Boolean) -> Unit,
 ) {
     var microphoneEnabled by rememberSaveable { mutableStateOf(true) }
     var keepAwake by rememberSaveable { mutableStateOf(true) }
@@ -563,7 +661,7 @@ private fun SettingsScreen(
                 items(PlatformPreset.values().toList()) { platform ->
                     FilterChip(
                         selected = selectedPlatform == platform,
-                        onClick = { selectedPlatformName = platform.name },
+                        onClick = { selectedPlatformName = platform.name; onSelectPlatform(platform) },
                         label = { Text(platform.label) },
                     )
                 }
@@ -579,7 +677,7 @@ private fun SettingsScreen(
                         onValueChange = { serverUrl = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("Server URL") },
-                        placeholder = { Text("rtmps://your-ingest-server/app") },
+                        placeholder = { Text(selectedPlatform.serverHint) },
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
                     )
@@ -616,10 +714,36 @@ private fun SettingsScreen(
             }
         }
         item {
+            SectionHeader("Support Unictoos", "Optional app-only sponsor space")
+            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SettingToggle("Show sponsor banners", "Ads may appear in Home or Library only; never inside a live broadcast", adsEnabled, onAdsEnabledChange)
+                    Text("No advertising provider is enabled in this alpha build. Your choice only controls the future app-only slot.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        item {
             SectionHeader("Privacy and trust", "What Unictoos promises")
             TrustRow(Icons.Default.Lock, "Credential protection", "Stream keys stay encrypted on this device")
             TrustRow(Icons.Default.Visibility, "Transparent capture", "Android asks for screen capture permission every time")
             TrustRow(Icons.Default.Warning, "Alpha engine", "Test on a physical device before a public broadcast")
+        }
+    }
+}
+
+@Composable
+private fun SponsorBanner() {
+    Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(18.dp)) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(color = UnictoosPalette.Violet.copy(alpha = 0.22f), shape = RoundedCornerShape(12.dp)) {
+                Icon(Icons.Default.GraphicEq, null, tint = UnictoosPalette.VioletBright, modifier = Modifier.padding(9.dp).size(20.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Optional sponsor space", fontWeight = FontWeight.SemiBold)
+                Text("This banner is app-only and never sent to your stream.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+            }
+            Text("OFFLINE", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -632,6 +756,26 @@ private fun SettingToggle(title: String, subtitle: String, checked: Boolean, onC
             Text(subtitle, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun SourceToggleRow(title: String, type: String, enabled: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Surface(color = UnictoosPalette.SurfaceRaised, shape = RoundedCornerShape(10.dp)) {
+            Icon(
+                if (type == "Camera") Icons.Default.Videocam else if (type == "Screen") Icons.Default.LiveTv else Icons.Default.Dashboard,
+                null,
+                tint = UnictoosPalette.Cyan,
+                modifier = Modifier.padding(8.dp).size(18.dp),
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.SemiBold)
+            Text(type, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+        }
+        Switch(checked = enabled, onCheckedChange = { onClick() })
     }
 }
 

@@ -34,4 +34,20 @@ class StudioDomainTest {
         assertEquals(0, scene.sources.size)
         assertEquals(AspectRatio.PORTRAIT, scene.aspectRatio)
     }
+
+    @Test
+    fun platformPresetsExposeSafeServerHints() {
+        assertTrue(PlatformPreset.YOUTUBE.serverHint.startsWith("rtmps://"))
+        assertTrue(PlatformPreset.TWITCH.serverHint.startsWith("rtmps://"))
+        assertTrue(PlatformPreset.KICK.serverHint.contains("dashboard"))
+    }
+
+    @Test
+    fun streamSessionDefaultsToSafeIdleState() {
+        val session = StreamSessionState()
+        assertEquals(StreamStatus.IDLE, session.status)
+        assertFalse(session.microphoneMuted)
+        assertFalse(session.recording)
+        assertEquals(0, session.reconnectAttempt)
+    }
 }

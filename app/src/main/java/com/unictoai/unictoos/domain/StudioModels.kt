@@ -41,11 +41,11 @@ data class StreamDestination(
     val isConfigured: Boolean = false,
 )
 
-enum class PlatformPreset(val label: String, val helper: String) {
-    YOUTUBE("YouTube", "Paste your YouTube stream key"),
-    TWITCH("Twitch", "Paste your Twitch stream key"),
-    KICK("Kick", "Paste your Kick stream key"),
-    CUSTOM("Custom RTMP", "Use any RTMP or RTMPS destination"),
+enum class PlatformPreset(val label: String, val helper: String, val serverHint: String) {
+    YOUTUBE("YouTube", "Paste your YouTube stream key", "rtmps://a.rtmp.youtube.com/live2"),
+    TWITCH("Twitch", "Paste your Twitch stream key", "rtmps://live.twitch.tv/app"),
+    KICK("Kick", "Paste your Kick stream key", "Copy the current ingest URL from Kick dashboard"),
+    CUSTOM("Custom RTMP", "Use any RTMP or RTMPS destination", "rtmp(s)://your-ingest-server/app"),
 }
 
 enum class StreamStatus {
@@ -64,5 +64,9 @@ data class StreamSessionState(
     val bitrateKbps: Int = 0,
     val fps: Int = 0,
     val droppedFrames: Int = 0,
+    val audioLevel: Int = 0,
+    val microphoneMuted: Boolean = false,
+    val recording: Boolean = false,
+    val reconnectAttempt: Int = 0,
     val message: String? = null,
 )

@@ -1,37 +1,66 @@
 package com.unictoai.unictoos.data
 
 import android.content.Context
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import android.util.Base64
+import com.unictoai.unictoos.domain.PlatformPreset
 import java.nio.ByteBuffer
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
 
 class CredentialStore(context: Context) {
     private val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 
     init {
         ensureKey()
+        migrateLegacyYoutubeCredentials()
     }
 
-    fun save(serverUrl: String, streamKey: String) {
+    fun save(platform: PlatformPreset, serverUrl: String, streamKey: String) {
         preferences.edit()
-            .putString(KEY_SERVER_URL, encrypt(serverUrl))
-            .putString(KEY_STREAM_KEY, encrypt(streamKey))
+            .putString(serverKey(platform), encrypt(serverUrl))
+            .putString(streamKey(platform), encrypt(streamKey))
             .apply()
     }
 
-    fun load(): Pair<String, String> =
-        decrypt(preferences.getString(KEY_SERVER_URL, null)).orEmpty() to
-            decrypt(preferences.getString(KEY_STREAM_KEY, null)).orEmpty()
+    fun load(platform: PlatformPreset): Pair<String, String> =
+        decrypt(preferences.getString(serverKey(platform), null)).orEmpty() to
+            decrypt(preferences.getString(streamKey(platform), null)).orEmpty()
 
-    fun clear() {
-        preferences.edit().remove(KEY_SERVER_URL).remove(KEY_STREAM_KEY).apply()
+    fun clear(platform: PlatformPreset) {
+        preferences.edit()
+            .remove(serverKey(platform))
+            .remove(streamKey(platform))
+            .apply()
     }
+
+    fun save(serverUrl: String, streamKey: String) = save(PlatformPreset.YOUTUBE, serverUrl, streamKey)
+
+    fun load(): Pair<String, String> = load(PlatformPreset.YOUTUBE)
+
+    fun clear() = clear(PlatformPreset.YOUTUBE)
+
+    private fun migrateLegacyYoutubeCredentials() {
+        val hasNew = preferences.contains(serverKey(PlatformPreset.YOUTUBE)) || preferences.contains(streamKey(PlatformPreset.YOUTUBE))
+        val legacyServer = preferences.getString(LEGACY_SERVER_URL, null)
+        val legacyStream = preferences.getString(LEGACY_STREAM_KEY, null)
+        if (!hasNew && (!legacyServer.isNullOrBlank() || !legacyStream.isNullOrBlank())) {
+            preferences.edit()
+                .putString(serverKey(PlatformPreset.YOUTUBE), legacyServer.orEmpty())
+                .putString(streamKey(PlatformPreset.YOUTUBE), legacyStream.orEmpty())
+                .remove(LEGACY_SERVER_URL)
+                .remove(LEGACY_STREAM_KEY)
+                .apply()
+        }
+    }
+
+    private fun serverKey(platform: PlatformPreset) = "${platform.name.lowercase()}_server_url"
+
+    private fun streamKey(platform: PlatformPreset) = "${platform.name.lowercase()}_stream_key"
 
     private fun encrypt(value: String): String {
         if (value.isEmpty()) return ""
@@ -85,9 +114,9 @@ class CredentialStore(context: Context) {
 
     companion object {
         private const val PREFERENCES = "unictoos_secure_credentials"
-        private const val KEY_SERVER_URL = "encrypted_server_url"
-        private const val KEY_STREAM_KEY = "encrypted_stream_key"
         private const val KEY_ALIAS = "unictoos_stream_credentials"
+        private const val LEGACY_SERVER_URL = "encrypted_server_url"
+        private const val LEGACY_STREAM_KEY = "encrypted_stream_key"
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val TAG_BITS = 128
