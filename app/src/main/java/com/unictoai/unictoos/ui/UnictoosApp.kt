@@ -87,6 +87,7 @@ internal fun UnictoosApp(
     val healthHistory by vm.healthHistory.collectAsStateWithLifecycle()
     val destination by vm.destination.collectAsStateWithLifecycle()
     val adsPolicy by vm.adsPolicy.collectAsStateWithLifecycle()
+    val streamQuality by vm.streamQuality.collectAsStateWithLifecycle()
     val selectedScene = scenes.firstOrNull { it.id == selectedSceneId } ?: scenes.firstOrNull() ?: Scene(
         id = "fallback",
         name = "Quick Start",
@@ -129,6 +130,7 @@ internal fun UnictoosApp(
                     session = session,
                     healthHistory = healthHistory,
                     destination = destination,
+                    streamQuality = streamQuality,
                         onStart = {
                             val captureMode = when {
                                 selectedScene.sources.any { it.type == SourceType.SCREEN && it.enabled } -> "screen"
@@ -165,6 +167,9 @@ internal fun UnictoosApp(
                     onClearDestination = vm::clearDestination,
                     adsEnabled = adsPolicy.enabled,
                     onAdsEnabledChange = vm::setAdsEnabled,
+                    streamQuality = streamQuality,
+                    onStreamQualityPreset = vm::setStreamQualityPreset,
+                    onCustomStreamQualityChange = vm::updateCustomStreamQuality,
                 )
             }
         }

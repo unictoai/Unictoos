@@ -7,6 +7,8 @@ import com.unictoai.unictoos.data.CredentialRepository
 import com.unictoai.unictoos.data.CredentialStore
 import com.unictoai.unictoos.data.SceneRepository
 import com.unictoai.unictoos.data.SceneStore
+import com.unictoai.unictoos.data.StreamQualityRepository
+import com.unictoai.unictoos.data.StreamQualityStore
 import com.unictoai.unictoos.monetization.AdsPolicy
 import com.unictoai.unictoos.monetization.AdsPreferences
 import com.unictoai.unictoos.monetization.AdsPreferencesRepository
@@ -19,6 +21,8 @@ import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
+import com.unictoai.unictoos.domain.StreamQuality
+import com.unictoai.unictoos.domain.StreamQualityPreset
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,6 +44,7 @@ class StudioViewModel(
     private val credentialStore: CredentialRepository = CredentialStore(application.applicationContext),
     private val sceneStore: SceneRepository = SceneStore(application.applicationContext),
     private val adsPreferences: AdsPreferencesRepository = AdsPreferences(application.applicationContext),
+    private val streamQualityStore: StreamQualityRepository = StreamQualityStore(application.applicationContext),
 ) : AndroidViewModel(application) {
     private val _scenes = MutableStateFlow(
         listOf(
@@ -79,6 +84,9 @@ class StudioViewModel(
     val healthHistory: StateFlow<List<StreamHealthSample>> = StreamingStatusBus.healthHistory
     val adsPolicy: StateFlow<AdsPolicy> = adsPreferences.policy
 
+    private val _streamQuality = MutableStateFlow(streamQualityStore.load())
+    val streamQuality: StateFlow<StreamQuality> = _streamQuality.asStateFlow()
+
     private val _destination = MutableStateFlow(DestinationConfig())
     val destination: StateFlow<DestinationConfig> = _destination.asStateFlow()
 
@@ -96,6 +104,26 @@ class StudioViewModel(
 
     fun setAdsEnabled(enabled: Boolean) {
         adsPreferences.setEnabled(enabled)
+    }
+
+    fun setStreamQualityPreset(preset: StreamQualityPreset) {
+        val quality = if (preset == StreamQualityPreset.CUSTOM) {
+            _streamQuality.value.copy(preset = preset).validated()
+        } else {
+            preset.toQuality()
+        }
+        _streamQuality.value = quality
+        streamQualityStore.save(quality)
+    }
+
+    fun updateCustomStreamQuality(bitrate: Int, fps: Int) {
+        val quality = _streamQuality.value.copy(
+            preset = StreamQualityPreset.CUSTOM,
+            bitrate = bitrate,
+            fps = fps,
+        ).validated()
+        _streamQuality.value = quality
+        streamQualityStore.save(quality)
     }
 
     fun selectDestination(platform: PlatformPreset) {

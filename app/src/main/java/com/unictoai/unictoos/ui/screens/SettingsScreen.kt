@@ -87,6 +87,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -120,6 +121,8 @@ import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
+import com.unictoai.unictoos.domain.StreamQuality
+import com.unictoai.unictoos.domain.StreamQualityPreset
 import com.unictoai.unictoos.ui.theme.UnictoosPalette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
 import com.unictoai.unictoos.DestinationConfig
@@ -136,6 +139,9 @@ internal fun SettingsScreen(
     onClearDestination: () -> Unit,
     adsEnabled: Boolean,
     onAdsEnabledChange: (Boolean) -> Unit,
+    streamQuality: StreamQuality,
+    onStreamQualityPreset: (StreamQualityPreset) -> Unit,
+    onCustomStreamQualityChange: (Int, Int) -> Unit,
 ) {
     val context = LocalContext.current
     var microphoneEnabled by rememberSaveable { mutableStateOf(true) }
@@ -218,6 +224,13 @@ internal fun SettingsScreen(
             }
         }
         item {
+            StreamQualitySettingsCard(
+                quality = streamQuality,
+                onPresetSelected = onStreamQualityPreset,
+                onCustomChanged = onCustomStreamQualityChange,
+            )
+        }
+        item {
             SectionHeader("Device controls", "Permissions and broadcast behavior")
             Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -241,6 +254,72 @@ internal fun SettingsScreen(
             TrustRow(Icons.Default.Lock, "Credential protection", "Stream keys stay encrypted on this device")
             TrustRow(Icons.Default.Visibility, "Transparent capture", "Android asks for screen capture permission every time")
             TrustRow(Icons.Default.Warning, "Alpha engine", "Test on a physical device before a public broadcast")
+        }
+    }
+}
+
+
+@Composable
+private fun StreamQualitySettingsCard(
+    quality: StreamQuality,
+    onPresetSelected: (StreamQualityPreset) -> Unit,
+    onCustomChanged: (Int, Int) -> Unit,
+) {
+    var customBitrate by rememberSaveable(quality.bitrate) { mutableStateOf(quality.bitrate / 1_000_000f) }
+    var customFps by rememberSaveable(quality.fps) { mutableStateOf(quality.fps) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionHeader("Stream quality", "Choose the picture profile used when the next session is prepared")
+        Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(StreamQualityPreset.values().toList()) { preset ->
+                        FilterChip(
+                            selected = quality.preset == preset,
+                            onClick = {
+                                onPresetSelected(preset)
+                                if (preset != StreamQualityPreset.CUSTOM) {
+                                    customBitrate = preset.bitrate / 1_000_000f
+                                    customFps = preset.fps
+                                }
+                            },
+                            label = { Text(preset.label) },
+                        )
+                    }
+                }
+                Text(quality.preset.description, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "${quality.width} × ${quality.height} • ${quality.fps} FPS • ${"%.1f".format(quality.bitrateMbps)} Mbps",
+                    color = UnictoosPalette.TextMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (quality.preset == StreamQualityPreset.FULL_HD_HIGH_FPS || quality.preset == StreamQualityPreset.FULL_HD) {
+                    Text("1080p needs a strong, stable upload connection.", color = UnictoosPalette.Amber, style = MaterialTheme.typography.bodySmall)
+                }
+                if (quality.preset == StreamQualityPreset.CUSTOM) {
+                    Text("Custom bitrate: ${"%.1f".format(customBitrate)} Mbps", style = MaterialTheme.typography.labelLarge)
+                    Slider(
+                        value = customBitrate,
+                        onValueChange = { customBitrate = it },
+                        onValueChangeFinished = { onCustomChanged((customBitrate * 1_000_000).toInt(), customFps) },
+                        valueRange = 1f..8f,
+                        steps = 6,
+                    )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(24, 30, 60).forEach { fps ->
+                            FilterChip(
+                                selected = customFps == fps,
+                                onClick = {
+                                    customFps = fps
+                                    onCustomChanged((customBitrate * 1_000_000).toInt(), fps)
+                                },
+                                label = { Text("${fps} FPS") },
+                            )
+                        }
+                    }
+                }
+                Text("Changes apply when the next capture session is prepared.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
+            }
         }
     }
 }

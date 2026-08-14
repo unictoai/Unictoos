@@ -10,6 +10,9 @@ import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.domain.StreamStatus
+import com.unictoai.unictoos.domain.StreamQuality
+import com.unictoai.unictoos.domain.StreamQualityPreset
+import com.unictoai.unictoos.data.StreamQualityRepository
 import com.unictoai.unictoos.monetization.AdsPreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,6 +34,7 @@ class StudioViewModelBehaviorTest {
     private lateinit var credentials: FakeCredentialRepository
     private lateinit var scenes: FakeSceneRepository
     private lateinit var ads: FakeAdsPreferences
+    private lateinit var quality: FakeStreamQualityRepository
     private lateinit var viewModel: StudioViewModel
 
     @Before
@@ -39,7 +43,8 @@ class StudioViewModelBehaviorTest {
         credentials = FakeCredentialRepository()
         scenes = FakeSceneRepository()
         ads = FakeAdsPreferences()
-        viewModel = StudioViewModel(Application(), credentials, scenes, ads)
+        quality = FakeStreamQualityRepository()
+        viewModel = StudioViewModel(Application(), credentials, scenes, ads, quality)
     }
 
     @After
@@ -180,6 +185,16 @@ private class FakeSceneRepository : SceneRepository {
 
     override fun save(scenes: List<Scene>) {
         saved += scenes
+    }
+}
+
+private class FakeStreamQualityRepository : StreamQualityRepository {
+    var value = StreamQualityPreset.BALANCED.toQuality()
+
+    override fun load(): StreamQuality = value
+
+    override fun save(quality: StreamQuality) {
+        value = quality
     }
 }
 

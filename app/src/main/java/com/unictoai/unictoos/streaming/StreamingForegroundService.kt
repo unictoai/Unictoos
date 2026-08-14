@@ -34,6 +34,8 @@ import com.pedro.library.util.sources.video.NoVideoSource
 import com.pedro.library.util.sources.video.ScreenSource
 import com.unictoai.unictoos.R
 import com.unictoai.unictoos.data.CreatorHistoryStore
+import com.unictoai.unictoos.data.StreamQualityStore
+import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.SessionMode
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamMarker
@@ -60,6 +62,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var reconnectAttempt = 0
     private var startedAtElapsed = 0L
     private lateinit var historyStore: CreatorHistoryStore
+    private lateinit var streamQuality: StreamQuality
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val handler = Handler(Looper.getMainLooper())
@@ -82,12 +85,13 @@ class StreamingForegroundService : Service(), ConnectChecker {
     override fun onCreate() {
         super.onCreate()
         historyStore = CreatorHistoryStore(applicationContext)
+        streamQuality = StreamQualityStore(applicationContext).load()
         createNotificationChannel()
         genericStream = GenericStream(this, this, NoVideoSource(), NoAudioSource()).apply {
-            getGlInterface().setForceRender(true, VIDEO_FPS)
+            getGlInterface().setForceRender(true, streamQuality.fps)
         }
         prepared = runCatching {
-            genericStream.prepareVideo(VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_BITRATE, rotation = 0) &&
+            genericStream.prepareVideo(streamQuality.width, streamQuality.height, streamQuality.bitrate, rotation = 0) &&
                 genericStream.prepareAudio(AUDIO_SAMPLE_RATE, false, AUDIO_BITRATE, echoCanceler = true, noiseSuppressor = true)
         }.getOrDefault(false)
         if (!prepared) publish(StreamStatus.ERROR, "This device cannot prepare the requested capture profile")
@@ -358,7 +362,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         StreamingStatusBus.update(
             previous.copy(
                 status = status,
-                fps = if (status == StreamStatus.LIVE) VIDEO_FPS else previous.fps,
+                fps = if (status == StreamStatus.LIVE) streamQuality.fps else previous.fps,
                 reconnectAttempt = reconnectAttempt,
                 message = message,
             ),
@@ -482,10 +486,6 @@ class StreamingForegroundService : Service(), ConnectChecker {
         const val EXTRA_MARKER_LABEL = "extra_marker_label"
         private const val CHANNEL_ID = "unictoos-broadcasting"
         private const val NOTIFICATION_ID = 4101
-        private const val VIDEO_WIDTH = 720
-        private const val VIDEO_HEIGHT = 1280
-        private const val VIDEO_FPS = 30
-        private const val VIDEO_BITRATE = 4_500_000
         private const val AUDIO_SAMPLE_RATE = 44_100
         private const val AUDIO_BITRATE = 128_000
         private const val MAX_RECONNECT_ATTEMPTS = 3

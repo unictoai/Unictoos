@@ -119,6 +119,7 @@ import com.unictoai.unictoos.data.CreatorHistoryStore
 import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
+import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.StreamStatus
 import com.unictoai.unictoos.ui.theme.UnictoosPalette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
@@ -134,6 +135,7 @@ internal fun StudioScreen(
     session: StreamSessionState,
     healthHistory: List<StreamHealthSample>,
     destination: DestinationConfig,
+    streamQuality: StreamQuality,
     onStart: () -> Unit,
     onPractice: () -> Unit,
     onStop: () -> Unit,
@@ -157,6 +159,10 @@ internal fun StudioScreen(
                 Text("•", color = UnictoosPalette.TextMuted)
                 Spacer(Modifier.width(8.dp))
                 Text(scene.aspectRatio.label, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.width(8.dp))
+                Surface(color = UnictoosPalette.Cyan.copy(alpha = 0.13f), shape = RoundedCornerShape(50)) {
+                    Text(streamQuality.displayName, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), color = UnictoosPalette.Cyan, style = MaterialTheme.typography.labelSmall)
+                }
             }
         }
         item {
