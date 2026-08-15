@@ -2,6 +2,7 @@ package com.unictoai.unictoos.streaming
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import com.unictoai.unictoos.domain.DestinationId
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -16,6 +17,25 @@ class StreamingDiagnosticsTest {
         assertFalse(detail.contains("abc"))
         assertFalse(detail.contains("xyz"))
         assertTrue(detail.contains("REDACTED") || detail.contains("ENDPOINT_REDACTED"))
+    }
+
+    @Test
+    fun storesOptionalDestinationAndNetworkMetadata() {
+        StreamingDiagnostics.clear()
+        StreamingDiagnostics.record(
+            sessionId = "session-2",
+            generation = 8L,
+            event = "connection_failed",
+            detail = "socket disconnected",
+            destinationId = DestinationId.TWITCH,
+            networkEpoch = 3L,
+            elapsedRealtimeMs = 42L,
+        )
+
+        val diagnostic = StreamingDiagnostics.snapshot().single()
+        assertEquals(DestinationId.TWITCH, diagnostic.destinationId)
+        assertEquals(3L, diagnostic.networkEpoch)
+        assertEquals(42L, diagnostic.elapsedRealtimeMs)
     }
 
     @Test
