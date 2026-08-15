@@ -120,7 +120,8 @@ import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
-import com.unictoai.unictoos.ui.theme.UnictoosPalette
+import com.unictoai.unictoos.ui.theme.Spacing
+import com.unictoai.unictoos.ui.theme.V02Palette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
 import com.unictoai.unictoos.ui.components.AddSourceDialog
 import com.unictoai.unictoos.ui.components.BrandHeader
@@ -144,7 +145,7 @@ internal fun ScenesScreen(
     onOpenStudio: () -> Unit,
 ) {
     var showAddSource by rememberSaveable { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize().padding(20.dp)) {
+    Column(Modifier.fillMaxSize().padding(Spacing.xl)) {
         BrandHeader("Your layouts", "Scenes") {
             FilledTonalButton(onClick = onAdd, shape = RoundedCornerShape(12.dp)) {
                 Icon(Icons.Default.Add, "Create scene", modifier = Modifier.size(18.dp))
@@ -152,21 +153,21 @@ internal fun ScenesScreen(
                 Text("New scene")
             }
         }
-        Spacer(Modifier.height(8.dp))
-        Text("Build a repeatable look for every kind of broadcast.", color = UnictoosPalette.TextMuted)
-        Spacer(Modifier.height(18.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Spacer(Modifier.height(Spacing.sm))
+        Text("Build a repeatable look for every kind of broadcast.", color = V02Palette.Neutral500)
+        Spacer(Modifier.height(Spacing.lg))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             items(scenes, key = { it.id }) { scene ->
                 SceneCard(scene, selected = scene.id == selectedSceneId, onClick = { onSelect(scene.id) }, onOpenStudio = onOpenStudio)
             }
             item {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Spacing.sm))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     SectionHeader("Sources in ${selectedScene.name}", "Tap a source to include or hide it")
                     TextButton(onClick = { showAddSource = true }) { Text("Add source") }
                 }
-                Spacer(Modifier.height(8.dp))
-                Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
+                Spacer(Modifier.height(Spacing.sm))
+                Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
                     Column(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
                         selectedScene.sources.forEach { source ->
                             SourceToggleRow(
