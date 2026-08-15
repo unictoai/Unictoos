@@ -120,7 +120,8 @@ import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
-import com.unictoai.unictoos.ui.theme.UnictoosPalette
+import com.unictoai.unictoos.ui.theme.Spacing
+import com.unictoai.unictoos.ui.theme.V02Palette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
 import com.unictoai.unictoos.ui.components.BrandHeader
 import com.unictoai.unictoos.ui.components.SectionHeader
@@ -130,29 +131,29 @@ import com.unictoai.unictoos.ui.components.ReadinessRow
 @Composable
 internal fun EngagementScreen(onOpenSettings: () -> Unit = {}) {
     var selectedChannel by rememberSaveable { mutableStateOf("All") }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.lg)) {
         item {
             BrandHeader("Community control", "Engage") { StatusPill(StreamStatus.IDLE) }
             Spacer(Modifier.height(6.dp))
-            Text("Bring chat, alerts, and creator actions into one calm mobile workspace.", color = UnictoosPalette.TextMuted)
+            Text("Bring chat, alerts, and creator actions into one calm mobile workspace.", color = V02Palette.Neutral500)
         }
         item {
-            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(24.dp)) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(24.dp)) {
+                Column(Modifier.padding(Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column {
                             Text("Unified inbox", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text("Chat, events, and alerts in one view", color = UnictoosPalette.TextMuted)
+                            Text("Chat, events, and alerts in one view", color = V02Palette.Neutral500)
                         }
-                        Icon(Icons.AutoMirrored.Filled.Chat, null, tint = UnictoosPalette.Cyan, modifier = Modifier.size(30.dp))
+                        Icon(Icons.AutoMirrored.Filled.Chat, null, tint = V02Palette.Neutral300, modifier = Modifier.size(30.dp))
                     }
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         items(listOf("All", "YouTube", "Twitch", "Kick")) { channel ->
                             FilterChip(selected = selectedChannel == channel, onClick = { selectedChannel = channel }, label = { Text(channel) })
                         }
                     }
-                    Text("No accounts connected", color = UnictoosPalette.Amber, fontWeight = FontWeight.SemiBold)
-                    Text("Connect OAuth accounts to read chat and events. Stream keys remain separate and are never used as chat credentials.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    Text("No accounts connected", color = V02Palette.Caution, fontWeight = FontWeight.SemiBold)
+                    Text("Connect OAuth accounts to read chat and events. Stream keys remain separate and are never used as chat credentials.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                     TextButton(onClick = onOpenSettings) {
                         Icon(Icons.Default.Settings, contentDescription = null)
                         Spacer(Modifier.width(6.dp))
@@ -165,8 +166,8 @@ internal fun EngagementScreen(onOpenSettings: () -> Unit = {}) {
         items(PlatformPreset.values().toList()) { platform -> IntegrationCard(platform) }
         item {
             SectionHeader("Events and alerts", "Ready for provider adapters")
-            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     ReadinessRow("Follows, subscriptions, cheers, raids", "Event connection", false)
                     ReadinessRow("Pinned chat and quick replies", "Explicit send scope", false)
                     ReadinessRow("Clips and stream markers", "Platform API", false)
@@ -175,11 +176,11 @@ internal fun EngagementScreen(onOpenSettings: () -> Unit = {}) {
         }
         item {
             SectionHeader("Moderation desk", "Every action requires an explicit provider permission")
-            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text("Moderation stays out of the media path", fontWeight = FontWeight.SemiBold)
-                    Text("Blocked terms, AutoMod review, timeouts, bans, slow mode, shield mode, and message deletion will be connected only after OAuth scopes and audit logging are in place.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
-                    Text("No provider actions are available while disconnected.", color = UnictoosPalette.Amber, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Text("Blocked terms, AutoMod review, timeouts, bans, slow mode, shield mode, and message deletion will be connected only after OAuth scopes and audit logging are in place.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                    Text("No provider actions are available while disconnected.", color = V02Palette.Caution, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -188,15 +189,15 @@ internal fun EngagementScreen(onOpenSettings: () -> Unit = {}) {
 
 @Composable
 internal fun IntegrationCard(platform: PlatformPreset) {
-    Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface), shape = RoundedCornerShape(18.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(18.dp)) {
         Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(color = UnictoosPalette.Violet.copy(alpha = 0.20f), shape = RoundedCornerShape(12.dp)) { Text(platform.label.take(1), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = UnictoosPalette.VioletBright, fontWeight = FontWeight.Bold) }
+            Surface(color = V02Palette.AccentBlue.copy(alpha = 0.20f), shape = RoundedCornerShape(12.dp)) { Text(platform.label.take(1), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = V02Palette.AccentBlue, fontWeight = FontWeight.Bold) }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(platform.label, fontWeight = FontWeight.SemiBold)
-                Text(if (platform == PlatformPreset.CUSTOM) "Custom RTMP only" else "Stream key works now • OAuth tools are separate", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                Text(if (platform == PlatformPreset.CUSTOM) "Custom RTMP only" else "Stream key works now • OAuth tools are separate", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
             }
-            Text("READY".takeIf { platform != PlatformPreset.CUSTOM } ?: "MANUAL", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text("READY".takeIf { platform != PlatformPreset.CUSTOM } ?: "MANUAL", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
         }
     }
 }
