@@ -12,7 +12,7 @@ The current build remains an **alpha engineering milestone**. It compiles and pa
 
 ## Latest test build
 
-The latest published Priority 1 device-test build is **Unictoos v0.2.0-alpha5** with Android `versionCode 23`. It contains the explicit Fix-button capture-pipeline cleanup and is published for physical-device validation. [Download the APK from GitHub Releases](https://github.com/unictoai/Unictoos/releases/tag/v0.2.0-alpha5) or [download the APK directly](https://github.com/unictoai/Unictoos/releases/download/v0.2.0-alpha5/unictoos-v0.2.0-alpha5-debug.apk).
+The latest published engineering-remediation device-test build is **Unictoos v0.2.0-alpha6** with Android `versionCode 24`. It combines lifecycle serialization, explicit failed-pipeline release, recording finalization, bounded scene geometry, settings locking, and redacted diagnostics for physical-device validation. [Download the APK from GitHub Releases](https://github.com/unictoai/Unictoos/releases/tag/v0.2.0-alpha6) or [download the APK directly](https://github.com/unictoai/Unictoos/releases/download/v0.2.0-alpha6/unictoos-v0.2.0-alpha6-debug.apk).
 
 ## Build locally
 
