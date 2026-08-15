@@ -777,10 +777,16 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
     }
 
+    private fun estimateRecordingBytes(): Long {
+        val expectedSeconds = AutoStopStore(applicationContext).load().seconds.takeIf { it > 0L } ?: 600L
+        val bitsPerSecond = (streamQuality.bitrate + audioSettings.bitrate).toLong()
+        return (bitsPerSecond * expectedSeconds / 8L * 1.20f).toLong().coerceAtLeast(MIN_RECORDING_BYTES)
+    }
+
     private fun hasRecordingStorage(): Boolean {
         val stats = StatFs(filesDir.absolutePath)
         val availableBytes = stats.availableBlocksLong * stats.blockSizeLong
-        return availableBytes >= MIN_RECORDING_BYTES
+        return availableBytes >= estimateRecordingBytes()
     }
 
     private fun runEndpointPreflight(endpoint: String): Boolean {
@@ -816,6 +822,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
             isCharging = charging,
             thermalStatus = thermalStatus,
             minimumStorageBytes = MIN_RECORDING_BYTES,
+            storageMode = if (practice) StorageSessionMode.PRACTICE_RECORDING else StorageSessionMode.STREAM_ONLY,
+            estimatedRecordingBytes = if (practice) estimateRecordingBytes() else 0L,
         )
         val result = when (profileResult) {
             PreflightResult.Ready -> environmentResult

@@ -7,6 +7,12 @@ sealed interface PreflightResult {
     data class Blocked(val message: String) : PreflightResult
 }
 
+enum class StorageSessionMode {
+    STREAM_ONLY,
+    STREAM_PLUS_RECORDING,
+    PRACTICE_RECORDING,
+}
+
 object StreamPreflight {
     fun validateEndpoint(endpoint: String, practice: Boolean): PreflightResult {
         if (practice) return PreflightResult.Ready
@@ -33,9 +39,16 @@ object StreamPreflight {
         isCharging: Boolean,
         thermalStatus: Int,
         minimumStorageBytes: Long,
+        storageMode: StorageSessionMode = StorageSessionMode.STREAM_ONLY,
+        estimatedRecordingBytes: Long = 0L,
     ): PreflightResult {
         if (!networkAvailable) return PreflightResult.Blocked("No network connection is available")
-        if (availableStorageBytes < minimumStorageBytes) return PreflightResult.Blocked("Not enough storage is available for a safe session")
+        val requiredStorageBytes = when (storageMode) {
+            StorageSessionMode.STREAM_ONLY -> 0L
+            StorageSessionMode.STREAM_PLUS_RECORDING, StorageSessionMode.PRACTICE_RECORDING ->
+                maxOf(minimumStorageBytes, estimatedRecordingBytes)
+        }
+        if (availableStorageBytes < requiredStorageBytes) return PreflightResult.Blocked("Not enough storage is available for a safe session")
         if (batteryPercent in 0..9 && !isCharging) return PreflightResult.Blocked("Battery is below 10%. Connect a charger before streaming")
         if (thermalStatus >= android.os.PowerManager.THERMAL_STATUS_CRITICAL) return PreflightResult.Blocked("Device temperature is too high to start a stable session")
         return PreflightResult.Ready

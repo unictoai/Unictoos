@@ -39,6 +39,35 @@ class StreamPreflightTest {
     }
 
     @Test
+    fun streamOnlyDoesNotRequireRecordingStorage() {
+        val result = StreamPreflight.validateEnvironment(
+            networkAvailable = true,
+            availableStorageBytes = 1L,
+            batteryPercent = 80,
+            isCharging = false,
+            thermalStatus = android.os.PowerManager.THERMAL_STATUS_NONE,
+            minimumStorageBytes = 64L * 1024L * 1024L,
+            storageMode = StorageSessionMode.STREAM_ONLY,
+        )
+        assertTrue(result is PreflightResult.Ready)
+    }
+
+    @Test
+    fun practiceRecordingRequiresEstimatedStorage() {
+        val result = StreamPreflight.validateEnvironment(
+            networkAvailable = true,
+            availableStorageBytes = 32L * 1024L * 1024L,
+            batteryPercent = 80,
+            isCharging = false,
+            thermalStatus = android.os.PowerManager.THERMAL_STATUS_NONE,
+            minimumStorageBytes = 64L * 1024L * 1024L,
+            storageMode = StorageSessionMode.PRACTICE_RECORDING,
+            estimatedRecordingBytes = 128L * 1024L * 1024L,
+        )
+        assertEquals(PreflightResult.Blocked("Not enough storage is available for a safe session"), result)
+    }
+
+    @Test
     fun acceptsTheDefaultProfile() {
         val result = StreamPreflight.validateProfile(StreamQualityPreset.BALANCED.toQuality())
         assertTrue(result is PreflightResult.Ready)
