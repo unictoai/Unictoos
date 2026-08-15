@@ -21,6 +21,7 @@ class PreviewSurfaceView @JvmOverloads constructor(
     }
 
     private var listener: Listener? = null
+    private var lastSurface: Surface? = null
 
     private val callback = object : SurfaceHolder.Callback {
         override fun surfaceCreated(holder: SurfaceHolder) {
@@ -32,6 +33,7 @@ class PreviewSurfaceView @JvmOverloads constructor(
         }
 
         override fun surfaceDestroyed(holder: SurfaceHolder) {
+            lastSurface = null
             listener?.onSurfaceDestroyed(holder.surface)
         }
     }
@@ -50,7 +52,21 @@ class PreviewSurfaceView @JvmOverloads constructor(
 
     private fun notifyAvailable(holder: SurfaceHolder) {
         if (holder.surface.isValid && width > 0 && height > 0) {
+            lastSurface = holder.surface
             listener?.onSurfaceAvailable(holder.surface, width, height)
         }
+    }
+
+    override fun onDetachedFromWindow() {
+        lastSurface?.let { surface -> listener?.onSurfaceDestroyed(surface) }
+        lastSurface = null
+        listener = null
+        holder.removeCallback(callback)
+        super.onDetachedFromWindow()
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        holder.addCallback(callback)
     }
 }
