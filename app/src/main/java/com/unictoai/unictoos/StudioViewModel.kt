@@ -28,6 +28,7 @@ import com.unictoai.unictoos.domain.AudioQuality
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
+import com.unictoai.unictoos.domain.SceneGeometryPolicy
 import com.unictoai.unictoos.domain.Source
 import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.domain.StreamDestination
@@ -39,6 +40,9 @@ import com.unictoai.unictoos.domain.StreamQualityPreset
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.unictoai.unictoos.streaming.StreamingStatusBus
@@ -118,6 +122,15 @@ class StudioViewModel @JvmOverloads constructor(
     val destinations: StateFlow<List<StreamDestination>> = _destinations.asStateFlow()
 
     private val _session = MutableStateFlow(StreamSessionState())
+    private var scenePersistenceJob: Job? = null
+
+    private fun scheduleScenePersistence() {
+        scenePersistenceJob?.cancel()
+        scenePersistenceJob = viewModelScope.launch(Dispatchers.IO) {
+            delay(350L)
+            sceneStore.save(_scenes.value)
+        }
+    }
     val session: StateFlow<StreamSessionState> = _session.asStateFlow()
     val healthHistory: StateFlow<List<StreamHealthSample>> = StreamingStatusBus.healthHistory
     val adsPolicy: StateFlow<AdsPolicy> = adsPreferences.policy
@@ -281,9 +294,11 @@ class StudioViewModel @JvmOverloads constructor(
         _scenes.update { scenes ->
             scenes.map { scene ->
                 if (scene.id != sceneId) return@map scene
+                if (scene.sources.isEmpty()) return@map scene
                 val currentIndex = scene.sources.indexOfFirst { it.id == sourceId }
+                if (currentIndex < 0) return@map scene
                 val targetIndex = (currentIndex + direction).coerceIn(0, scene.sources.lastIndex)
-                if (currentIndex < 0 || currentIndex == targetIndex) return@map scene
+                if (currentIndex == targetIndex) return@map scene
                 val reordered = scene.sources.toMutableList().apply { add(targetIndex, removeAt(currentIndex)) }
                     .mapIndexed { index, source -> source.copy(zIndex = index) }
                 scene.copy(sources = reordered)
@@ -301,25 +316,28 @@ class StudioViewModel @JvmOverloads constructor(
                         } else source
                     },
                 )
-            }.also(sceneStore::save)
+            }
         }
+        scheduleScenePersistence()
     }
 
     fun setSourceGeometry(sceneId: String, sourceId: String, x: Float, y: Float, width: Float, height: Float) {
+        val geometry = SceneGeometryPolicy.clamp(x, y, width, height)
         _scenes.update { scenes ->
             scenes.map { scene ->
                 if (scene.id != sceneId) scene else scene.copy(
                     sources = scene.sources.map { source ->
                         if (source.id != sourceId) source else source.copy(
-                            x = x.coerceIn(0f, 0.95f),
-                            y = y.coerceIn(0f, 0.95f),
-                            width = width.coerceIn(0.05f, 1f),
-                            height = height.coerceIn(0.05f, 1f),
+                            x = geometry.x,
+                            y = geometry.y,
+                            width = geometry.width,
+                            height = geometry.height,
                         )
                     },
                 )
-            }.also(sceneStore::save)
+            }
         }
+        scheduleScenePersistence()
     }
 
     fun setSourceOpacity(sceneId: String, sourceId: String, opacity: Float) {

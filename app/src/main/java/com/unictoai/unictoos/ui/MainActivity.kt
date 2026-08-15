@@ -60,6 +60,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+        pendingEndpoint = savedInstanceState?.getString(KEY_PENDING_ENDPOINT).orEmpty()
+        pendingSceneJson = savedInstanceState?.getString(KEY_PENDING_SCENE_JSON).orEmpty()
+        pendingCaptureMode = savedInstanceState?.getString(KEY_PENDING_CAPTURE_MODE) ?: CAPTURE_SCREEN
+        pendingPractice = savedInstanceState?.getBoolean(KEY_PENDING_PRACTICE) ?: false
         setContent {
             UnictoosTheme {
                 UnictoosApp(
@@ -77,6 +81,14 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString(KEY_PENDING_ENDPOINT, pendingEndpoint)
+        outState.putString(KEY_PENDING_SCENE_JSON, pendingSceneJson)
+        outState.putString(KEY_PENDING_CAPTURE_MODE, pendingCaptureMode)
+        outState.putBoolean(KEY_PENDING_PRACTICE, pendingPractice)
+        super.onSaveInstanceState(outState)
     }
 
     internal fun requestStreamStart(endpoint: String, captureMode: String, sceneJson: String) {
@@ -211,5 +223,9 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val CAPTURE_SCREEN = "screen"
         private const val CAPTURE_CAMERA = "camera"
+        private const val KEY_PENDING_ENDPOINT = "pending_endpoint"
+        private const val KEY_PENDING_SCENE_JSON = "pending_scene_json"
+        private const val KEY_PENDING_CAPTURE_MODE = "pending_capture_mode"
+        private const val KEY_PENDING_PRACTICE = "pending_practice"
     }
 }
