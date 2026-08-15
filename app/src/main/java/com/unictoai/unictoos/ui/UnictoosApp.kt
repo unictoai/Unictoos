@@ -58,7 +58,8 @@ import com.unictoai.unictoos.ui.screens.MoreScreen
 import com.unictoai.unictoos.ui.screens.ScenesScreen
 import com.unictoai.unictoos.ui.screens.SettingsScreen
 import com.unictoai.unictoos.ui.screens.StudioScreen
-import com.unictoai.unictoos.ui.theme.UnictoosPalette
+import com.unictoai.unictoos.ui.theme.MotionTokens
+import com.unictoai.unictoos.ui.theme.V02Palette
 
 internal enum class AppTab(val label: String) {
     HOME("Home"),
@@ -116,7 +117,7 @@ internal fun UnictoosApp(
     }
 
     Scaffold(
-        containerColor = UnictoosPalette.Ink,
+        containerColor = V02Palette.Neutral950,
         bottomBar = {
             UnictoosBottomBar(selectedTab = selectedTab, onSelect = { selectedTab = it })
         },
@@ -124,7 +125,7 @@ internal fun UnictoosApp(
         Box(Modifier.fillMaxSize().padding(padding)) {
             AnimatedContent(
                 targetState = selectedTab,
-                transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(180)) },
+                transitionSpec = { fadeIn(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)) togetherWith fadeOut(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)) },
                 label = "tabTransition",
             ) { tab ->
             when (tab) {
@@ -292,8 +293,8 @@ private fun StudioRoute(
 @Composable
 internal fun UnictoosBottomBar(selectedTab: AppTab, onSelect: (AppTab) -> Unit) {
     NavigationBar(
-        modifier = Modifier.animateContentSize(tween(220)),
-        containerColor = UnictoosPalette.InkSoft,
+        modifier = Modifier.animateContentSize(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)),
+        containerColor = V02Palette.Neutral900,
         tonalElevation = 8.dp,
     ) {
         listOf(AppTab.HOME, AppTab.STUDIO, AppTab.SCENES, AppTab.LIBRARY, AppTab.MORE).forEach { tab ->
@@ -303,11 +304,11 @@ internal fun UnictoosBottomBar(selectedTab: AppTab, onSelect: (AppTab) -> Unit) 
                 icon = { Icon(tab.icon(), contentDescription = tab.label) },
                 label = { Text(tab.label, maxLines = 1) },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = Color.White,
-                    selectedTextColor = UnictoosPalette.TextPrimary,
-                    indicatorColor = UnictoosPalette.Violet.copy(alpha = 0.24f),
-                    unselectedIconColor = UnictoosPalette.TextMuted,
-                    unselectedTextColor = UnictoosPalette.TextMuted,
+                    selectedIconColor = V02Palette.OnAccent,
+                    selectedTextColor = V02Palette.Neutral100,
+                    indicatorColor = V02Palette.AccentBlue.copy(alpha = 0.24f),
+                    unselectedIconColor = V02Palette.Neutral500,
+                    unselectedTextColor = V02Palette.Neutral500,
                 ),
             )
         }
