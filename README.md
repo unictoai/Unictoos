@@ -12,7 +12,7 @@ The current build remains an **alpha engineering milestone**. It compiles and pa
 
 ## Latest test build
 
-The latest architecture build is **Unictoos v0.2.4** with Android `versionCode 30`. It adds the independent RootEncoder MultiStream destination-slot foundation inspired by static analysis of the user-provided LiveLens APK, while retaining the mobile-first UI, the v0.2.3 onboarding, the v0.2.2 stream-format options, and the Infinix X6853 preview-free stability fallback. The MultiStream manager is not yet wired into live capture; simultaneous multistreaming remains gated behind physical single-pipeline validation. [Review the v0.2.4 architecture notes](V024_LIVELENS_INSPIRED_ARCHITECTURE.md). The installable retest APK will be published as a clearly labeled prerelease after validation.
+The latest architecture build is **Unictoos v0.2.5** with Android `versionCode 31`. It migrates the single-destination foreground service from the GenericStream owner to a compatibility wrapper backed by RootEncoder’s shared-encoder MultiStream API, while retaining the mobile-first UI, the v0.2.3 onboarding, the v0.2.2 stream-format options, and the Infinix X6853 preview-free stability fallback. This build still enables only one destination; simultaneous multistreaming remains gated behind physical single-pipeline validation. Review `V024_LIVELENS_INSPIRED_ARCHITECTURE.md` and `RELEASE_NOTES_v0.2.5.md` for the migration boundary. The installable retest APK will be published as a clearly labeled prerelease after validation.
 
 ## Build locally
 
@@ -57,7 +57,7 @@ Platform OAuth, unified chat, alerts, scheduling, thumbnails, metadata publishin
 
 The application is organized around a Compose UI layer, shared domain models, a ViewModel state layer, a Keystore-backed credential store, an app-only ads policy, and a foreground media service. The service owns MediaProjection, microphone capture, hardware encoding, RootEncoder transport, recording, reconnect scheduling, notifications, and cleanup. The UI observes a process-local status bus for connection, bitrate, live, error, recording, mute, and disconnect states.
 
-The project uses [RootEncoder](https://github.com/pedroSG94/RootEncoder) under its Apache-2.0 license for the open-source RTMP/RTMPS/media pipeline integration. v0.2.4 adds a bounded adapter around RootEncoder’s open `MultiStream` API as the foundation for future shared-encoder destination fan-out. See `V024_LIVELENS_INSPIRED_ARCHITECTURE.md` and `THIRD_PARTY_NOTICES.md` for the migration boundary and dependency attribution.
+The project uses [RootEncoder](https://github.com/pedroSG94/RootEncoder) under its Apache-2.0 license for the open-source RTMP/RTMPS/media pipeline integration. v0.2.5 uses a bounded single-slot adapter around RootEncoder’s open `MultiStream` API at runtime; the v0.2.4 destination manager remains the foundation for future shared-encoder fan-out. See `V024_LIVELENS_INSPIRED_ARCHITECTURE.md`, `RELEASE_NOTES_v0.2.5.md`, and `THIRD_PARTY_NOTICES.md` for the migration boundary and dependency attribution.
 
 ## Advertising policy
 

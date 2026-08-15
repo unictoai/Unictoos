@@ -30,12 +30,9 @@ import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.pedro.common.ConnectChecker
 import com.pedro.library.base.recording.RecordController
-import com.pedro.library.generic.GenericStream
 import com.pedro.library.view.RenderErrorCallback
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
-import com.pedro.encoder.input.sources.audio.NoAudioSource
 import com.pedro.encoder.input.sources.video.Camera2Source
-import com.pedro.encoder.input.sources.video.NoVideoSource
 import com.pedro.encoder.input.sources.video.ScreenSource
 import com.unictoai.unictoos.R
 import com.unictoai.unictoos.data.CreatorHistoryStore
@@ -66,7 +63,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class StreamingForegroundService : Service(), ConnectChecker {
-    private lateinit var genericStream: GenericStream
+    private lateinit var genericStream: SingleDestinationMultiStreamAdapter
     private var mediaProjection: MediaProjection? = null
     private var intentionallyReleasingProjection = false
     private var microphoneSource: MicrophoneSource? = null
@@ -190,11 +187,11 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
     }
 
-    private fun createGenericStream(): GenericStream {
+    private fun createGenericStream(): SingleDestinationMultiStreamAdapter {
         val generation = sessionGeneration.incrementAndGet()
         graphicsFailureRequested.set(false)
         StreamingDiagnostics.record(currentSessionId, generation, "pipeline_created")
-        return GenericStream(this, GenerationConnectChecker(generation), NoVideoSource(), NoAudioSource()).apply {
+        return SingleDestinationMultiStreamAdapter(this, GenerationConnectChecker(generation)).apply {
             // Camera2Source and ScreenSource deliver SurfaceTexture frames themselves. A periodic
             // ForceRenderer adds a second render producer and can queue redundant GL work on devices
             // with slower encoder/EGL drivers. prepareVideo already enables RootEncoder's FPS limiter.
