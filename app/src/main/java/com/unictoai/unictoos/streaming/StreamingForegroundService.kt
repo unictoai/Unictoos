@@ -691,6 +691,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun releaseCaptureAfterFailure() {
+        graphicsFailureRequested.set(true)
         manualStop = true
         pendingStart = null
         reconnectScheduled = false
