@@ -68,6 +68,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var microphoneSource: MicrophoneSource? = null
     private var cameraSource: Camera2Source? = null
     private var prepared = false
+    private var genericStreamReleased = false
     private var captureReady = false
     private var previewSurface: Surface? = null
     private var previewWidth = 0
@@ -210,7 +211,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private suspend fun releaseCapturePipelineForReprepare() {
         releasePreviewForCaptureChange()
         releaseProjection()
-        if (::genericStream.isInitialized) runCatching { genericStream.release() }
+        if (::genericStream.isInitialized && !genericStreamReleased) {
+            runCatching { genericStream.release() }.onSuccess { genericStreamReleased = true }
+        }
         runCatching { microphoneSource?.release() }
         runCatching { cameraSource?.release() }
         microphoneSource = null
@@ -220,6 +223,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         prepared = false
         delay(GL_PIPELINE_SHUTDOWN_SETTLE_MS)
         genericStream = createGenericStream()
+        genericStreamReleased = false
         prepared = prepareGenericStream()
     }
 
@@ -256,6 +260,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             ACTION_START_RECORDING -> startRecording()
             ACTION_STOP_RECORDING -> stopRecording()
             ACTION_DISMISS_STATUS -> dismissStatusMessage()
+            ACTION_RELEASE_CAPTURE -> releaseCaptureAfterFailure()
             ACTION_ENCODER_GRAPHICS_FAILURE -> handleEncoderGraphicsFailure()
         }
         return START_NOT_STICKY
@@ -571,27 +576,58 @@ class StreamingForegroundService : Service(), ConnectChecker {
         stopSelf()
     }
 
+    private fun releaseCaptureAfterFailure() {
+        manualStop = true
+        pendingStart = null
+        reconnectScheduled = false
+        handler.removeCallbacksAndMessages(null)
+        releaseFailedPipeline()
+        resetTelemetryForInactiveSession()
+        StreamingStatusBus.update(
+            StreamingStatusBus.state.value.copy(
+                status = StreamStatus.IDLE,
+                captureReady = false,
+                previewReady = false,
+                recording = false,
+                message = "Capture resources released. Start capture again",
+            ),
+        )
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    private fun releaseFailedPipeline() {
+        releasePreviewForCaptureChange()
+        releaseProjection()
+        if (::genericStream.isInitialized && !genericStreamReleased) {
+            runCatching { if (StreamingStatusBus.state.value.recording) genericStream.stopRecord() }
+            runCatching { if (genericStream.isStreaming) genericStream.stopStream() }
+            runCatching { genericStream.release() }.onSuccess { genericStreamReleased = true }
+        }
+        runCatching { microphoneSource?.release() }
+        runCatching { cameraSource?.release() }
+        microphoneSource = null
+        cameraSource = null
+        captureReady = false
+        prepared = false
+        previewAttached = false
+        previewSurface = null
+        previewWidth = 0
+        previewHeight = 0
+        activeRecordingFile = null
+        currentEndpoint = ""
+        startedAtElapsed = 0L
+        SystemClock.sleep(GL_PIPELINE_SHUTDOWN_SETTLE_MS)
+    }
+
     private fun handleEncoderGraphicsFailure() {
         manualStop = true
         pendingStart = null
         reconnectScheduled = false
         handler.removeCallbacksAndMessages(null)
-        releasePreviewForCaptureChange()
-        if (::genericStream.isInitialized) {
-            runCatching { if (StreamingStatusBus.state.value.recording) genericStream.stopRecord() }
-            runCatching { if (genericStream.isStreaming) genericStream.stopStream() }
-        }
-        microphoneSource?.release()
-        cameraSource?.release()
-        releaseProjection()
-        microphoneSource = null
-        cameraSource = null
-        captureReady = false
-        currentEndpoint = ""
-        activeRecordingFile = null
-        startedAtElapsed = 0L
+        releaseFailedPipeline()
         resetTelemetryForInactiveSession()
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        updateNotification("Graphics resources released • tap Fix to retry")
         StreamingStatusBus.update(
             StreamingStatusBus.state.value.copy(
                 status = StreamStatus.ERROR,
@@ -601,7 +637,6 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 message = EncoderCrashPolicy.GRAPHICS_RESOURCE_MESSAGE,
             ),
         )
-        stopSelf()
     }
 
     private fun createMarker(label: String) {
@@ -998,6 +1033,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         const val ACTION_START_RECORDING = "com.unictoai.unictoos.action.START_RECORDING"
         const val ACTION_STOP_RECORDING = "com.unictoai.unictoos.action.STOP_RECORDING"
         const val ACTION_DISMISS_STATUS = "com.unictoai.unictoos.action.DISMISS_STATUS"
+        const val ACTION_RELEASE_CAPTURE = "com.unictoai.unictoos.action.RELEASE_CAPTURE"
         const val ACTION_ENCODER_GRAPHICS_FAILURE = "com.unictoai.unictoos.action.ENCODER_GRAPHICS_FAILURE"
         const val EXTRA_RESULT_CODE = "extra_result_code"
         const val EXTRA_PROJECTION_DATA = "extra_projection_data"

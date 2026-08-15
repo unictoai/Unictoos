@@ -161,6 +161,7 @@ internal fun StudioScreen(
     onDismissStatusMessage: () -> Unit,
     onEditScenes: () -> Unit,
     onOpenSettings: () -> Unit,
+    onReleaseCapture: () -> Unit,
     onPreviewSurfaceAvailable: (Surface, Int, Int) -> Unit,
     onPreviewSurfaceDestroyed: (Surface) -> Unit,
 ) {
@@ -278,7 +279,7 @@ internal fun StudioScreen(
                 }
             }
         }
-        if (session.status == StreamStatus.ERROR) item { SessionErrorCard(session.message.orEmpty(), onOpenSettings) }
+        if (session.status == StreamStatus.ERROR) item { SessionErrorCard(session.message.orEmpty(), onReleaseCapture) }
         if (session.message?.contains("Reduced quality", ignoreCase = true) == true || session.message?.contains("quality raised", ignoreCase = true) == true) {
             item {
                 Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Caution.copy(alpha = 0.14f)), shape = RoundedCornerShape(18.dp)) {

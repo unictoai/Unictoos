@@ -66,6 +66,7 @@ class MainActivity : ComponentActivity() {
                     onRequestStreamStart = ::requestStreamStart,
                     onRequestPracticeStart = ::requestPracticeStart,
                     onStopStream = ::stopStream,
+                    onReleaseCapture = ::releaseCapture,
                     onToggleMute = ::toggleMute,
                     onToggleRecording = ::toggleRecording,
                     onCreateMarker = ::createMarker,
@@ -147,6 +148,12 @@ class MainActivity : ComponentActivity() {
     internal fun stopStream() {
         startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_STOP
+        })
+    }
+
+    internal fun releaseCapture() {
+        startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
+            action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_RELEASE_CAPTURE
         })
     }
 
