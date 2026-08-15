@@ -12,7 +12,7 @@ The current build remains an **alpha engineering milestone**. It compiles and pa
 
 ## Latest test build
 
-The latest published engineering-remediation device-test build is **Unictoos v0.2.0-alpha8** with Android `versionCode 26`. It retains synchronous GL failure teardown and removes the redundant periodic ForceRenderer during active camera and screen streaming to reduce duplicate render work on slower Android 15 GPU/EGL drivers. [Download the APK from GitHub Releases](https://github.com/unictoai/Unictoos/releases/tag/v0.2.0-alpha8) or [download the APK directly](https://github.com/unictoai/Unictoos/releases/download/v0.2.0-alpha8/unictoos-v0.2.0-alpha8-debug.apk).
+The latest device-test build is **Unictoos v0.2.1** with Android `versionCode 27`. It introduces the rebuilt mobile-first Studio workspace, a bounded preview graphics buffer, and a device-scoped live-preview isolation path for the affected Infinix X6853 while preserving secure credentials, platform destinations, recording, scenes, and diagnostics. [Download the APK from GitHub Releases](https://github.com/unictoai/Unictoos/releases/tag/v0.2.1) or [download the APK directly](https://github.com/unictoai/Unictoos/releases/download/v0.2.1/unictoos-v0.2.1-debug.apk).
 
 ## Build locally
 
