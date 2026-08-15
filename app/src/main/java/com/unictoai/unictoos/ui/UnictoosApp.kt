@@ -36,6 +36,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -119,6 +120,22 @@ internal fun UnictoosApp(
             sources = emptyList(),
         )
     }
+    val context = LocalContext.current
+    var showOnboarding by remember {
+        mutableStateOf(!context.getSharedPreferences(ONBOARDING_PREFERENCES, android.content.Context.MODE_PRIVATE).getBoolean(ONBOARDING_COMPLETE, false))
+    }
+    if (showOnboarding) {
+        OnboardingScreen(
+            onFinished = {
+                context.getSharedPreferences(ONBOARDING_PREFERENCES, android.content.Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(ONBOARDING_COMPLETE, true)
+                    .apply()
+                showOnboarding = false
+            },
+        )
+        return
+    }
 
     Scaffold(
         containerColor = UnictoosPalette.Ink,
@@ -164,6 +181,7 @@ internal fun UnictoosApp(
                     streamQuality = streamQuality,
                     audioSettings = audioSettings,
                     autoStopDuration = autoStopDuration,
+                    onAspectRatioChange = { ratio -> vm.setSceneAspectRatio(selectedScene.id, ratio) },
                     onRequestStreamStart = onRequestStreamStart,
                     onRequestPracticeStart = onRequestPracticeStart,
                     onStopStream = onStopStream,
@@ -252,6 +270,7 @@ private fun StudioRoute(
     streamQuality: StreamQuality,
     audioSettings: AudioSettings,
     autoStopDuration: AutoStopDuration,
+    onAspectRatioChange: (AspectRatio) -> Unit,
     onRequestStreamStart: (String, String, String) -> Unit,
     onRequestPracticeStart: (String, String) -> Unit,
     onStopStream: () -> Unit,
@@ -283,6 +302,7 @@ private fun StudioRoute(
         audioSettings = audioSettings,
         autoStopDuration = autoStopDuration,
         onAutoStopDurationChange = vm::setAutoStopDuration,
+        onAspectRatioChange = onAspectRatioChange,
         onStart = { onRequestStreamStart(destination.endpoint, captureMode, com.unictoai.unictoos.streaming.ScenePayloadCodec.encode(scene)) },
         onPractice = { onRequestPracticeStart(captureMode, com.unictoai.unictoos.streaming.ScenePayloadCodec.encode(scene)) },
         onStop = onStopStream,
@@ -297,6 +317,9 @@ private fun StudioRoute(
         onPreviewSurfaceDestroyed = onPreviewSurfaceDestroyed,
     )
 }
+
+private const val ONBOARDING_PREFERENCES = "unictoos_onboarding"
+private const val ONBOARDING_COMPLETE = "complete"
 
 @Composable
 internal fun UnictoosBottomBar(selectedTab: AppTab, onSelect: (AppTab) -> Unit) {

@@ -254,6 +254,14 @@ class StudioViewModel @JvmOverloads constructor(
         } }
     }
 
+    fun setSceneAspectRatio(sceneId: String, aspectRatio: AspectRatio) {
+        _scenes.update { scenes ->
+            scenes.map { scene ->
+                if (scene.id == sceneId) scene.copy(aspectRatio = aspectRatio) else scene
+            }.also(sceneStore::save)
+        }
+    }
+
     fun addScene(name: String, aspectRatio: AspectRatio = AspectRatio.PORTRAIT) {
         val safeName = name.trim().ifBlank { "New Scene" }
         _scenes.update { current ->

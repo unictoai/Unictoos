@@ -73,6 +73,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.unictoai.unictoos.DestinationConfig
+import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.AutoStopDuration
 import com.unictoai.unictoos.domain.Scene
@@ -100,6 +101,7 @@ internal fun StudioScreen(
     audioSettings: AudioSettings,
     autoStopDuration: AutoStopDuration,
     onAutoStopDurationChange: (AutoStopDuration) -> Unit,
+    onAspectRatioChange: (AspectRatio) -> Unit,
     onStart: () -> Unit,
     onPractice: () -> Unit,
     onStop: () -> Unit,
@@ -218,8 +220,10 @@ internal fun StudioScreen(
         item {
             SessionPreferences(
                 autoStopDuration = autoStopDuration,
+                aspectRatio = scene.aspectRatio,
                 enabled = !isActive,
                 onAutoStopDurationChange = onAutoStopDurationChange,
+                onAspectRatioChange = onAspectRatioChange,
                 onEditScenes = onEditScenes,
                 onOpenSettings = onOpenSettings,
             )
@@ -423,8 +427,10 @@ private fun SessionHealthCard(session: StreamSessionState, history: List<StreamH
 @Composable
 private fun SessionPreferences(
     autoStopDuration: AutoStopDuration,
+    aspectRatio: AspectRatio,
     enabled: Boolean,
     onAutoStopDurationChange: (AutoStopDuration) -> Unit,
+    onAspectRatioChange: (AspectRatio) -> Unit,
     onEditScenes: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -440,6 +446,12 @@ private fun SessionPreferences(
             }
             AnimatedVisibility(visible = expanded, enter = fadeIn(tween(MotionTokens.standard)) + slideInVertically(tween(MotionTokens.standard)) { it / 4 }) {
                 Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text("Stream format", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelMedium)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        AspectRatio.values().forEach { format ->
+                            FilterChip(selected = format == aspectRatio, onClick = { onAspectRatioChange(format) }, enabled = enabled, label = { Text("${format.ratio} ${format.label}") })
+                        }
+                    }
                     Text("Auto-stop", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelMedium)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         AutoStopDuration.values().forEach { duration ->
