@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.unictoai.unictoos.StudioViewModel
+import com.unictoai.unictoos.StudioViewModelFactory
 import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
@@ -58,8 +59,7 @@ import com.unictoai.unictoos.ui.screens.MoreScreen
 import com.unictoai.unictoos.ui.screens.ScenesScreen
 import com.unictoai.unictoos.ui.screens.SettingsScreen
 import com.unictoai.unictoos.ui.screens.StudioScreen
-import com.unictoai.unictoos.ui.theme.MotionTokens
-import com.unictoai.unictoos.ui.theme.V02Palette
+import com.unictoai.unictoos.ui.theme.UnictoosPalette
 
 internal enum class AppTab(val label: String) {
     HOME("Home"),
@@ -81,6 +81,8 @@ internal fun AppTab.icon() = when (this) {
     AppTab.SETTINGS -> Icons.Default.Settings
 }
 
+private val studioViewModelFactory = StudioViewModelFactory()
+
 @Composable
 internal fun UnictoosApp(
     onRequestStreamStart: (String, String, String) -> Unit,
@@ -93,7 +95,7 @@ internal fun UnictoosApp(
     onShareConfig: (String) -> Unit,
     onPreviewSurfaceAvailable: (Surface, Int, Int) -> Unit,
     onPreviewSurfaceDestroyed: (Surface) -> Unit,
-    vm: StudioViewModel = viewModel(),
+    vm: StudioViewModel = viewModel(factory = studioViewModelFactory),
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.HOME) }
     var selectedSceneId by rememberSaveable { mutableStateOf("starting-soon") }
@@ -117,7 +119,7 @@ internal fun UnictoosApp(
     }
 
     Scaffold(
-        containerColor = V02Palette.Neutral950,
+        containerColor = UnictoosPalette.Ink,
         bottomBar = {
             UnictoosBottomBar(selectedTab = selectedTab, onSelect = { selectedTab = it })
         },
@@ -125,7 +127,7 @@ internal fun UnictoosApp(
         Box(Modifier.fillMaxSize().padding(padding)) {
             AnimatedContent(
                 targetState = selectedTab,
-                transitionSpec = { fadeIn(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)) togetherWith fadeOut(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)) },
+                transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(180)) },
                 label = "tabTransition",
             ) { tab ->
             when (tab) {
@@ -293,8 +295,8 @@ private fun StudioRoute(
 @Composable
 internal fun UnictoosBottomBar(selectedTab: AppTab, onSelect: (AppTab) -> Unit) {
     NavigationBar(
-        modifier = Modifier.animateContentSize(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)),
-        containerColor = V02Palette.Neutral900,
+        modifier = Modifier.animateContentSize(tween(220)),
+        containerColor = UnictoosPalette.InkSoft,
         tonalElevation = 8.dp,
     ) {
         listOf(AppTab.HOME, AppTab.STUDIO, AppTab.SCENES, AppTab.LIBRARY, AppTab.MORE).forEach { tab ->
@@ -304,11 +306,11 @@ internal fun UnictoosBottomBar(selectedTab: AppTab, onSelect: (AppTab) -> Unit) 
                 icon = { Icon(tab.icon(), contentDescription = tab.label) },
                 label = { Text(tab.label, maxLines = 1) },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = V02Palette.OnAccent,
-                    selectedTextColor = V02Palette.Neutral100,
-                    indicatorColor = V02Palette.AccentBlue.copy(alpha = 0.24f),
-                    unselectedIconColor = V02Palette.Neutral500,
-                    unselectedTextColor = V02Palette.Neutral500,
+                    selectedIconColor = Color.White,
+                    selectedTextColor = UnictoosPalette.TextPrimary,
+                    indicatorColor = UnictoosPalette.Violet.copy(alpha = 0.24f),
+                    unselectedIconColor = UnictoosPalette.TextMuted,
+                    unselectedTextColor = UnictoosPalette.TextMuted,
                 ),
             )
         }
