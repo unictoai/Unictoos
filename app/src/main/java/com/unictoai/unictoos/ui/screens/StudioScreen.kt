@@ -169,6 +169,8 @@ internal fun StudioScreen(
             PreviewCard(
                 session = session,
                 previewListener = previewListener,
+                encoderWidth = streamQuality.width,
+                encoderHeight = streamQuality.height,
             )
         }
         if (session.status == StreamStatus.ERROR) {
@@ -229,12 +231,20 @@ internal fun StudioScreen(
 private fun PreviewCard(
     session: StreamSessionState,
     previewListener: PreviewSurfaceView.Listener,
+    encoderWidth: Int,
+    encoderHeight: Int,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.Black), shape = RoundedCornerShape(24.dp)) {
         Box(Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) {
             AndroidView(
-                factory = { context -> PreviewSurfaceView(context).apply { setPreviewListener(previewListener) } },
-                update = { it.setPreviewListener(previewListener) },
+                factory = { context -> PreviewSurfaceView(context).apply {
+                    setPreviewBufferLimit(encoderWidth, encoderHeight)
+                    setPreviewListener(previewListener)
+                } },
+                update = { view ->
+                    view.setPreviewBufferLimit(encoderWidth, encoderHeight)
+                    view.setPreviewListener(previewListener)
+                },
                 onRelease = { it.releasePreviewListener() },
                 modifier = Modifier.fillMaxSize(),
             )
