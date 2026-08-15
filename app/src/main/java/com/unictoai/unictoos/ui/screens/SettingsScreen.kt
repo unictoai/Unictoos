@@ -126,7 +126,8 @@ import com.unictoai.unictoos.domain.StreamQualityPreset
 import com.unictoai.unictoos.domain.AudioQuality
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.LatencyMode
-import com.unictoai.unictoos.ui.theme.UnictoosPalette
+import com.unictoai.unictoos.ui.theme.Spacing
+import com.unictoai.unictoos.ui.theme.V02Palette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
 import com.unictoai.unictoos.DestinationConfig
 import com.unictoai.unictoos.ui.components.BrandHeader
@@ -165,18 +166,18 @@ internal fun SettingsScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(Spacing.xl),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
     ) {
         item {
             BrandHeader("Control center", "Settings")
             Spacer(Modifier.height(6.dp))
-            Text("Keep your broadcast setup simple, secure, and ready to repeat.", color = UnictoosPalette.TextMuted)
+            Text("Keep your broadcast setup simple, secure, and ready to repeat.", color = V02Palette.Neutral500)
         }
         item {
             SectionHeader("Destination", "Choose where Unictoos should send your broadcast")
             Spacer(Modifier.height(10.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 items(PlatformPreset.values().toList()) { platform ->
                     FilterChip(
                         selected = selectedPlatform == platform,
@@ -187,10 +188,10 @@ internal fun SettingsScreen(
             }
         }
         item {
-            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
+                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text(selectedPlatform.helper, fontWeight = FontWeight.SemiBold)
-                    Text("Use the current ingest URL shown in your platform dashboard. Never share your stream key in screenshots or logs.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    Text("Use the current ingest URL shown in your platform dashboard. Never share your stream key in screenshots or logs.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(
                         value = serverUrl,
                         onValueChange = { serverUrl = it },
@@ -216,7 +217,7 @@ internal fun SettingsScreen(
                     }
                     if (destination.isConfigured) {
                         TextButton(onClick = onClearDestination, modifier = Modifier.fillMaxWidth()) {
-                            Text("Remove saved destination", color = UnictoosPalette.Danger)
+                            Text("Remove saved destination", color = V02Palette.Danger)
                         }
                     }
                     val dashboardUrl = when (selectedPlatform) {
@@ -255,21 +256,21 @@ internal fun SettingsScreen(
         }
         item {
             SectionHeader("Device controls", "Permissions and broadcast behavior")
-            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
+                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                     SettingToggle("Microphone", "Check audio access before going live", microphoneEnabled) { microphoneEnabled = it }
-                    HorizontalDivider(color = UnictoosPalette.Stroke)
+                    HorizontalDivider(color = V02Palette.Neutral700)
                     SettingToggle("Keep screen awake", "Prevent the display from sleeping in Studio", keepAwake) { keepAwake = it }
-                    HorizontalDivider(color = UnictoosPalette.Stroke)
+                    HorizontalDivider(color = V02Palette.Neutral700)
                     SettingToggle("Automatic thermal protection", "Lower live bitrate when the device is running hot", thermalProtectionEnabled, onThermalProtectionChange)
                 }
             }
         }
         item {
             SectionHeader("Backup and export", "Share scenes and destination metadata without stream keys")
-            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Create a JSON backup of scene layouts and ingest URLs. Stream keys are always omitted.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
+                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                    Text("Create a JSON backup of scene layouts and ingest URLs. Stream keys are always omitted.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                     FilledTonalButton(onClick = onExportConfig, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
                         Icon(Icons.Default.Share, contentDescription = null)
                         Spacer(Modifier.width(7.dp))
@@ -280,10 +281,10 @@ internal fun SettingsScreen(
         }
         item {
             SectionHeader("Support Unictoos", "Optional app-only sponsor space")
-            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     SettingToggle("Show sponsor banners", "Ads may appear in Home or Library only; never inside a live broadcast", adsEnabled, onAdsEnabledChange)
-                    Text("No advertising provider is enabled in this alpha build. Your choice only controls the future app-only slot.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    Text("No advertising provider is enabled in this alpha build. Your choice only controls the future app-only slot.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -306,11 +307,11 @@ private fun StreamQualitySettingsCard(
     var customBitrate by rememberSaveable(quality.bitrate) { mutableStateOf(quality.bitrate / 1_000_000f) }
     var customFps by rememberSaveable(quality.fps) { mutableStateOf(quality.fps) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         SectionHeader("Stream quality", "Choose the picture profile used when the next session is prepared")
-        Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
+            Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     items(StreamQualityPreset.values().toList()) { preset ->
                         FilterChip(
                             selected = quality.preset == preset,
@@ -328,11 +329,11 @@ private fun StreamQualitySettingsCard(
                 Text(quality.preset.description, fontWeight = FontWeight.SemiBold)
                 Text(
                     "${quality.width} × ${quality.height} • ${quality.fps} FPS • ${"%.1f".format(quality.bitrateMbps)} Mbps",
-                    color = UnictoosPalette.TextMuted,
+                    color = V02Palette.Neutral500,
                     style = MaterialTheme.typography.bodySmall,
                 )
                 if (quality.preset == StreamQualityPreset.FULL_HD_HIGH_FPS || quality.preset == StreamQualityPreset.FULL_HD) {
-                    Text("1080p needs a strong, stable upload connection.", color = UnictoosPalette.Amber, style = MaterialTheme.typography.bodySmall)
+                    Text("1080p needs a strong, stable upload connection.", color = V02Palette.Caution, style = MaterialTheme.typography.bodySmall)
                 }
                 if (quality.preset == StreamQualityPreset.CUSTOM) {
                     Text("Custom bitrate: ${"%.1f".format(customBitrate)} Mbps", style = MaterialTheme.typography.labelLarge)
@@ -343,7 +344,7 @@ private fun StreamQualitySettingsCard(
                         valueRange = 1f..8f,
                         steps = 6,
                     )
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         listOf(24, 30, 60).forEach { fps ->
                             FilterChip(
                                 selected = customFps == fps,
@@ -356,7 +357,7 @@ private fun StreamQualitySettingsCard(
                         }
                     }
                 }
-                Text("Changes apply when the next capture session is prepared.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
+                Text("Changes apply when the next capture session is prepared.", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -370,11 +371,11 @@ private fun AudioSettingsCard(
     onEchoChange: (Boolean) -> Unit,
     onNoiseChange: (Boolean) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         SectionHeader("Audio quality", "Tune voice detail and microphone cleanup for the next session")
-        Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
+            Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     AudioQuality.values().forEach { option ->
                         FilterChip(
                             selected = settings.quality == option,
@@ -383,12 +384,12 @@ private fun AudioSettingsCard(
                         )
                     }
                 }
-                Text(settings.quality.description, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
-                HorizontalDivider(color = UnictoosPalette.Stroke)
+                Text(settings.quality.description, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                HorizontalDivider(color = V02Palette.Neutral700)
                 SettingToggle("Echo cancellation", "Reduce acoustic feedback when monitoring nearby", settings.echoCanceler, onEchoChange)
-                HorizontalDivider(color = UnictoosPalette.Stroke)
+                HorizontalDivider(color = V02Palette.Neutral700)
                 SettingToggle("Noise suppression", "Reduce steady background noise from the microphone", settings.noiseSuppressor, onNoiseChange)
-                Text("Some Android devices may not support every audio effect identically.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
+                Text("Some Android devices may not support every audio effect identically.", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -397,11 +398,11 @@ private fun AudioSettingsCard(
 
 @Composable
 private fun LatencyModeCard(mode: LatencyMode, onModeChange: (LatencyMode) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         SectionHeader("Latency mode", "Choose interaction speed or upload resilience")
-        Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
+            Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     LatencyMode.values().forEach { option ->
                         FilterChip(
                             selected = mode == option,
@@ -410,8 +411,8 @@ private fun LatencyModeCard(mode: LatencyMode, onModeChange: (LatencyMode) -> Un
                         )
                     }
                 }
-                Text(mode.description, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
-                Text("Applied when the next capture session is prepared; low latency can be less forgiving on weak upload.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
+                Text(mode.description, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                Text("Applied when the next capture session is prepared; low latency can be less forgiving on weak upload.", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
             }
         }
     }
