@@ -122,7 +122,8 @@ import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
-import com.unictoai.unictoos.ui.theme.UnictoosPalette
+import com.unictoai.unictoos.ui.theme.Spacing
+import com.unictoai.unictoos.ui.theme.V02Palette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
 import com.unictoai.unictoos.ui.components.BrandHeader
 import com.unictoai.unictoos.ui.components.ReadinessRow
@@ -187,18 +188,18 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(Spacing.xl),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
     ) {
         item {
             BrandHeader("Your content", "Library")
             Spacer(Modifier.height(6.dp))
-            Text("Recordings stay on this device until you choose to share them.", color = UnictoosPalette.TextMuted)
+            Text("Recordings stay on this device until you choose to share them.", color = V02Palette.Neutral500)
         }
         item {
             SectionHeader("Creator analytics", "Local history only")
-            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     ReadinessRow("Completed sessions", sessionSummaries.size.toString(), sessionSummaries.isNotEmpty())
                     ReadinessRow("Marked moments", markerCount.toString(), markerCount > 0)
                     ReadinessRow("Latest session", sessionSummaries.lastOrNull() ?: "No completed sessions", sessionSummaries.isNotEmpty())
@@ -207,32 +208,32 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
         }
         item {
             SectionHeader("Stream health history", "Persisted locally from completed sessions")
-            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     if (healthSamples.isEmpty()) {
-                        Text("Health samples will appear after your first completed session.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                        Text("Health samples will appear after your first completed session.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                     } else {
                         val recent: List<StreamHealthSample> = healthSamples.takeLast(36)
                         val maxBitrate: Int = recent.maxOf { sample -> sample.bitrateKbps }.coerceAtLeast(1)
                         Row(Modifier.fillMaxWidth().height(96.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                             for (sample in recent) {
                                 Box(
-                                    Modifier.weight(1f).fillMaxHeight((sample.bitrateKbps.toFloat() / maxBitrate).coerceIn(0.08f, 1f)).clip(RoundedCornerShape(3.dp)).background(if (sample.networkLabel == "Offline") UnictoosPalette.Amber else UnictoosPalette.Cyan),
+                                    Modifier.weight(1f).fillMaxHeight((sample.bitrateKbps.toFloat() / maxBitrate).coerceIn(0.08f, 1f)).clip(RoundedCornerShape(3.dp)).background(if (sample.networkLabel == "Offline") V02Palette.Caution else V02Palette.Neutral300),
                                 )
                             }
                         }
-                        Text("${healthSamples.size} samples retained • latest ${recent.lastOrNull()?.bitrateKbps ?: 0} kbps", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
+                        Text("${healthSamples.size} samples retained • latest ${recent.lastOrNull()?.bitrateKbps ?: 0} kbps", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
         }
         if (recordings.isEmpty()) {
             item {
-                Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(24.dp)) {
-                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(Icons.Default.Movie, null, tint = UnictoosPalette.VioletBright, modifier = Modifier.size(32.dp))
+                Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(24.dp)) {
+                    Column(Modifier.padding(Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                        Icon(Icons.Default.Movie, null, tint = V02Palette.AccentBlue, modifier = Modifier.size(32.dp))
                         Text("No recordings yet", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-                        Text("Press Record in Studio or start Practice mode. Saved MP4 sessions will appear here.", color = UnictoosPalette.TextMuted)
+                        Text("Press Record in Studio or start Practice mode. Saved MP4 sessions will appear here.", color = V02Palette.Neutral500)
                         FilledTonalButton(onClick = onOpenStudio, shape = RoundedCornerShape(12.dp)) {
                             Icon(Icons.Default.PlayArrow, contentDescription = null)
                             Spacer(Modifier.width(6.dp))
@@ -244,19 +245,19 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
         } else {
             item { SectionHeader("Saved recordings", "Stored locally on this device") }
             items(recordings, key = { it }) { name ->
-                Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface), shape = RoundedCornerShape(18.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(18.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(color = UnictoosPalette.Violet.copy(alpha = 0.16f), shape = RoundedCornerShape(12.dp)) {
-                                Icon(Icons.Default.Movie, null, tint = UnictoosPalette.Cyan, modifier = Modifier.padding(9.dp).size(22.dp))
+                            Surface(color = V02Palette.AccentBlue.copy(alpha = 0.16f), shape = RoundedCornerShape(12.dp)) {
+                                Icon(Icons.Default.Movie, null, tint = V02Palette.Neutral300, modifier = Modifier.padding(Spacing.md).size(22.dp))
                             }
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(name.removeSuffix(".mp4"), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("MP4 • app-private storage", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                                Text("MP4 • app-private storage", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                             }
                         }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                             OutlinedButton(onClick = { play(name) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
                                 Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(4.dp))
@@ -270,7 +271,7 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             TextButton(onClick = { renameTarget = name; renameValue = name.removeSuffix(".mp4") }) { Text("Rename") }
-                            TextButton(onClick = { java.io.File(recordingsDirectory, name).delete(); refresh() }) { Text("Delete", color = UnictoosPalette.Danger) }
+                            TextButton(onClick = { java.io.File(recordingsDirectory, name).delete(); refresh() }) { Text("Delete", color = V02Palette.Danger) }
                         }
                     }
                 }
