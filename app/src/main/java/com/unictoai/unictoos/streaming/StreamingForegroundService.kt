@@ -917,6 +917,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         if (!StreamStateMachine.canTransition(previous.status, status)) return
         if (status == StreamStatus.LIVE && startedAtElapsed == 0L) {
             startedAtElapsed = SystemClock.elapsedRealtime()
+            elapsedTickerGeneration = sessionGeneration.get()
             adaptiveTargetBitrate = streamQuality.bitrate
             degradedSinceElapsed = 0L
             recoveredSinceElapsed = 0L
@@ -1153,7 +1154,12 @@ class StreamingForegroundService : Service(), ConnectChecker {
         reconnectScheduled = false
         reconnectRunnable?.let(handler::removeCallbacks)
         reconnectRunnable = null
+        currentEndpoint = ""
+        runCatching { if (::genericStream.isInitialized && genericStream.isStreaming) genericStream.stopStream() }
+        releasePreviewForCaptureChange()
+        resetTelemetryForInactiveSession()
         publish(StreamStatus.ERROR, "Destination rejected the stream key. Check the selected platform and rotate the key if needed")
+        stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
     private fun onAuthSuccessForGeneration(generation: Long) {
