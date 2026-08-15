@@ -10,6 +10,10 @@ The repository now contains the native Android alpha foundation and the benchmar
 
 The current build remains an **alpha engineering milestone**. It compiles and packages successfully, but real-device validation against YouTube, Twitch, and Kick is still required before it should be treated as production-stable. The current engine can use screen capture or camera-only capture; a true screen-plus-camera picture-in-picture compositor is a planned next media milestone and should not be assumed from a scene containing both source types. Do not use an important broadcast or an irreplaceable stream key with an unvalidated development build.
 
+## Latest test build
+
+The latest published Priority 1 device-test build is **Unictoos v0.2.0-alpha3** with Android `versionCode 21`. It contains the capture-pipeline and idle-FPS fixes and is published as a prerelease for physical-device validation. [Download the APK from GitHub Releases](https://github.com/unictoai/Unictoos/releases/tag/v0.2.0-alpha3) or [download the APK directly](https://github.com/unictoai/Unictoos/releases/download/v0.2.0-alpha3/unictoos-v0.2.0-alpha3-priority1-debug.apk).
+
 ## Build locally
 
 Requirements are Android SDK API 35 with build tools 35.0.0, JDK 21, and a physical Android device running Android 10 or later for capture and encoder testing.
