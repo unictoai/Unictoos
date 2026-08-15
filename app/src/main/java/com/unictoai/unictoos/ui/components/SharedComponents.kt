@@ -14,6 +14,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -121,7 +122,9 @@ import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
-import com.unictoai.unictoos.ui.theme.UnictoosPalette
+import com.unictoai.unictoos.ui.theme.MotionTokens
+import com.unictoai.unictoos.ui.theme.Spacing
+import com.unictoai.unictoos.ui.theme.V02Palette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
 
 @Composable
@@ -142,7 +145,7 @@ internal fun BrandHeader(
             }
             Spacer(Modifier.width(12.dp))
             Column {
-                Text(eyebrow.uppercase(), style = MaterialTheme.typography.labelSmall, color = UnictoosPalette.Cyan, fontWeight = FontWeight.Bold)
+                Text(eyebrow.uppercase(), style = MaterialTheme.typography.labelSmall, color = V02Palette.Neutral300, fontWeight = FontWeight.Bold)
                 Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             }
         }
@@ -155,10 +158,10 @@ internal fun LivePulseDot() {
     val alpha by transition.animateFloat(
         initialValue = 0.55f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1000), RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(tween(1_400, easing = LinearEasing), RepeatMode.Reverse),
         label = "livePulseAlpha",
     )
-    Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(UnictoosPalette.Mint.copy(alpha = alpha)))
+    Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(V02Palette.AccentBlue.copy(alpha = alpha)))
 }
 @Composable
 internal fun PreflightCard() {
@@ -166,28 +169,28 @@ internal fun PreflightCard() {
     val audioReady = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
     val cameraReady = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
     val networkReady = context.getSystemService(android.net.ConnectivityManager::class.java)?.activeNetwork != null
-    Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(20.dp)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column { Text("Preflight check", fontWeight = FontWeight.Bold); Text("Know what is ready before you start", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall) }
-                Icon(Icons.Default.Wifi, null, tint = if (networkReady) UnictoosPalette.Mint else UnictoosPalette.Amber)
+                Column { Text("Preflight check", fontWeight = FontWeight.Bold); Text("Know what is ready before you start", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall) }
+                Icon(Icons.Default.Wifi, null, tint = if (networkReady) V02Palette.AccentBlue else V02Palette.Caution)
             }
             ReadinessRow("Network", if (networkReady) "Connected" else "Check connection", networkReady)
             ReadinessRow("Microphone", if (audioReady) "Permission granted" else "Permission needed", audioReady)
             ReadinessRow("Camera", if (cameraReady) "Permission granted" else "Requested for camera scenes", cameraReady)
-            Text("Screen capture is requested by Android each time you begin a screen broadcast.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+            Text("Screen capture is requested by Android each time you begin a screen broadcast.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
 @Composable
 internal fun SessionErrorCard(message: String, onAction: () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Danger.copy(alpha = 0.14f)), shape = RoundedCornerShape(18.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Danger.copy(alpha = 0.14f)), shape = RoundedCornerShape(18.dp)) {
         Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Warning, null, tint = UnictoosPalette.Danger)
+            Icon(Icons.Default.Warning, null, tint = V02Palette.Danger)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Action needed", fontWeight = FontWeight.Bold)
-                Text(message.ifBlank { "Unictoos could not prepare the broadcast" }, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                Text(message.ifBlank { "Unictoos could not prepare the broadcast" }, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
             }
             TextButton(onClick = onAction) { Text("Fix") }
         }
@@ -196,17 +199,17 @@ internal fun SessionErrorCard(message: String, onAction: () -> Unit) {
 
 @Composable
 internal fun SponsorBanner() {
-    Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(18.dp)) {
+    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
         Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(color = UnictoosPalette.Violet.copy(alpha = 0.22f), shape = RoundedCornerShape(12.dp)) {
-                Icon(Icons.Default.GraphicEq, null, tint = UnictoosPalette.VioletBright, modifier = Modifier.padding(9.dp).size(20.dp))
+            Surface(color = V02Palette.AccentBlue.copy(alpha = 0.22f), shape = RoundedCornerShape(12.dp)) {
+                Icon(Icons.Default.GraphicEq, null, tint = V02Palette.AccentBlue, modifier = Modifier.padding(9.dp).size(20.dp))
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Optional sponsor space", fontWeight = FontWeight.SemiBold)
-                Text("This banner is app-only and never sent to your stream.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                Text("This banner is app-only and never sent to your stream.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
             }
-            Text("OFFLINE", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text("OFFLINE", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -216,7 +219,7 @@ internal fun SettingToggle(title: String, subtitle: String, checked: Boolean, on
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+            Text(subtitle, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
@@ -243,18 +246,18 @@ internal fun SourceToggleRow(
 ) {
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Surface(color = UnictoosPalette.SurfaceRaised, shape = RoundedCornerShape(10.dp)) {
+        Surface(color = V02Palette.Neutral850, shape = RoundedCornerShape(10.dp)) {
             Icon(
                 if (type.startsWith("Camera")) Icons.Default.Videocam else if (type.startsWith("Screen")) Icons.Default.LiveTv else Icons.Default.Dashboard,
                 null,
-                tint = UnictoosPalette.Cyan,
+                tint = V02Palette.Neutral300,
                 modifier = Modifier.padding(8.dp).size(18.dp),
             )
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(title, fontWeight = FontWeight.SemiBold)
-            Text(type, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+            Text(type, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
         }
         TextButton(onClick = onMoveUp, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("↑") }
         TextButton(onClick = onMoveDown, contentPadding = PaddingValues(horizontal = 4.dp)) { Text("↓") }
@@ -276,7 +279,7 @@ internal fun SourceToggleRow(
                 shape = RoundedCornerShape(12.dp),
             )
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Size", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(38.dp))
+                Text("Size", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(38.dp))
                 Slider(
                     value = draftSize,
                     onValueChange = {
@@ -286,16 +289,16 @@ internal fun SourceToggleRow(
                     valueRange = 10f..72f,
                     modifier = Modifier.weight(1f),
                 )
-                Text("${draftSize.toInt()}sp", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(42.dp))
+                Text("${draftSize.toInt()}sp", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(42.dp))
             }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Opacity", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(54.dp))
+            Text("Opacity", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(54.dp))
             androidx.compose.material3.Slider(value = opacity, onValueChange = onOpacityChange, enabled = enabled, modifier = Modifier.weight(1f))
-            Text("${(opacity * 100).toInt()}%", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(42.dp))
+            Text("${(opacity * 100).toInt()}%", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(42.dp))
         }
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("Layout", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
+            Text("Layout", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
             GeometrySlider("X", x, 0f..0.95f, enabled) { onGeometryChange(it, y, width, height) }
             GeometrySlider("Y", y, 0f..0.95f, enabled) { onGeometryChange(x, it, width, height) }
             GeometrySlider("W", width, 0.05f..1f, enabled) { onGeometryChange(x, y, it, height) }
@@ -307,22 +310,22 @@ internal fun SourceToggleRow(
 @Composable
 private fun GeometrySlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, enabled: Boolean, onValueChange: (Float) -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(20.dp))
+        Text(label, color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(20.dp))
         Slider(value = value, onValueChange = onValueChange, valueRange = range, enabled = enabled, modifier = Modifier.weight(1f))
-        Text("${(value * 100).toInt()}%", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(42.dp))
+        Text("${(value * 100).toInt()}%", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall, modifier = Modifier.width(42.dp))
     }
 }
 
 @Composable
 internal fun TrustRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-        Surface(color = UnictoosPalette.SurfaceRaised, shape = RoundedCornerShape(12.dp)) {
-            Icon(icon, null, tint = UnictoosPalette.Cyan, modifier = Modifier.padding(9.dp).size(19.dp))
+        Surface(color = V02Palette.Neutral850, shape = RoundedCornerShape(12.dp)) {
+            Icon(icon, null, tint = V02Palette.Neutral300, modifier = Modifier.padding(9.dp).size(19.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column {
             Text(title, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+            Text(subtitle, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
@@ -335,25 +338,25 @@ internal fun SceneCard(
     onOpenStudio: (() -> Unit)? = null,
 ) {
     val colors = if (selected) {
-        CardDefaults.cardColors(containerColor = UnictoosPalette.Violet.copy(alpha = 0.20f))
+        CardDefaults.cardColors(containerColor = V02Palette.AccentBlue.copy(alpha = 0.20f))
     } else {
-        CardDefaults.cardColors(containerColor = UnictoosPalette.Surface)
+        CardDefaults.cardColors(containerColor = V02Palette.Neutral900)
     }
     Card(
         onClick = onClick ?: {},
         colors = colors,
         shape = RoundedCornerShape(22.dp),
-        border = if (onClick != null) BorderStroke(1.dp, if (selected) UnictoosPalette.VioletBright.copy(alpha = 0.72f) else UnictoosPalette.Stroke) else null,
-        modifier = Modifier.animateContentSize(tween(150)),
+        border = if (onClick != null) BorderStroke(1.dp, if (selected) V02Palette.AccentBlue.copy(alpha = 0.72f) else V02Palette.Neutral700) else null,
+        modifier = Modifier.animateContentSize(tween(MotionTokens.quick, easing = MotionTokens.gentleEasing)),
     ) {
         Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(72.dp).clip(RoundedCornerShape(17.dp)).background(UnictoosPalette.SurfaceRaised),
+                Modifier.size(72.dp).clip(RoundedCornerShape(17.dp)).background(V02Palette.Neutral850),
                 contentAlignment = Alignment.Center,
             ) {
                 val activeSources = scene.sources.filter { it.enabled }.sortedBy { it.zIndex }.takeLast(4)
                 if (activeSources.isEmpty()) {
-                    Icon(sceneIcon(scene), contentDescription = "Empty ${scene.name} scene", tint = UnictoosPalette.TextMuted, modifier = Modifier.size(25.dp))
+                    Icon(sceneIcon(scene), contentDescription = "Empty ${scene.name} scene", tint = V02Palette.Neutral500, modifier = Modifier.size(25.dp))
                 } else {
                     Column(Modifier.fillMaxSize().padding(7.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         activeSources.forEach { source ->
@@ -367,28 +370,28 @@ internal fun SceneCard(
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(scene.name, fontWeight = FontWeight.SemiBold)
-                Text("${scene.aspectRatio.ratio}  •  ${scene.sources.size} sources", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                Text("${scene.aspectRatio.ratio}  •  ${scene.sources.size} sources", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     items(scene.sources.take(3), key = { it.id }) { source ->
                         Surface(color = Color.White.copy(alpha = 0.07f), shape = RoundedCornerShape(50)) {
-                            Text(source.type.label, Modifier.padding(horizontal = 7.dp, vertical = 4.dp), color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelSmall)
+                            Text(source.type.label, Modifier.padding(horizontal = 7.dp, vertical = 4.dp), color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
             }
             if (onOpenStudio != null) {
-                IconButton(onClick = onOpenStudio) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "Open studio", tint = UnictoosPalette.Cyan) }
+                IconButton(onClick = onOpenStudio) { Icon(Icons.AutoMirrored.Filled.ArrowForward, "Open studio", tint = V02Palette.Neutral300) }
             }
         }
     }
 }
 
 private fun sourcePreviewColor(type: SourceType): Color = when (type) {
-    SourceType.SCREEN -> UnictoosPalette.Cyan
-    SourceType.CAMERA -> UnictoosPalette.Magenta
-    SourceType.IMAGE -> UnictoosPalette.VioletBright
-    SourceType.TEXT -> UnictoosPalette.Mint
-    SourceType.COLOR -> UnictoosPalette.Amber.copy(alpha = 0.72f)
+    SourceType.SCREEN -> V02Palette.Neutral300
+    SourceType.CAMERA -> V02Palette.Neutral500
+    SourceType.IMAGE -> V02Palette.AccentBlue
+    SourceType.TEXT -> V02Palette.AccentBlue
+    SourceType.COLOR -> V02Palette.Caution.copy(alpha = 0.72f)
 }
 
 internal fun sceneIcon(scene: Scene) = when {
@@ -406,10 +409,10 @@ internal fun AddSourceDialog(onDismiss: () -> Unit, onCreate: (String, SourceTyp
         onDismissRequest = onDismiss,
         title = { Text("Add a source") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Extend this scene with another layer.", color = UnictoosPalette.TextMuted)
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Text("Extend this scene with another layer.", color = V02Palette.Neutral500)
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Source name") }, singleLine = true)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     items(SourceType.values().toList()) { option ->
                         FilterChip(selected = option == selectedType, onClick = { typeName = option.name }, label = { Text(option.label) })
                     }
@@ -430,10 +433,10 @@ internal fun AddSceneDialog(onDismiss: () -> Unit, onCreate: (String, AspectRati
         onDismissRequest = onDismiss,
         title = { Text("Create a scene") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Start with a layout designed for your phone.", color = UnictoosPalette.TextMuted)
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Text("Start with a layout designed for your phone.", color = V02Palette.Neutral500)
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Scene name") }, singleLine = true)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                     AspectRatio.values().forEach { option ->
                         FilterChip(selected = option == ratio, onClick = { ratioName = option.name }, label = { Text(option.label) })
                     }
@@ -448,16 +451,16 @@ internal fun AddSceneDialog(onDismiss: () -> Unit, onCreate: (String, AspectRati
 @Composable
 internal fun StatusPill(status: StreamStatus) {
     val (label, color) = when (status) {
-        StreamStatus.LIVE -> "LIVE" to UnictoosPalette.Mint
-        StreamStatus.PREPARING -> "PREPARING" to UnictoosPalette.Amber
-        StreamStatus.CONNECTING -> "CONNECTING" to UnictoosPalette.Amber
-        StreamStatus.RECONNECTING -> "RECONNECTING" to UnictoosPalette.Amber
-        StreamStatus.STOPPING -> "STOPPING" to UnictoosPalette.Amber
-        StreamStatus.STOPPED -> "STOPPED" to UnictoosPalette.TextMuted
-        StreamStatus.ERROR -> "CHECK SETUP" to UnictoosPalette.Danger
-        StreamStatus.IDLE -> "READY" to UnictoosPalette.TextMuted
+        StreamStatus.LIVE -> "LIVE" to V02Palette.AccentBlue
+        StreamStatus.PREPARING -> "PREPARING" to V02Palette.Caution
+        StreamStatus.CONNECTING -> "CONNECTING" to V02Palette.Caution
+        StreamStatus.RECONNECTING -> "RECONNECTING" to V02Palette.Caution
+        StreamStatus.STOPPING -> "STOPPING" to V02Palette.Caution
+        StreamStatus.STOPPED -> "STOPPED" to V02Palette.Neutral500
+        StreamStatus.ERROR -> "CHECK SETUP" to V02Palette.Danger
+        StreamStatus.IDLE -> "READY" to V02Palette.Neutral500
     }
-    Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(50), modifier = Modifier.animateContentSize(tween(220))) {
+    Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(50), modifier = Modifier.animateContentSize(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing))) {
         Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             if (status == StreamStatus.LIVE) LivePulseDot() else Box(Modifier.size(7.dp).clip(RoundedCornerShape(50)).background(color))
             Spacer(Modifier.width(6.dp))
@@ -472,7 +475,7 @@ internal fun StatusPill(status: StreamStatus) {
 internal fun SectionHeader(title: String, subtitle: String) {
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        if (subtitle.isNotBlank()) Text(subtitle, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+        if (subtitle.isNotBlank()) Text(subtitle, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -480,19 +483,19 @@ internal fun SectionHeader(title: String, subtitle: String) {
 internal fun ReadinessRow(label: String, value: String, ready: Boolean) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(if (ready) UnictoosPalette.Mint else UnictoosPalette.Amber))
+            Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(if (ready) V02Palette.AccentBlue else V02Palette.Caution))
             Spacer(Modifier.width(10.dp))
             Text(label)
         }
-        Text(value, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
 @Composable
 internal fun MetricCard(label: String, value: String, modifier: Modifier) {
-    Card(modifier.animateContentSize(tween(220)), colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(16.dp)) {
+    Card(modifier.animateContentSize(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)), colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(16.dp)) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = UnictoosPalette.TextMuted)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = V02Palette.Neutral500)
             Spacer(Modifier.height(3.dp))
             Text(value, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
