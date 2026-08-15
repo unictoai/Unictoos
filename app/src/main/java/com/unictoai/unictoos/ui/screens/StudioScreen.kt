@@ -214,6 +214,16 @@ internal fun StudioScreen(
                 style = MaterialTheme.typography.labelSmall,
             )
         }
+        if (scene.sources.any { it.enabled && it.type == SourceType.SCREEN } && scene.sources.any { it.enabled && it.type == SourceType.CAMERA }) {
+            item {
+                Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Caution.copy(alpha = 0.14f)), shape = RoundedCornerShape(16.dp)) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Single-source capture", fontWeight = FontWeight.Bold, color = V02Palette.Caution)
+                        Text("This scene contains screen and camera layers, but simultaneous composition is not available yet. The current broadcast uses screen capture; camera compositing will be added only with a real GPU compositor.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
         item {
             Box(
                 Modifier.fillMaxWidth().height(330.dp).clip(RoundedCornerShape(20.dp)).background(V02Palette.Neutral950).animateContentSize(tween(MotionTokens.emphasis, easing = MotionTokens.gentleEasing)),
@@ -381,7 +391,7 @@ internal fun StudioScreen(
                         }
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        TextButton(onClick = onEditScenes, modifier = Modifier.weight(1f)) {
+                        TextButton(onClick = onEditScenes, modifier = Modifier.weight(1f), enabled = session.status != StreamStatus.LIVE) {
                             Icon(Icons.Default.Dashboard, null)
                             Spacer(Modifier.width(5.dp))
                             Text("Edit scene")
