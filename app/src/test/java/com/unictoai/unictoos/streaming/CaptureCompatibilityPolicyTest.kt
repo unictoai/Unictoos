@@ -5,6 +5,14 @@ import org.junit.Test
 
 class CaptureCompatibilityPolicyTest {
     @Test
+    fun isolatesLivePreviewOnlyOnAffectedInfinixModel() {
+        assertEquals(true, CaptureCompatibilityPolicy.shouldIsolateLivePreview("Infinix", "X6853"))
+        assertEquals(true, CaptureCompatibilityPolicy.shouldIsolateLivePreview("infinix", "x6853"))
+        assertEquals(false, CaptureCompatibilityPolicy.shouldIsolateLivePreview("Infinix", "X6851"))
+        assertEquals(false, CaptureCompatibilityPolicy.shouldIsolateLivePreview("Google", "X6853"))
+    }
+
+    @Test
     fun clampsLargePreviewToEncoderBoundsWithoutUpscaling() {
         val result = CaptureCompatibilityPolicy.previewBufferSize(
             viewWidth = 1080,

@@ -76,6 +76,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private val graphicsFailureRequested = java.util.concurrent.atomic.AtomicBoolean(false)
     @Volatile private var serviceDestroyed = false
     private val sessionGeneration = AtomicLong(0L)
+    private val isolateLivePreviewForDevice = CaptureCompatibilityPolicy.shouldIsolateLivePreview(Build.MANUFACTURER, Build.MODEL)
     private var captureReady = false
     private var previewSurface: Surface? = null
     private var previewWidth = 0
@@ -1126,7 +1127,22 @@ class StreamingForegroundService : Service(), ConnectChecker {
         if (!isCurrentGeneration(generation)) return
         reconnectAttempt = 0
         reconnectScheduled = false
-        publish(StreamStatus.LIVE, "Broadcast is live")
+        val previewWasIsolated = isolateLivePreviewForDevice && runCatching {
+            if (::genericStream.isInitialized && genericStream.isOnPreview) {
+                // The affected device firmware does not need the local preview surface
+                // after the encoder is live. Detach only that surface; keep capture and
+                // the streaming encoder running.
+                genericStream.stopPreview()
+                previewAttached = false
+                StreamingStatusBus.update(StreamingStatusBus.state.value.copy(previewReady = false))
+                true
+            } else {
+                false
+            }
+        }.onFailure {
+            StreamingDiagnostics.record(currentSessionId, generation, "live_preview_isolation_failed", it.message.orEmpty())
+        }.getOrDefault(false)
+        publish(StreamStatus.LIVE, if (previewWasIsolated) "Broadcast is live • preview paused for device stability" else "Broadcast is live")
     }
 
     private fun onNewBitrateForGeneration(bitrate: Long, generation: Long) {

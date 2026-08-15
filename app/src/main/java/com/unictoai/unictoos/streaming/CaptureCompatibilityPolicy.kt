@@ -11,6 +11,14 @@ data class PreviewBufferSize(val width: Int, val height: Int)
  * by the selected quality profile; this only limits the local preview surface.
  */
 object CaptureCompatibilityPolicy {
+    /**
+     * The affected Infinix firmware can exhaust graphics resources while a preview
+     * surface remains attached to an active encoder. Streaming can continue without
+     * the local preview because the encoder owns its own output surface.
+     */
+    fun shouldIsolateLivePreview(manufacturer: String, model: String): Boolean =
+        manufacturer.equals("Infinix", ignoreCase = true) && model.equals("X6853", ignoreCase = true)
+
     fun previewBufferSize(
         viewWidth: Int,
         viewHeight: Int,
