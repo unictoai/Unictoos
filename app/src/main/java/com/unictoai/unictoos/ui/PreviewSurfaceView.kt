@@ -22,6 +22,7 @@ class PreviewSurfaceView @JvmOverloads constructor(
 
     private var listener: Listener? = null
     private var lastSurface: Surface? = null
+    private var callbackRegistered = false
 
     private val callback = object : SurfaceHolder.Callback {
         override fun surfaceCreated(holder: SurfaceHolder) {
@@ -33,13 +34,15 @@ class PreviewSurfaceView @JvmOverloads constructor(
         }
 
         override fun surfaceDestroyed(holder: SurfaceHolder) {
+            val destroyedSurface = holder.surface
+            if (lastSurface !== destroyedSurface) return
             lastSurface = null
-            listener?.onSurfaceDestroyed(holder.surface)
+            listener?.onSurfaceDestroyed(destroyedSurface)
         }
     }
 
     init {
-        holder.addCallback(callback)
+        registerHolderCallback()
         setZOrderOnTop(false)
     }
 
@@ -52,8 +55,9 @@ class PreviewSurfaceView @JvmOverloads constructor(
     }
 
     fun releasePreviewListener() {
-        lastSurface?.let { surface -> listener?.onSurfaceDestroyed(surface) }
+        val releasedSurface = lastSurface
         lastSurface = null
+        releasedSurface?.let { surface -> listener?.onSurfaceDestroyed(surface) }
         listener = null
     }
 
@@ -66,12 +70,24 @@ class PreviewSurfaceView @JvmOverloads constructor(
 
     override fun onDetachedFromWindow() {
         releasePreviewListener()
-        holder.removeCallback(callback)
+        unregisterHolderCallback()
         super.onDetachedFromWindow()
     }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        registerHolderCallback()
+    }
+
+    private fun registerHolderCallback() {
+        if (callbackRegistered) return
         holder.addCallback(callback)
+        callbackRegistered = true
+    }
+
+    private fun unregisterHolderCallback() {
+        if (!callbackRegistered) return
+        holder.removeCallback(callback)
+        callbackRegistered = false
     }
 }

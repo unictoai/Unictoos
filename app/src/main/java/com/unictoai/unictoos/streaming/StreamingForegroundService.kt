@@ -31,6 +31,7 @@ import androidx.core.content.ContextCompat
 import com.pedro.common.ConnectChecker
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.generic.GenericStream
+import com.pedro.library.view.RenderErrorCallback
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.audio.NoAudioSource
 import com.pedro.encoder.input.sources.video.Camera2Source
@@ -72,6 +73,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var cameraSource: Camera2Source? = null
     private var prepared = false
     private var genericStreamReleased = false
+    private val graphicsFailureRequested = java.util.concurrent.atomic.AtomicBoolean(false)
     @Volatile private var serviceDestroyed = false
     private val sessionGeneration = AtomicLong(0L)
     private var captureReady = false
@@ -189,9 +191,20 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private fun createGenericStream(): GenericStream {
         val generation = sessionGeneration.incrementAndGet()
+        graphicsFailureRequested.set(false)
         StreamingDiagnostics.record(currentSessionId, generation, "pipeline_created")
         return GenericStream(this, GenerationConnectChecker(generation), NoVideoSource(), NoAudioSource()).apply {
             getGlInterface().setForceRender(true, streamQuality.fps)
+            getGlInterface().setRenderErrorCallback(object : RenderErrorCallback {
+                override fun onRenderError(error: RuntimeException) {
+                    runCatching { getGlInterface().stop() }
+                    postSerialized {
+                        if (!isCurrentGeneration(generation)) return@postSerialized
+                        StreamingDiagnostics.record(currentSessionId, generation, "render_error", error.message.orEmpty())
+                        handleEncoderGraphicsFailure(generation)
+                    }
+                }
+            })
             setFpsListener { fps ->
                 postSerialized { publishFpsSample(fps, generation) }
             }
@@ -276,13 +289,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private suspend fun releaseCapturePipelineForReprepare() {
         sessionGeneration.incrementAndGet()
-        releasePreviewForCaptureChange()
         releaseProjection()
-        if (::genericStream.isInitialized && !genericStreamReleased) {
-            runCatching { genericStream.release() }.onSuccess { genericStreamReleased = true }
-        }
-        runCatching { microphoneSource?.release() }
-        runCatching { cameraSource?.release() }
+        releaseGenericStream("reprepare")
         microphoneSource = null
         cameraSource = null
         captureReady = false
@@ -292,6 +300,29 @@ class StreamingForegroundService : Service(), ConnectChecker {
         genericStream = createGenericStream()
         genericStreamReleased = false
         prepared = prepareGenericStream()
+    }
+
+    private fun releaseGenericStream(reason: String) {
+        if (!::genericStream.isInitialized || genericStreamReleased) return
+        val generation = sessionGeneration.get()
+        StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_begin", reason)
+        runCatching { if (genericStream.isRecording) genericStream.stopRecord() }
+            .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "stop_record: ${it.message.orEmpty()}") }
+        runCatching { if (genericStream.isStreaming) genericStream.stopStream() }
+            .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "stop_stream: ${it.message.orEmpty()}") }
+        runCatching { if (genericStream.isOnPreview) genericStream.stopPreview() }
+            .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "stop_preview: ${it.message.orEmpty()}") }
+        runCatching { genericStream.getGlInterface().stop() }
+            .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "stop_gl: ${it.message.orEmpty()}") }
+        runCatching { genericStream.release() }
+            .onSuccess { genericStreamReleased = true }
+            .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "release_stream: ${it.message.orEmpty()}") }
+        runCatching { microphoneSource?.release() }
+            .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "release_microphone: ${it.message.orEmpty()}") }
+        runCatching { cameraSource?.release() }
+            .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "release_camera: ${it.message.orEmpty()}") }
+        genericStreamReleased = true
+        StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_complete", reason)
     }
 
     override fun onCreate() {
@@ -689,13 +720,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         pendingTerminalStopReason = null
         releasePreviewForCaptureChange()
         releaseProjection()
-        if (::genericStream.isInitialized && !genericStreamReleased) {
-            runCatching { if (StreamingStatusBus.state.value.recording) genericStream.stopRecord() }
-            runCatching { if (genericStream.isStreaming) genericStream.stopStream() }
-            runCatching { genericStream.release() }.onSuccess { genericStreamReleased = true }
-        }
-        runCatching { microphoneSource?.release() }
-        runCatching { cameraSource?.release() }
+        releaseGenericStream("failed_pipeline")
         microphoneSource = null
         cameraSource = null
         captureReady = false
@@ -710,7 +735,11 @@ class StreamingForegroundService : Service(), ConnectChecker {
         SystemClock.sleep(GL_PIPELINE_SHUTDOWN_SETTLE_MS)
     }
 
-    private fun handleEncoderGraphicsFailure() {
+    private fun handleEncoderGraphicsFailure(expectedGeneration: Long? = null) {
+        if (expectedGeneration != null && !isCurrentGeneration(expectedGeneration)) return
+        if (!graphicsFailureRequested.compareAndSet(false, true)) return
+        val failedGeneration = sessionGeneration.get()
+        StreamingDiagnostics.record(currentSessionId, failedGeneration, "graphics_failure_handling")
         manualStop = true
         pendingStart = null
         reconnectScheduled = false
@@ -721,6 +750,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         elapsedTickerGeneration = 0L
         releaseFailedPipeline()
         resetTelemetryForInactiveSession()
+        StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "graphics_failure_released")
         updateNotification("Graphics resources released • tap Fix to retry")
         StreamingStatusBus.update(
             StreamingStatusBus.state.value.copy(
