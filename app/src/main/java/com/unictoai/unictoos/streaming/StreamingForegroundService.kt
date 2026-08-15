@@ -318,9 +318,13 @@ class StreamingForegroundService : Service(), ConnectChecker {
             .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "stop_preview: ${it.message.orEmpty()}") }
         runCatching { genericStream.getGlInterface().stop() }
             .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "stop_gl: ${it.message.orEmpty()}") }
-        runCatching { genericStream.release() }
-            .onSuccess { genericStreamReleased = true }
-            .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "release_stream: ${it.message.orEmpty()}") }
+        val releaseSucceeded = runCatching {
+            genericStream.release()
+            true
+        }.onFailure {
+            StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "release_stream: ${it.message.orEmpty()}")
+        }.getOrDefault(false)
+        genericStreamReleased = PipelineReleasePolicy.markReleased(genericStreamReleased, releaseSucceeded)
         runCatching { microphoneSource?.release() }
             .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "release_microphone: ${it.message.orEmpty()}") }
         runCatching { cameraSource?.release() }
