@@ -189,6 +189,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private fun createGenericStream(): GenericStream {
         val generation = sessionGeneration.incrementAndGet()
+        StreamingDiagnostics.record(currentSessionId, generation, "pipeline_created")
         return GenericStream(this, GenerationConnectChecker(generation), NoVideoSource(), NoAudioSource()).apply {
             getGlInterface().setForceRender(true, streamQuality.fps)
             setFpsListener { fps ->
@@ -915,6 +916,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private fun publish(status: StreamStatus, message: String? = null) {
         val previous = StreamingStatusBus.state.value
         if (!StreamStateMachine.canTransition(previous.status, status)) return
+        StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "state_${status.name.lowercase()}", message.orEmpty())
         if (status == StreamStatus.LIVE && startedAtElapsed == 0L) {
             startedAtElapsed = SystemClock.elapsedRealtime()
             elapsedTickerGeneration = sessionGeneration.get()
@@ -1140,16 +1142,19 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private fun onConnectionFailedForGeneration(reason: String, generation: Long) {
         if (!isCurrentGeneration(generation)) return
+        StreamingDiagnostics.record(currentSessionId, generation, "connection_failed", reason)
         scheduleReconnect(reason.ifBlank { "Connection failed" })
     }
 
     private fun onDisconnectForGeneration(generation: Long) {
         if (!isCurrentGeneration(generation)) return
+        StreamingDiagnostics.record(currentSessionId, generation, "disconnected")
         scheduleReconnect("Connection lost")
     }
 
     private fun onAuthErrorForGeneration(generation: Long) {
         if (!isCurrentGeneration(generation)) return
+        StreamingDiagnostics.record(currentSessionId, generation, "auth_error")
         manualStop = true
         reconnectScheduled = false
         reconnectRunnable?.let(handler::removeCallbacks)
