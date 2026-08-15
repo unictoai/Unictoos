@@ -6,7 +6,7 @@ This report records what can be tested without the user’s Infinix X6853, USB-c
 
 ## Sandbox capability inventory
 
-The sandbox initially had no ADB devices, no emulator binary, and no Android system image. I installed the Android emulator package, Android API 35 Google APIs x86_64 system image, and created an AVD named `unictoos-api35`. The emulator could start and expose an ADB transport, but the Android framework did not complete boot: the package service was unavailable (`cmd: Can't find service: package`), and the emulator later disappeared from ADB before an APK could be installed. Therefore no emulator launch or capture test is counted as passed.
+The sandbox initially had no ADB devices, no emulator binary, and no Android system image. I installed the Android emulator package, Android API 35 Google APIs x86_64 system image, and created an AVD named `unictoos-api35`. The emulator could start and expose an ADB transport, but the Android framework did not complete boot: the package service was unavailable (`cmd: Can't find service: package`), and the emulator later disappeared from ADB before an APK could be installed. I retried with a wiped generic AVD and confirmed that the sandbox has no `/dev/kvm`; software emulation consumed more than half the available memory and remained offline, so it was stopped safely. Therefore no emulator launch or capture test is counted as passed.
 
 | Test category | Result | Evidence |
 |---|---|---|
@@ -16,7 +16,7 @@ The sandbox initially had no ADB devices, no emulator binary, and no Android sys
 | Static smoke suite before hardening | 48/48 passed | v0.2.5 post-commit gate |
 | Static smoke suite after hardening | 51/51 passed | Added MultiStream owner and retryable-release guards |
 | APK manifest | Passed | package `com.unictoai.unictoos`, versionName `0.2.5`, versionCode `31` |
-| Android emulator boot | Not passed | ADB transport appeared, but package service never became available and device disappeared |
+| Android emulator boot | Not passed | Generic AVD retried with wiped data; no KVM, ADB remained offline, package service never became available, and the high-memory QEMU process was stopped |
 | Infinix X6853 GPU behavior | Not executable here | No physical device or remote Android device is connected |
 | 15–20 minute stream | Not executable here | Requires real camera/GPU/network/destination ingest |
 | Graphics exhaustion and Fix/retry | Not executable here | Requires the Infinix GPU driver and sustained capture |
