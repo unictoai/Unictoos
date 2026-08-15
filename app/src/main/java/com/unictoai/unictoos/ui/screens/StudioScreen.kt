@@ -229,7 +229,6 @@ internal fun StudioScreen(
                                 if (session.status == StreamStatus.PREPARING || session.status == StreamStatus.CONNECTING || session.status == StreamStatus.RECONNECTING) {
                                     LinearProgressIndicator(Modifier.fillMaxWidth(0.72f), color = V02Palette.AccentBlue, trackColor = V02Palette.Neutral700)
                                 }
-                                }
                             }
                         }
                     }
