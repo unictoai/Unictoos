@@ -12,7 +12,7 @@ The current build remains an **alpha engineering milestone**. It compiles and pa
 
 ## Latest test build
 
-The latest device-test build is **Unictoos v0.2.1** with Android `versionCode 27`. It introduces the rebuilt mobile-first Studio workspace, a bounded preview graphics buffer, and a device-scoped live-preview isolation path for the affected Infinix X6853 while preserving secure credentials, platform destinations, recording, scenes, and diagnostics. [Download the APK from GitHub Releases](https://github.com/unictoai/Unictoos/releases/tag/v0.2.1) or [download the APK directly](https://github.com/unictoai/Unictoos/releases/download/v0.2.1/unictoos-v0.2.1-debug.apk).
+The latest device-test build is **Unictoos v0.2.2** with Android `versionCode 28`. It adds a polished first-launch onboarding flow, four branded 9:16 onboarding visuals, functional 16:9 and 9:16 scene formats, and retains the v0.2.1 graphics-stability path for the Infinix X6853. [Download the APK from GitHub Releases](https://github.com/unictoai/Unictoos/releases/tag/v0.2.2) or [download the APK directly](https://github.com/unictoai/Unictoos/releases/download/v0.2.2/unictoos-v0.2.2-debug.apk).
 
 ## Build locally
 
