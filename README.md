@@ -12,7 +12,7 @@ The current build remains an **alpha engineering milestone**. It compiles and pa
 
 ## Latest test build
 
-The latest device-test build is **Unictoos v0.2.3** with Android `versionCode 29`. It replaces the onboarding artwork with premium quote-based slides designed inside a protected 9:16 safe area, adds a Replay the Unictoos tour action, and retains the v0.2.2 stream-format and v0.2.1 graphics-stability paths. [Download the APK from GitHub Releases](https://github.com/unictoai/Unictoos/releases/tag/v0.2.3) or [download the APK directly](https://github.com/unictoai/Unictoos/releases/download/v0.2.3/unictoos-v0.2.3-debug.apk).
+The latest architecture build is **Unictoos v0.2.4** with Android `versionCode 30`. It adds the independent RootEncoder MultiStream destination-slot foundation inspired by static analysis of the user-provided LiveLens APK, while retaining the mobile-first UI, the v0.2.3 onboarding, the v0.2.2 stream-format options, and the Infinix X6853 preview-free stability fallback. The MultiStream manager is not yet wired into live capture; simultaneous multistreaming remains gated behind physical single-pipeline validation. [Review the v0.2.4 architecture notes](V024_LIVELENS_INSPIRED_ARCHITECTURE.md). The installable retest APK will be published as a clearly labeled prerelease after validation.
 
 ## Build locally
 
@@ -57,7 +57,7 @@ Platform OAuth, unified chat, alerts, scheduling, thumbnails, metadata publishin
 
 The application is organized around a Compose UI layer, shared domain models, a ViewModel state layer, a Keystore-backed credential store, an app-only ads policy, and a foreground media service. The service owns MediaProjection, microphone capture, hardware encoding, RootEncoder transport, recording, reconnect scheduling, notifications, and cleanup. The UI observes a process-local status bus for connection, bitrate, live, error, recording, mute, and disconnect states.
 
-The project uses [RootEncoder](https://github.com/pedroSG94/RootEncoder) under its Apache-2.0 license for the open-source RTMP/RTMPS/media pipeline integration. See `THIRD_PARTY_NOTICES.md` for dependency attribution.
+The project uses [RootEncoder](https://github.com/pedroSG94/RootEncoder) under its Apache-2.0 license for the open-source RTMP/RTMPS/media pipeline integration. v0.2.4 adds a bounded adapter around RootEncoder’s open `MultiStream` API as the foundation for future shared-encoder destination fan-out. See `V024_LIVELENS_INSPIRED_ARCHITECTURE.md` and `THIRD_PARTY_NOTICES.md` for the migration boundary and dependency attribution.
 
 ## Advertising policy
 
