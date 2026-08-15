@@ -1,12 +1,8 @@
 <resources>
-    <style name="Theme.Unictoos" parent="android:style/Theme.Material.NoActionBar">
-        <item name="android:fontFamily">sans</item>
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:statusBarColor">#060711</item>
-        <item name="android:navigationBarColor">#060711</item>
-        <item name="android:windowActionModeOverlay">true</item>
-        <item name="android:windowSplashScreenBackground">#060711</item>
-        <item name="android:windowSplashScreenAnimatedIcon">@drawable/logo_unictoos</item>
-        <item name="android:windowSplashScreenAnimationDuration">300</item>
+    <style name="Theme.Unictoos" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#0B0D0F</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/logo_unictoos</item>
+        <item name="windowSplashScreenAnimationDuration">300</item>
+        <item name="postSplashScreenTheme">@style/Theme.Unictoos.PostSplash</item>
     </style>
 </resources>
