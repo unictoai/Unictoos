@@ -100,6 +100,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -165,6 +166,19 @@ internal fun StudioScreen(
 ) {
     val primaryActionSource = remember { MutableInteractionSource() }
     val primaryActionPressed by primaryActionSource.collectIsPressedAsState()
+    val previewAvailableState = rememberUpdatedState(onPreviewSurfaceAvailable)
+    val previewDestroyedState = rememberUpdatedState(onPreviewSurfaceDestroyed)
+    val previewListener = remember {
+        object : PreviewSurfaceView.Listener {
+            override fun onSurfaceAvailable(surface: Surface, width: Int, height: Int) {
+                previewAvailableState.value(surface, width, height)
+            }
+
+            override fun onSurfaceDestroyed(surface: Surface) {
+                previewDestroyedState.value(surface)
+            }
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -207,11 +221,11 @@ internal fun StudioScreen(
                 AndroidView(
                     factory = { context ->
                         PreviewSurfaceView(context).apply {
-                            setPreviewListener(previewSurfaceListener(onPreviewSurfaceAvailable, onPreviewSurfaceDestroyed))
+                            setPreviewListener(previewListener)
                         }
                     },
                     update = { view ->
-                        view.setPreviewListener(previewSurfaceListener(onPreviewSurfaceAvailable, onPreviewSurfaceDestroyed))
+                        view.setPreviewListener(previewListener)
                     },
                     onRelease = { view ->
                         view.releasePreviewListener()
@@ -396,14 +410,6 @@ private fun V02LiveDot() {
         label = "liveIndicatorOpacity",
     )
     Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(V02Palette.OnAccent.copy(alpha = alpha)))
-}
-
-private fun previewSurfaceListener(
-    onAvailable: (Surface, Int, Int) -> Unit,
-    onDestroyed: (Surface) -> Unit,
-): PreviewSurfaceView.Listener = object : PreviewSurfaceView.Listener {
-    override fun onSurfaceAvailable(surface: Surface, width: Int, height: Int) = onAvailable(surface, width, height)
-    override fun onSurfaceDestroyed(surface: Surface) = onDestroyed(surface)
 }
 
 @Composable

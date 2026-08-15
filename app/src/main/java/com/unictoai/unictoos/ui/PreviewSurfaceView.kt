@@ -44,8 +44,9 @@ class PreviewSurfaceView @JvmOverloads constructor(
     }
 
     fun setPreviewListener(listener: Listener?) {
+        val listenerChanged = this.listener !== listener
         this.listener = listener
-        if (listener != null && holder.surface.isValid && width > 0 && height > 0) {
+        if (listenerChanged && listener != null && holder.surface.isValid && width > 0 && height > 0) {
             post { notifyAvailable(holder) }
         }
     }

@@ -385,6 +385,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
             publish(StreamStatus.ERROR, "Studio preview surface is unavailable")
             return
         }
+        if (previewAttached && previewSurface?.isValid == true && previewWidth == width && previewHeight == height) {
+            return
+        }
         previewSurface = surface
         previewWidth = width
         previewHeight = height
