@@ -54,6 +54,7 @@ import com.unictoai.unictoos.domain.SessionSummary
 import com.unictoai.unictoos.domain.StreamStatus
 import com.unictoai.unictoos.domain.SourceType
 import java.io.File
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -65,10 +66,13 @@ import kotlinx.coroutines.withContext
 class StreamingForegroundService : Service(), ConnectChecker {
     private lateinit var genericStream: GenericStream
     private var mediaProjection: MediaProjection? = null
+    private var intentionallyReleasingProjection = false
     private var microphoneSource: MicrophoneSource? = null
     private var cameraSource: Camera2Source? = null
     private var prepared = false
     private var genericStreamReleased = false
+    @Volatile private var serviceDestroyed = false
+    private val sessionGeneration = AtomicLong(0L)
     private var captureReady = false
     private var previewSurface: Surface? = null
     private var previewWidth = 0
@@ -76,6 +80,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var previewAttached = false
     private var pendingStart: PendingStart? = null
     private var reconnectScheduled = false
+    private var reconnectRunnable: Runnable? = null
     private var networkCallbackRegistered = false
     private var manualStop = false
     private var currentEndpoint: String = ""
@@ -98,13 +103,28 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val handler = Handler(Looper.getMainLooper())
+
+    /**
+     * All state-changing callbacks enter through this main-thread queue. RootEncoder,
+     * network, projection, and recording callbacks must never mutate session state directly.
+     */
+    private inline fun postSerialized(crossinline block: () -> Unit) {
+        handler.post {
+            if (!serviceDestroyed) block()
+        }
+    }
+
+    private fun isCurrentGeneration(generation: Long): Boolean =
+        !serviceDestroyed && generation == sessionGeneration.get()
+
     private val projectionManager: MediaProjectionManager by lazy {
         getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
     }
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
-            if (manualStop) return
-            handler.post {
+            if (manualStop || intentionallyReleasingProjection) return
+            postSerialized {
+                if (manualStop || intentionallyReleasingProjection) return@postSerialized
                 val message = "Screen capture was stopped by Android. Approve capture again before restarting"
                 captureReady = false
                 previewAttached = false
@@ -122,14 +142,19 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onLost(network: Network) {
-            if (!manualStop && currentEndpoint.isNotBlank() && ::genericStream.isInitialized && genericStream.isStreaming) {
-                scheduleReconnect("Network connection lost")
+            val generation = sessionGeneration.get()
+            postSerialized {
+                if (isCurrentGeneration(generation) && !manualStop && currentEndpoint.isNotBlank() && ::genericStream.isInitialized && genericStream.isStreaming) {
+                    scheduleReconnect("Network connection lost")
+                }
             }
         }
 
         override fun onAvailable(network: Network) {
-            if (StreamingStatusBus.state.value.status == StreamStatus.RECONNECTING) {
-                updateNotification("Network available • reconnecting")
+            postSerialized {
+                if (StreamingStatusBus.state.value.status == StreamStatus.RECONNECTING) {
+                    updateNotification("Network available • reconnecting")
+                }
             }
         }
     }
@@ -141,9 +166,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
     }
 
+    private var elapsedTickerGeneration = 0L
     private val elapsedTicker = object : Runnable {
         override fun run() {
-            if (startedAtElapsed > 0L) {
+            if (startedAtElapsed > 0L && elapsedTickerGeneration == sessionGeneration.get()) {
                 val elapsed = (SystemClock.elapsedRealtime() - startedAtElapsed) / 1_000L
                 if (autoStopSeconds > 0L && elapsed >= autoStopSeconds) {
                     stopStreaming("Auto-stop completed after ${formatElapsed(autoStopSeconds)}")
@@ -158,12 +184,47 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
     }
 
-    private fun createGenericStream(): GenericStream = GenericStream(this, this, NoVideoSource(), NoAudioSource()).apply {
-        getGlInterface().setForceRender(true, streamQuality.fps)
-        setFpsListener { fps -> publishFpsSample(fps) }
-        if (latencyMode == LatencyMode.LOW_LATENCY) {
-            // RootEncoder exposes client-cache sizing, but no public keyframe-interval override in this version.
-            getStreamClient().resizeCache(0)
+    private fun createGenericStream(): GenericStream {
+        val generation = sessionGeneration.incrementAndGet()
+        return GenericStream(this, GenerationConnectChecker(generation), NoVideoSource(), NoAudioSource()).apply {
+            getGlInterface().setForceRender(true, streamQuality.fps)
+            setFpsListener { fps ->
+                postSerialized { publishFpsSample(fps, generation) }
+            }
+            if (latencyMode == LatencyMode.LOW_LATENCY) {
+                // RootEncoder exposes client-cache sizing, but no public keyframe-interval override in this version.
+                getStreamClient().resizeCache(0)
+            }
+        }
+    }
+
+    private inner class GenerationConnectChecker(private val generation: Long) : ConnectChecker {
+        override fun onConnectionStarted(url: String) = postSerialized {
+            if (isCurrentGeneration(generation)) onConnectionStartedForGeneration(url, generation)
+        }
+
+        override fun onConnectionSuccess() = postSerialized {
+            if (isCurrentGeneration(generation)) onConnectionSuccessForGeneration(generation)
+        }
+
+        override fun onNewBitrate(bitrate: Long) = postSerialized {
+            if (isCurrentGeneration(generation)) onNewBitrateForGeneration(bitrate, generation)
+        }
+
+        override fun onConnectionFailed(reason: String) = postSerialized {
+            if (isCurrentGeneration(generation)) onConnectionFailedForGeneration(reason, generation)
+        }
+
+        override fun onDisconnect() = postSerialized {
+            if (isCurrentGeneration(generation)) onDisconnectForGeneration(generation)
+        }
+
+        override fun onAuthError() = postSerialized {
+            if (isCurrentGeneration(generation)) onAuthErrorForGeneration(generation)
+        }
+
+        override fun onAuthSuccess() = postSerialized {
+            if (isCurrentGeneration(generation)) onAuthSuccessForGeneration(generation)
         }
     }
 
@@ -178,7 +239,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
             )
     }.getOrDefault(false)
 
-    private fun publishFpsSample(fps: Int) {
+    private fun publishFpsSample(fps: Int, generation: Long) {
+        if (!isCurrentGeneration(generation)) return
         val previous = StreamingStatusBus.state.value
         val encoderActive = ::genericStream.isInitialized && (genericStream.isStreaming || genericStream.isRecording)
         if (!StreamTelemetryPolicy.shouldExposeFps(previous, encoderActive)) {
@@ -209,6 +271,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private suspend fun releaseCapturePipelineForReprepare() {
+        sessionGeneration.incrementAndGet()
         releasePreviewForCaptureChange()
         releaseProjection()
         if (::genericStream.isInitialized && !genericStreamReleased) {
@@ -229,6 +292,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     override fun onCreate() {
         super.onCreate()
+        serviceDestroyed = false
         historyStore = CreatorHistoryStore(applicationContext)
         streamQuality = StreamQualityStore(applicationContext).load()
         audioSettings = AudioSettingsStore(applicationContext).load()
@@ -298,6 +362,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val projection = projectionManager.getMediaProjection(resultCode, data) ?: return false
         mediaProjection = projection
         projection.registerCallback(projectionCallback, handler)
+        intentionallyReleasingProjection = false
+
         return runCatching {
             genericStream.changeVideoSource(ScreenSource(applicationContext, projection))
             cameraSource = null
@@ -536,7 +602,11 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val hadPendingStart = pendingStart != null
         pendingStart = null
         reconnectScheduled = false
+        reconnectRunnable?.let(handler::removeCallbacks)
+        reconnectRunnable = null
         handler.removeCallbacksAndMessages(null)
+        sessionGeneration.incrementAndGet()
+        elapsedTickerGeneration = 0L
         if (!hadPendingStart && !StreamStateMachine.acceptsStop(current.status)) return
         if (current.status != StreamStatus.STOPPING && current.status != StreamStatus.STOPPED && current.status != StreamStatus.IDLE) {
             publish(StreamStatus.STOPPING, if (hadPendingStart) "Cancelling capture" else "Stopping session")
@@ -580,7 +650,11 @@ class StreamingForegroundService : Service(), ConnectChecker {
         manualStop = true
         pendingStart = null
         reconnectScheduled = false
+        reconnectRunnable?.let(handler::removeCallbacks)
+        reconnectRunnable = null
         handler.removeCallbacksAndMessages(null)
+        sessionGeneration.incrementAndGet()
+        elapsedTickerGeneration = 0L
         releaseFailedPipeline()
         resetTelemetryForInactiveSession()
         StreamingStatusBus.update(
@@ -624,7 +698,11 @@ class StreamingForegroundService : Service(), ConnectChecker {
         manualStop = true
         pendingStart = null
         reconnectScheduled = false
+        reconnectRunnable?.let(handler::removeCallbacks)
+        reconnectRunnable = null
         handler.removeCallbacksAndMessages(null)
+        sessionGeneration.incrementAndGet()
+        elapsedTickerGeneration = 0L
         releaseFailedPipeline()
         resetTelemetryForInactiveSession()
         updateNotification("Graphics resources released • tap Fix to retry")
@@ -768,15 +846,16 @@ class StreamingForegroundService : Service(), ConnectChecker {
         reconnectScheduled = true
         val jitter = reconnectJitter.nextLong(0L, RECONNECT_JITTER_MAX_MS + 1L)
         val delay = StreamFailurePolicy.reconnectDelayMs(reconnectAttempt, jitter)
+        val generation = sessionGeneration.get()
         publish(StreamStatus.RECONNECTING, "${decision.userMessage} • retry $reconnectAttempt/$MAX_RECONNECT_ATTEMPTS")
-        handler.postDelayed({
+        reconnectRunnable = Runnable {
+            reconnectRunnable = null
             reconnectScheduled = false
-            if (!manualStop && currentEndpoint.isNotBlank()) {
-                publish(StreamStatus.CONNECTING, "Reconnecting securely")
-                runCatching { genericStream.startStream(currentEndpoint) }
-                    .onFailure { scheduleReconnect(it.message ?: "Reconnect failed") }
-            }
-        }, delay)
+            if (!isCurrentGeneration(generation) || manualStop || currentEndpoint.isBlank()) return@Runnable
+            publish(StreamStatus.CONNECTING, "Reconnecting securely")
+            runCatching { genericStream.startStream(currentEndpoint) }
+                .onFailure { scheduleReconnect(it.message ?: "Reconnect failed") }
+        }.also { runnable -> handler.postDelayed(runnable, delay) }
     }
 
     private fun startForegroundSafely(includeProjection: Boolean): Boolean {
@@ -857,6 +936,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 networkLabel = networkLabel,
             )
         sessionHealthSamples += sample
+        while (sessionHealthSamples.size > MAX_SESSION_HEALTH_SAMPLES) sessionHealthSamples.removeAt(0)
         StreamingStatusBus.recordHealth(sample)
     }
 
@@ -911,14 +991,19 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     override fun onDestroy() {
+        serviceDestroyed = true
         manualStop = true
+        sessionGeneration.incrementAndGet()
+        reconnectRunnable?.let(handler::removeCallbacks)
+        reconnectRunnable = null
         serviceScope.cancel()
         handler.removeCallbacksAndMessages(null)
-        if (::genericStream.isInitialized) {
+        if (::genericStream.isInitialized && !genericStreamReleased) {
             releasePreviewForCaptureChange()
             if (StreamingStatusBus.state.value.recording) genericStream.stopRecord()
             if (genericStream.isStreaming) genericStream.stopStream()
             genericStream.release()
+            genericStreamReleased = true
         }
         microphoneSource?.release()
         cameraSource?.release()
@@ -952,22 +1037,29 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun releaseProjection() {
-        mediaProjection?.let { projection ->
-            runCatching { projection.unregisterCallback(projectionCallback) }
-            runCatching { projection.stop() }
-        }
+        val projection = mediaProjection ?: return
+        intentionallyReleasingProjection = true
+        runCatching { projection.unregisterCallback(projectionCallback) }
+        runCatching { projection.stop() }
         mediaProjection = null
     }
 
-    override fun onConnectionStarted(url: String) = publish(StreamStatus.CONNECTING, "Connecting securely")
+    private fun onConnectionStartedForGeneration(url: String, generation: Long) {
+        if (!isCurrentGeneration(generation)) return
+        publish(StreamStatus.CONNECTING, "Connecting securely")
+    }
 
-    override fun onConnectionSuccess() {
+    private fun onConnectionSuccessForGeneration(generation: Long) {
+        if (!isCurrentGeneration(generation)) return
         reconnectAttempt = 0
         reconnectScheduled = false
         publish(StreamStatus.LIVE, "Broadcast is live")
     }
 
-    override fun onNewBitrate(bitrate: Long) {
+    private fun onNewBitrateForGeneration(bitrate: Long, generation: Long) {
+        if (!isCurrentGeneration(generation)) return
+        val state = StreamingStatusBus.state.value
+        if (!genericStream.isStreaming || state.status !in setOf(StreamStatus.CONNECTING, StreamStatus.LIVE, StreamStatus.RECONNECTING)) return
         val reported = bitrate.coerceAtLeast(0L).toInt()
         bitrateHistory.addLast(reported)
         if (bitrateHistory.size > 5) bitrateHistory.removeFirst()
@@ -1009,16 +1101,57 @@ class StreamingForegroundService : Service(), ConnectChecker {
         StreamingStatusBus.update(StreamingStatusBus.state.value.copy(bitrateKbps = (bitrate / 1000L).toInt()))
     }
 
-    override fun onConnectionFailed(reason: String) = scheduleReconnect("Connection failed")
+    private fun onConnectionFailedForGeneration(reason: String, generation: Long) {
+        if (!isCurrentGeneration(generation)) return
+        scheduleReconnect(reason.ifBlank { "Connection failed" })
+    }
 
-    override fun onDisconnect() = scheduleReconnect("Connection lost")
+    private fun onDisconnectForGeneration(generation: Long) {
+        if (!isCurrentGeneration(generation)) return
+        scheduleReconnect("Connection lost")
+    }
 
-    override fun onAuthError() {
+    private fun onAuthErrorForGeneration(generation: Long) {
+        if (!isCurrentGeneration(generation)) return
         manualStop = true
+        reconnectScheduled = false
+        reconnectRunnable?.let(handler::removeCallbacks)
+        reconnectRunnable = null
         publish(StreamStatus.ERROR, "Destination rejected the stream key. Check the selected platform and rotate the key if needed")
     }
 
-    override fun onAuthSuccess() = publish(StreamStatus.CONNECTING, "Destination authenticated")
+    private fun onAuthSuccessForGeneration(generation: Long) {
+        if (!isCurrentGeneration(generation)) return
+        publish(StreamStatus.CONNECTING, "Destination authenticated")
+    }
+
+    override fun onConnectionStarted(url: String) = postSerialized {
+        onConnectionStartedForGeneration(url, sessionGeneration.get())
+    }
+
+    override fun onConnectionSuccess() = postSerialized {
+        onConnectionSuccessForGeneration(sessionGeneration.get())
+    }
+
+    override fun onNewBitrate(bitrate: Long) = postSerialized {
+        onNewBitrateForGeneration(bitrate, sessionGeneration.get())
+    }
+
+    override fun onConnectionFailed(reason: String) = postSerialized {
+        onConnectionFailedForGeneration(reason, sessionGeneration.get())
+    }
+
+    override fun onDisconnect() = postSerialized {
+        onDisconnectForGeneration(sessionGeneration.get())
+    }
+
+    override fun onAuthError() = postSerialized {
+        onAuthErrorForGeneration(sessionGeneration.get())
+    }
+
+    override fun onAuthSuccess() = postSerialized {
+        onAuthSuccessForGeneration(sessionGeneration.get())
+    }
 
     companion object {
         const val ACTION_PREPARE_PROJECTION = "com.unictoai.unictoos.action.PREPARE_PROJECTION"
@@ -1050,6 +1183,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         private const val GL_PIPELINE_SHUTDOWN_SETTLE_MS = 150L
         private const val RECONNECT_JITTER_MAX_MS = 500L
         private const val MIN_RECORDING_BYTES = 64L * 1024L * 1024L
+        private const val MAX_SESSION_HEALTH_SAMPLES = 1_200
 
         private fun formatElapsed(seconds: Long): String = "%02d:%02d".format(seconds / 60, seconds % 60)
     }
