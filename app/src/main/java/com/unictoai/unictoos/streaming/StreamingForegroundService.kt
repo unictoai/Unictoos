@@ -202,6 +202,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             ACTION_START_RECORDING -> startRecording()
             ACTION_STOP_RECORDING -> stopRecording()
             ACTION_DISMISS_STATUS -> dismissStatusMessage()
+            ACTION_ENCODER_GRAPHICS_FAILURE -> handleEncoderGraphicsFailure()
         }
         return START_NOT_STICKY
     }
@@ -233,6 +234,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private fun prepareProjection(resultCode: Int, data: Intent): Boolean {
         if (!prepared) return false
+        releasePreviewForCaptureChange()
         releaseProjection()
         val projection = projectionManager.getMediaProjection(resultCode, data) ?: return false
         mediaProjection = projection
@@ -268,6 +270,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             return
         }
         runCatching {
+            releasePreviewForCaptureChange()
             cameraSource?.release()
             cameraSource = Camera2Source(applicationContext).also { genericStream.changeVideoSource(it) }
             microphoneSource?.release()
@@ -330,6 +333,22 @@ class StreamingForegroundService : Service(), ConnectChecker {
         tryStartPending()
     }
 
+    private fun releasePreviewForCaptureChange() {
+        if (!::genericStream.isInitialized) {
+            previewAttached = false
+            return
+        }
+        runCatching {
+            if (genericStream.isOnPreview) genericStream.stopPreview()
+            genericStream.getGlInterface().clearFilters()
+        }
+        previewAttached = false
+        val previous = StreamingStatusBus.state.value
+        if (previous.previewReady) {
+            StreamingStatusBus.update(previous.copy(previewReady = false, message = previous.message))
+        }
+    }
+
     private fun attachPreviewIfPossible() {
         val surface = previewSurface ?: return
         if (!prepared || !captureReady || !surface.isValid || previewWidth <= 0 || previewHeight <= 0) return
@@ -346,10 +365,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun detachPreview() {
-        if (::genericStream.isInitialized && genericStream.isOnPreview) {
-            runCatching { genericStream.stopPreview() }
-        }
-        previewAttached = false
+        releasePreviewForCaptureChange()
         previewSurface = null
         previewWidth = 0
         previewHeight = 0
@@ -458,8 +474,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         if (current.status != StreamStatus.STOPPING && current.status != StreamStatus.STOPPED && current.status != StreamStatus.IDLE) {
             publish(StreamStatus.STOPPING, if (hadPendingStart) "Cancelling capture" else "Stopping session")
         }
+        releasePreviewForCaptureChange()
         if (::genericStream.isInitialized && genericStream.isStreaming) genericStream.stopStream()
-        if (::genericStream.isInitialized) genericStream.getGlInterface().clearFilters()
         if (StreamingStatusBus.state.value.recording) stopRecording()
         val completed = StreamingStatusBus.state.value
         if (sessionHealthSamples.isNotEmpty()) historyStore.addHealthSamples(sessionHealthSamples.toList())
@@ -489,6 +505,38 @@ class StreamingForegroundService : Service(), ConnectChecker {
         sessionHealthSamples.clear()
         publish(StreamStatus.STOPPED, reason)
         stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    private fun handleEncoderGraphicsFailure() {
+        manualStop = true
+        pendingStart = null
+        reconnectScheduled = false
+        handler.removeCallbacksAndMessages(null)
+        releasePreviewForCaptureChange()
+        if (::genericStream.isInitialized) {
+            runCatching { if (StreamingStatusBus.state.value.recording) genericStream.stopRecord() }
+            runCatching { if (genericStream.isStreaming) genericStream.stopStream() }
+        }
+        microphoneSource?.release()
+        cameraSource?.release()
+        releaseProjection()
+        microphoneSource = null
+        cameraSource = null
+        captureReady = false
+        currentEndpoint = ""
+        activeRecordingFile = null
+        startedAtElapsed = 0L
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        StreamingStatusBus.update(
+            StreamingStatusBus.state.value.copy(
+                status = StreamStatus.ERROR,
+                captureReady = false,
+                previewReady = false,
+                recording = false,
+                message = EncoderCrashPolicy.GRAPHICS_RESOURCE_MESSAGE,
+            ),
+        )
         stopSelf()
     }
 
@@ -768,6 +816,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         serviceScope.cancel()
         handler.removeCallbacksAndMessages(null)
         if (::genericStream.isInitialized) {
+            releasePreviewForCaptureChange()
             if (StreamingStatusBus.state.value.recording) genericStream.stopRecord()
             if (genericStream.isStreaming) genericStream.stopStream()
             genericStream.release()
@@ -885,6 +934,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         const val ACTION_START_RECORDING = "com.unictoai.unictoos.action.START_RECORDING"
         const val ACTION_STOP_RECORDING = "com.unictoai.unictoos.action.STOP_RECORDING"
         const val ACTION_DISMISS_STATUS = "com.unictoai.unictoos.action.DISMISS_STATUS"
+        const val ACTION_ENCODER_GRAPHICS_FAILURE = "com.unictoai.unictoos.action.ENCODER_GRAPHICS_FAILURE"
         const val EXTRA_RESULT_CODE = "extra_result_code"
         const val EXTRA_PROJECTION_DATA = "extra_projection_data"
         const val EXTRA_ENDPOINT = "extra_endpoint"

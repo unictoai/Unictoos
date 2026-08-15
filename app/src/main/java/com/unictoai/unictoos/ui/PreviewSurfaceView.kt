@@ -50,6 +50,12 @@ class PreviewSurfaceView @JvmOverloads constructor(
         }
     }
 
+    fun releasePreviewListener() {
+        lastSurface?.let { surface -> listener?.onSurfaceDestroyed(surface) }
+        lastSurface = null
+        listener = null
+    }
+
     private fun notifyAvailable(holder: SurfaceHolder) {
         if (holder.surface.isValid && width > 0 && height > 0) {
             lastSurface = holder.surface
@@ -58,9 +64,7 @@ class PreviewSurfaceView @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
-        lastSurface?.let { surface -> listener?.onSurfaceDestroyed(surface) }
-        lastSurface = null
-        listener = null
+        releasePreviewListener()
         holder.removeCallback(callback)
         super.onDetachedFromWindow()
     }

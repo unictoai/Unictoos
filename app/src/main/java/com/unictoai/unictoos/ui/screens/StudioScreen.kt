@@ -213,6 +213,9 @@ internal fun StudioScreen(
                     update = { view ->
                         view.setPreviewListener(previewSurfaceListener(onPreviewSurfaceAvailable, onPreviewSurfaceDestroyed))
                     },
+                    onRelease = { view ->
+                        view.releasePreviewListener()
+                    },
                     modifier = Modifier.fillMaxSize(),
                 )
                 if (!session.previewReady) {
