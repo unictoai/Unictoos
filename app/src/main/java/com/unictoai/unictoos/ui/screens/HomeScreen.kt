@@ -120,7 +120,9 @@ import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
-import com.unictoai.unictoos.ui.theme.UnictoosPalette
+import com.unictoai.unictoos.ui.theme.MotionTokens
+import com.unictoai.unictoos.ui.theme.Spacing
+import com.unictoai.unictoos.ui.theme.V02Palette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
 import com.unictoai.unictoos.ui.components.BrandHeader
 import com.unictoai.unictoos.ui.components.PreflightCard
@@ -144,8 +146,8 @@ internal fun HomeScreen(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        contentPadding = PaddingValues(start = Spacing.xl, top = Spacing.lg, end = Spacing.xl, bottom = Spacing.xl),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
     ) {
         item { BrandHeader("Creator workspace", "Your broadcast desk") { StatusPill(session.status) } }
         if (session.status == StreamStatus.ERROR) item { SessionErrorCard(session.message.orEmpty(), onGoStudio) }
@@ -155,7 +157,7 @@ internal fun HomeScreen(
         item {
             AnimatedVisibility(
                 visible = true,
-                enter = fadeIn(tween(380)) + slideInVertically(tween(380)) { it / 5 },
+                enter = fadeIn(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)) + slideInVertically(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)) { it / 5 },
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SectionHeader("Broadcast readiness", "A quick check before you go live")
@@ -173,7 +175,7 @@ internal fun HomeScreen(
         item {
             AnimatedVisibility(
                 visible = true,
-                enter = fadeIn(tween(440, delayMillis = 90)) + slideInVertically(tween(440, delayMillis = 90)) { it / 6 },
+                enter = fadeIn(tween(MotionTokens.standard, delayMillis = 40, easing = MotionTokens.gentleEasing)) + slideInVertically(tween(MotionTokens.standard, delayMillis = 40, easing = MotionTokens.gentleEasing)) { it / 6 },
             ) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         SectionHeader("Quick actions", "Keep your setup within one tap")
@@ -188,7 +190,7 @@ internal fun HomeScreen(
         item {
             AnimatedVisibility(
                 visible = scenes.isNotEmpty(),
-                enter = fadeIn(tween(500, delayMillis = 150)) + slideInVertically(tween(500, delayMillis = 150)) { it / 7 },
+                enter = fadeIn(tween(MotionTokens.standard, delayMillis = 80, easing = MotionTokens.gentleEasing)) + slideInVertically(tween(MotionTokens.standard, delayMillis = 80, easing = MotionTokens.gentleEasing)) { it / 7 },
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -202,13 +204,13 @@ internal fun HomeScreen(
         item {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = UnictoosPalette.Surface.copy(alpha = 0.68f),
+                color = V02Palette.Neutral900.copy(alpha = 0.68f),
                 shape = RoundedCornerShape(18.dp),
             ) {
                 Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Lock, contentDescription = null, tint = UnictoosPalette.Mint, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = V02Palette.AccentBlue, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(10.dp))
-                    Text("Your stream keys stay encrypted on this device.", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                    Text("Your stream keys stay encrypted on this device.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -221,32 +223,32 @@ internal fun configuredDestinationLabel(destinations: List<StreamDestination>): 
 internal fun ExecutiveHero(session: StreamSessionState, onOpenStudio: () -> Unit) {
     val isLive = session.status == StreamStatus.LIVE
     Card(
-        modifier = Modifier.fillMaxWidth().animateContentSize(tween(320, easing = FastOutSlowInEasing)),
+        modifier = Modifier.fillMaxWidth().animateContentSize(tween(MotionTokens.emphasis, easing = MotionTokens.gentleEasing)),
         shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface),
-        border = BorderStroke(1.dp, UnictoosPalette.Stroke.copy(alpha = 0.65f)),
+        colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900),
+        border = BorderStroke(1.dp, V02Palette.Neutral700.copy(alpha = 0.65f)),
     ) {
         Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(if (isLive) "BROADCAST IN PROGRESS" else "BROADCAST READINESS", style = MaterialTheme.typography.labelMedium, color = if (isLive) UnictoosPalette.Mint else UnictoosPalette.Cyan, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text(if (isLive) "BROADCAST IN PROGRESS" else "BROADCAST READINESS", style = MaterialTheme.typography.labelMedium, color = if (isLive) V02Palette.AccentBlue else V02Palette.Neutral300, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     AnimatedContent(targetState = isLive, label = "heroTitle") { live ->
                         Text(if (live) "You are live." else "Ready when you are.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                     }
                 }
-                Surface(color = (if (isLive) UnictoosPalette.Mint else UnictoosPalette.Cyan).copy(alpha = 0.12f), shape = RoundedCornerShape(16.dp)) {
-                    Icon(if (isLive) Icons.Default.FiberManualRecord else Icons.Default.Bolt, contentDescription = null, tint = if (isLive) UnictoosPalette.Mint else UnictoosPalette.Cyan, modifier = Modifier.padding(12.dp).size(22.dp))
+                Surface(color = (if (isLive) V02Palette.AccentBlue else V02Palette.Neutral300).copy(alpha = 0.12f), shape = RoundedCornerShape(16.dp)) {
+                    Icon(if (isLive) Icons.Default.FiberManualRecord else Icons.Default.Bolt, contentDescription = null, tint = if (isLive) V02Palette.AccentBlue else V02Palette.Neutral300, modifier = Modifier.padding(12.dp).size(22.dp))
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (isLive) LivePulseDot() else Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(UnictoosPalette.Mint))
+                if (isLive) LivePulseDot() else Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(V02Palette.AccentBlue))
                 Spacer(Modifier.width(9.dp))
-                Text(if (isLive) "Session is active" else "All essential checks are ready", color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodyMedium)
+                Text(if (isLive) "Session is active" else "All essential checks are ready", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodyMedium)
             }
             Button(
                 onClick = onOpenStudio,
                 modifier = Modifier.fillMaxWidth().height(54.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (isLive) UnictoosPalette.Danger else Color.White, contentColor = if (isLive) Color.White else UnictoosPalette.Ink),
+                colors = ButtonDefaults.buttonColors(containerColor = if (isLive) V02Palette.Danger else Color.White, contentColor = if (isLive) Color.White else V02Palette.Neutral950),
                 shape = RoundedCornerShape(16.dp),
             ) {
                 Icon(if (isLive) Icons.Default.LiveTv else Icons.Default.PlayArrow, contentDescription = null)
@@ -279,16 +281,16 @@ internal fun ReadinessGrid(
 @Composable
 internal fun ReadinessCard(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, ready: Boolean, modifier: Modifier) {
     Card(
-        modifier = modifier.animateContentSize(tween(240)),
-        colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised),
+        modifier = modifier.animateContentSize(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)),
+        colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850),
         shape = RoundedCornerShape(18.dp),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, tint = if (ready) UnictoosPalette.Mint else UnictoosPalette.Amber, modifier = Modifier.size(18.dp))
-                Icon(if (ready) Icons.Default.CheckCircle else Icons.Default.Warning, contentDescription = null, tint = if (ready) UnictoosPalette.Mint else UnictoosPalette.Amber, modifier = Modifier.size(17.dp))
+                Icon(icon, contentDescription = null, tint = if (ready) V02Palette.AccentBlue else V02Palette.Caution, modifier = Modifier.size(18.dp))
+                Icon(if (ready) Icons.Default.CheckCircle else Icons.Default.Warning, contentDescription = null, tint = if (ready) V02Palette.AccentBlue else V02Palette.Caution, modifier = Modifier.size(17.dp))
             }
-            Text(label, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.labelMedium)
+            Text(label, color = V02Palette.Neutral500, style = MaterialTheme.typography.labelMedium)
             Text(value, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
         }
     }
@@ -303,16 +305,16 @@ internal fun QuickAction(
 ) {
     Card(
         onClick = onClick,
-        modifier = modifier.animateContentSize(tween(220)),
-        colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised),
+        modifier = modifier.animateContentSize(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)),
+        colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850),
         shape = RoundedCornerShape(20.dp),
     ) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Surface(color = UnictoosPalette.Violet.copy(alpha = 0.16f), shape = RoundedCornerShape(12.dp)) {
-                Icon(icon, null, tint = UnictoosPalette.VioletBright, modifier = Modifier.padding(8.dp).size(20.dp))
+            Surface(color = V02Palette.AccentBlue.copy(alpha = 0.16f), shape = RoundedCornerShape(12.dp)) {
+                Icon(icon, null, tint = V02Palette.AccentBlue, modifier = Modifier.padding(8.dp).size(20.dp))
             }
             Text(title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(subtitle, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
