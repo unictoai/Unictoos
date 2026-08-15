@@ -12,7 +12,7 @@ The current build remains an **alpha engineering milestone**. It compiles and pa
 
 ## Latest test build
 
-The latest published engineering-remediation device-test build is **Unictoos v0.2.0-alpha6** with Android `versionCode 24`. It combines lifecycle serialization, explicit failed-pipeline release, recording finalization, bounded scene geometry, settings locking, and redacted diagnostics for physical-device validation. [Download the APK from GitHub Releases](https://github.com/unictoai/Unictoos/releases/tag/v0.2.0-alpha6) or [download the APK directly](https://github.com/unictoai/Unictoos/releases/download/v0.2.0-alpha6/unictoos-v0.2.0-alpha6-debug.apk).
+The latest published engineering-remediation device-test build is **Unictoos v0.2.0-alpha7** with Android `versionCode 25`. It upgrades RootEncoder’s GL lifecycle handling, adds synchronous render-error teardown, serializes recovery actions, and de-duplicates preview-surface callbacks for physical-device validation. [Download the APK from GitHub Releases](https://github.com/unictoai/Unictoos/releases/tag/v0.2.0-alpha7) or [download the APK directly](https://github.com/unictoai/Unictoos/releases/download/v0.2.0-alpha7/unictoos-v0.2.0-alpha7-debug.apk).
 
 ## Build locally
 
