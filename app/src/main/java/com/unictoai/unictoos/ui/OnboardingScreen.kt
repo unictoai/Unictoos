@@ -21,8 +21,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -52,38 +52,13 @@ import com.unictoai.unictoos.R
 import com.unictoai.unictoos.ui.theme.Spacing
 import com.unictoai.unictoos.ui.theme.V02Palette
 
-private data class OnboardingPage(
-    val image: Int,
-    val eyebrow: String,
-    val title: String,
-    val body: String,
-)
+private data class OnboardingPage(val image: Int)
 
 private val onboardingPages = listOf(
-    OnboardingPage(
-        image = R.drawable.onboarding_stream_anywhere,
-        eyebrow = "STREAM ANYWHERE",
-        title = "Your broadcast desk, in your pocket.",
-        body = "Go live from your phone with a focused workspace built for serious creators.",
-    ),
-    OnboardingPage(
-        image = R.drawable.onboarding_scenes,
-        eyebrow = "PROFESSIONAL SCENES",
-        title = "Build a look people remember.",
-        body = "Create clean portrait or landscape scenes for camera, screen capture, titles, and more.",
-    ),
-    OnboardingPage(
-        image = R.drawable.onboarding_reliable_capture,
-        eyebrow = "RELIABLE CAPTURE",
-        title = "Stay in control when it matters.",
-        body = "Preview, stream, record, mute, and mark moments from one calm mobile control surface.",
-    ),
-    OnboardingPage(
-        image = R.drawable.onboarding_secure_control,
-        eyebrow = "SECURE CREATOR CONTROL",
-        title = "Your channels. Your keys. Your control.",
-        body = "Connect YouTube, Twitch, Kick, or a custom RTMP destination while credentials stay protected on your device.",
-    ),
+    OnboardingPage(R.drawable.onboarding_stream_anywhere),
+    OnboardingPage(R.drawable.onboarding_scenes),
+    OnboardingPage(R.drawable.onboarding_reliable_capture),
+    OnboardingPage(R.drawable.onboarding_secure_control),
 )
 
 @Composable
@@ -97,7 +72,7 @@ internal fun OnboardingScreen(onFinished: () -> Unit) {
             painter = painterResource(page.image),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
+            contentScale = ContentScale.Fit,
         )
         Box(
             Modifier.fillMaxSize().background(
@@ -130,17 +105,9 @@ internal fun OnboardingScreen(onFinished: () -> Unit) {
                 }
             }
             Spacer(Modifier.weight(1f))
-            AnimatedContent(
-                targetState = pageIndex,
-                transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(180)) },
-                label = "onboardingPage",
-            ) { index ->
-                val animatedPage = onboardingPages[index]
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    Text(animatedPage.eyebrow, color = V02Palette.AccentBlue, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                    Text(animatedPage.title, color = Color.White, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                    Text(animatedPage.body, color = Color.White.copy(alpha = 0.76f), style = MaterialTheme.typography.bodyLarge)
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+                Text("STEP ${pageIndex + 1} OF ${onboardingPages.size}", color = V02Palette.AccentBlue, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                Text(if (isLastPage) "Your broadcast workspace is ready." else "Explore what Unictoos puts in your hands.", color = Color.White.copy(alpha = 0.76f), style = MaterialTheme.typography.bodyMedium)
             }
             Spacer(Modifier.height(Spacing.lg))
             LinearProgressIndicator(
@@ -158,7 +125,7 @@ internal fun OnboardingScreen(onFinished: () -> Unit) {
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (pageIndex > 0) {
-                        IconButton(onClick = { pageIndex -= 1 }) { Icon(Icons.Default.ArrowBack, contentDescription = "Previous", tint = Color.White) }
+                        IconButton(onClick = { pageIndex -= 1 }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous", tint = Color.White) }
                     }
                     Button(
                         onClick = { if (isLastPage) onFinished() else pageIndex += 1 },
@@ -172,7 +139,7 @@ internal fun OnboardingScreen(onFinished: () -> Unit) {
                         } else {
                             Text("Next", fontWeight = FontWeight.Bold)
                             Spacer(Modifier.width(Spacing.sm))
-                            Icon(Icons.Default.ArrowForward, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
                         }
                     }
                 }
