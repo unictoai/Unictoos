@@ -68,7 +68,7 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
     implementation("androidx.core:core-splashscreen:1.0.1")
-    implementation("com.github.pedroSG94.RootEncoder:library:2.4.5")
+    implementation("com.github.pedroSG94.RootEncoder:library:2.5.9")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")

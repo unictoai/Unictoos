@@ -31,11 +31,11 @@ import androidx.core.content.ContextCompat
 import com.pedro.common.ConnectChecker
 import com.pedro.library.base.recording.RecordController
 import com.pedro.library.generic.GenericStream
-import com.pedro.library.util.sources.audio.MicrophoneSource
-import com.pedro.library.util.sources.audio.NoAudioSource
-import com.pedro.library.util.sources.video.Camera2Source
-import com.pedro.library.util.sources.video.NoVideoSource
-import com.pedro.library.util.sources.video.ScreenSource
+import com.pedro.encoder.input.sources.audio.MicrophoneSource
+import com.pedro.encoder.input.sources.audio.NoAudioSource
+import com.pedro.encoder.input.sources.video.Camera2Source
+import com.pedro.encoder.input.sources.video.NoVideoSource
+import com.pedro.encoder.input.sources.video.ScreenSource
 import com.unictoai.unictoos.R
 import com.unictoai.unictoos.data.CreatorHistoryStore
 import com.unictoai.unictoos.data.StreamQualityStore
