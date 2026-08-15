@@ -138,6 +138,7 @@ import com.unictoai.unictoos.ui.components.TrustRow
 @Composable
 internal fun SettingsScreen(
     destination: DestinationConfig,
+    sessionStatus: StreamStatus,
     onSelectPlatform: (PlatformPreset) -> Unit,
     onSaveDestination: (PlatformPreset, String, String) -> Unit,
     onClearDestination: () -> Unit,
@@ -163,6 +164,7 @@ internal fun SettingsScreen(
     var serverUrl by rememberSaveable(destination.serverUrl) { mutableStateOf(destination.serverUrl) }
     var streamKey by rememberSaveable(destination.streamKey) { mutableStateOf(destination.streamKey) }
     val selectedPlatform = PlatformPreset.values().firstOrNull { it.name == selectedPlatformName } ?: PlatformPreset.YOUTUBE
+    val settingsLocked = sessionStatus in setOf(StreamStatus.PREPARING, StreamStatus.CONNECTING, StreamStatus.LIVE, StreamStatus.RECONNECTING, StreamStatus.STOPPING)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -173,6 +175,10 @@ internal fun SettingsScreen(
             BrandHeader("Control center", "Settings")
             Spacer(Modifier.height(6.dp))
             Text("Keep your broadcast setup simple, secure, and ready to repeat.", color = V02Palette.Neutral500)
+            if (settingsLocked) {
+                Spacer(Modifier.height(8.dp))
+                Text("Broadcast settings are locked during an active session. Changes apply when the next session is prepared.", color = V02Palette.Caution, style = MaterialTheme.typography.bodySmall)
+            }
         }
         item {
             SectionHeader("Destination", "Choose where Unictoos should send your broadcast")
@@ -182,6 +188,7 @@ internal fun SettingsScreen(
                     FilterChip(
                         selected = selectedPlatform == platform,
                         onClick = { selectedPlatformName = platform.name; onSelectPlatform(platform) },
+                        enabled = !settingsLocked,
                         label = { Text(platform.label) },
                     )
                 }
@@ -196,6 +203,7 @@ internal fun SettingsScreen(
                         value = serverUrl,
                         onValueChange = { serverUrl = it },
                         modifier = Modifier.fillMaxWidth(),
+                        enabled = !settingsLocked,
                         label = { Text("Server URL") },
                         placeholder = { Text(selectedPlatform.serverHint) },
                         singleLine = true,
@@ -205,18 +213,19 @@ internal fun SettingsScreen(
                         value = streamKey,
                         onValueChange = { streamKey = it },
                         modifier = Modifier.fillMaxWidth(),
+                        enabled = !settingsLocked,
                         label = { Text("Stream key") },
                         placeholder = { Text("Stored with Android Keystore") },
                         singleLine = true,
                         shape = RoundedCornerShape(14.dp),
                     )
-                    Button(onClick = { onSaveDestination(selectedPlatform, serverUrl, streamKey) }, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp)) {
+                    Button(onClick = { onSaveDestination(selectedPlatform, serverUrl, streamKey) }, enabled = !settingsLocked, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp)) {
                         Icon(Icons.Default.Lock, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(7.dp))
                         Text(if (destination.isConfigured) "Update secure destination" else "Save secure destination")
                     }
                     if (destination.isConfigured) {
-                        TextButton(onClick = onClearDestination, modifier = Modifier.fillMaxWidth()) {
+                        TextButton(onClick = onClearDestination, enabled = !settingsLocked, modifier = Modifier.fillMaxWidth()) {
                             Text("Remove saved destination", color = V02Palette.Danger)
                         }
                     }
@@ -241,6 +250,7 @@ internal fun SettingsScreen(
                 quality = streamQuality,
                 onPresetSelected = onStreamQualityPreset,
                 onCustomChanged = onCustomStreamQualityChange,
+                enabled = !settingsLocked,
             )
         }
         item {
@@ -249,18 +259,19 @@ internal fun SettingsScreen(
                 onQualityChange = onAudioQualityChange,
                 onEchoChange = onEchoCancelerChange,
                 onNoiseChange = onNoiseSuppressorChange,
+                enabled = !settingsLocked,
             )
         }
         item {
-            LatencyModeCard(mode = latencyMode, onModeChange = onLatencyModeChange)
+            LatencyModeCard(mode = latencyMode, onModeChange = onLatencyModeChange, enabled = !settingsLocked)
         }
         item {
             SectionHeader("Device controls", "Permissions and broadcast behavior")
             Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
                 Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    SettingToggle("Microphone", "Check audio access before going live", microphoneEnabled) { microphoneEnabled = it }
+                    SettingToggle("Microphone", "Check audio access before going live", microphoneEnabled, onCheckedChange = { microphoneEnabled = it }, enabled = !settingsLocked)
                     HorizontalDivider(color = V02Palette.Neutral700)
-                    SettingToggle("Keep screen awake", "Prevent the display from sleeping in Studio", keepAwake) { keepAwake = it }
+                    SettingToggle("Keep screen awake", "Prevent the display from sleeping in Studio", keepAwake, onCheckedChange = { keepAwake = it }, enabled = !settingsLocked)
                     HorizontalDivider(color = V02Palette.Neutral700)
                     SettingToggle("Automatic thermal protection", "Lower live bitrate when the device is running hot", thermalProtectionEnabled, onThermalProtectionChange)
                 }
@@ -303,6 +314,7 @@ private fun StreamQualitySettingsCard(
     quality: StreamQuality,
     onPresetSelected: (StreamQualityPreset) -> Unit,
     onCustomChanged: (Int, Int) -> Unit,
+    enabled: Boolean,
 ) {
     var customBitrate by rememberSaveable(quality.bitrate) { mutableStateOf(quality.bitrate / 1_000_000f) }
     var customFps by rememberSaveable(quality.fps) { mutableStateOf(quality.fps) }
@@ -322,6 +334,7 @@ private fun StreamQualitySettingsCard(
                                     customFps = preset.fps
                                 }
                             },
+                            enabled = enabled,
                             label = { Text(preset.label) },
                         )
                     }
@@ -340,6 +353,7 @@ private fun StreamQualitySettingsCard(
                     Slider(
                         value = customBitrate,
                         onValueChange = { customBitrate = it },
+                        enabled = enabled,
                         onValueChangeFinished = { onCustomChanged((customBitrate * 1_000_000).toInt(), customFps) },
                         valueRange = 1f..8f,
                         steps = 6,
@@ -352,6 +366,7 @@ private fun StreamQualitySettingsCard(
                                     customFps = fps
                                     onCustomChanged((customBitrate * 1_000_000).toInt(), fps)
                                 },
+                                enabled = enabled,
                                 label = { Text("${fps} FPS") },
                             )
                         }
@@ -370,6 +385,7 @@ private fun AudioSettingsCard(
     onQualityChange: (AudioQuality) -> Unit,
     onEchoChange: (Boolean) -> Unit,
     onNoiseChange: (Boolean) -> Unit,
+    enabled: Boolean,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         SectionHeader("Audio quality", "Tune voice detail and microphone cleanup for the next session")
@@ -380,15 +396,16 @@ private fun AudioSettingsCard(
                         FilterChip(
                             selected = settings.quality == option,
                             onClick = { onQualityChange(option) },
+                            enabled = enabled,
                             label = { Text(option.label) },
                         )
                     }
                 }
                 Text(settings.quality.description, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                 HorizontalDivider(color = V02Palette.Neutral700)
-                SettingToggle("Echo cancellation", "Reduce acoustic feedback when monitoring nearby", settings.echoCanceler, onEchoChange)
+                SettingToggle("Echo cancellation", "Reduce acoustic feedback when monitoring nearby", settings.echoCanceler, onEchoChange, enabled = enabled)
                 HorizontalDivider(color = V02Palette.Neutral700)
-                SettingToggle("Noise suppression", "Reduce steady background noise from the microphone", settings.noiseSuppressor, onNoiseChange)
+                SettingToggle("Noise suppression", "Reduce steady background noise from the microphone", settings.noiseSuppressor, onNoiseChange, enabled = enabled)
                 Text("Some Android devices may not support every audio effect identically.", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
             }
         }
@@ -397,7 +414,7 @@ private fun AudioSettingsCard(
 
 
 @Composable
-private fun LatencyModeCard(mode: LatencyMode, onModeChange: (LatencyMode) -> Unit) {
+private fun LatencyModeCard(mode: LatencyMode, onModeChange: (LatencyMode) -> Unit, enabled: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         SectionHeader("Latency mode", "Choose interaction speed or upload resilience")
         Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
@@ -407,6 +424,7 @@ private fun LatencyModeCard(mode: LatencyMode, onModeChange: (LatencyMode) -> Un
                         FilterChip(
                             selected = mode == option,
                             onClick = { onModeChange(option) },
+                            enabled = enabled,
                             label = { Text(option.label) },
                         )
                     }

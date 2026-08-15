@@ -104,6 +104,7 @@ internal fun UnictoosApp(
     val scenes by vm.scenes.collectAsStateWithLifecycle()
     val destinations by vm.destinations.collectAsStateWithLifecycle()
     val destination by vm.destination.collectAsStateWithLifecycle()
+    val session by vm.session.collectAsStateWithLifecycle()
     val adsPolicy by vm.adsPolicy.collectAsStateWithLifecycle()
     val streamQuality by vm.streamQuality.collectAsStateWithLifecycle()
     val thermalProtectionEnabled by vm.thermalProtectionEnabled.collectAsStateWithLifecycle()
@@ -184,6 +185,7 @@ internal fun UnictoosApp(
                 )
                 AppTab.SETTINGS -> SettingsScreen(
                     destination = destination,
+                    sessionStatus = session.status,
                     onSelectPlatform = vm::selectDestination,
                     onSaveDestination = vm::updateDestination,
                     onClearDestination = vm::clearDestination,
