@@ -282,7 +282,7 @@ internal fun StudioScreen(
                 Text(if (session.status == StreamStatus.LIVE) "Live health" else "Session health", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = if (session.status == StreamStatus.LIVE) V02Palette.AccentBlue else V02Palette.Neutral500)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     MetricCard("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—", Modifier.weight(1f))
-                    MetricCard("FPS", if (session.fps > 0) session.fps.toString() else "—", Modifier.weight(1f))
+                    MetricCard("FPS", if (session.status == StreamStatus.LIVE && session.fps > 0) session.fps.toString() else "—", Modifier.weight(1f))
                     val audioLabel = when {
                         session.status == StreamStatus.LIVE -> "Mic live"
                         session.message?.contains("Microphone", true) == true -> "Mic ready"
@@ -429,7 +429,7 @@ private fun HealthCenterCard(history: List<StreamHealthSample>, session: StreamS
             } else {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     MetricCard("Bitrate", if (latest.bitrateKbps > 0) "${latest.bitrateKbps} kbps" else "—", Modifier.weight(1f))
-                    MetricCard("FPS", if (latest.fps > 0) latest.fps.toString() else "—", Modifier.weight(1f))
+                    MetricCard("FPS", if (session.status == StreamStatus.LIVE && latest.fps > 0) latest.fps.toString() else "—", Modifier.weight(1f))
                     MetricCard("Drops", if (latest.droppedFrames >= 0) latest.droppedFrames.toString() else "—", Modifier.weight(1f))
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

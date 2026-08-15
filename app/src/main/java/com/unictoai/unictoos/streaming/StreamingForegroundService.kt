@@ -58,6 +58,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -156,6 +157,72 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
     }
 
+    private fun createGenericStream(): GenericStream = GenericStream(this, this, NoVideoSource(), NoAudioSource()).apply {
+        getGlInterface().setForceRender(true, streamQuality.fps)
+        setFpsListener { fps -> publishFpsSample(fps) }
+        if (latencyMode == LatencyMode.LOW_LATENCY) {
+            // RootEncoder exposes client-cache sizing, but no public keyframe-interval override in this version.
+            getStreamClient().resizeCache(0)
+        }
+    }
+
+    private fun prepareGenericStream(): Boolean = runCatching {
+        genericStream.prepareVideo(streamQuality.width, streamQuality.height, streamQuality.bitrate, rotation = 0) &&
+            genericStream.prepareAudio(
+                audioSettings.sampleRate,
+                false,
+                audioSettings.bitrate,
+                echoCanceler = audioSettings.echoCanceler,
+                noiseSuppressor = audioSettings.noiseSuppressor,
+            )
+    }.getOrDefault(false)
+
+    private fun publishFpsSample(fps: Int) {
+        val previous = StreamingStatusBus.state.value
+        val encoderActive = ::genericStream.isInitialized && (genericStream.isStreaming || genericStream.isRecording)
+        if (!StreamTelemetryPolicy.shouldExposeFps(previous, encoderActive)) {
+            if (previous.fps != 0) StreamingStatusBus.update(previous.copy(fps = 0))
+            return
+        }
+        StreamingStatusBus.update(previous.copy(fps = fps.coerceAtLeast(0)))
+    }
+
+    private fun resetTelemetryForInactiveSession() {
+        val previous = StreamingStatusBus.state.value
+        StreamingStatusBus.update(
+            previous.copy(
+                elapsedSeconds = 0L,
+                bitrateKbps = 0,
+                fps = 0,
+                droppedFrames = -1,
+                audioLevel = -1,
+                recording = false,
+            ),
+        )
+    }
+
+    private fun resetCaptureStateForPreparation() {
+        captureReady = false
+        previewAttached = false
+        resetTelemetryForInactiveSession()
+    }
+
+    private suspend fun releaseCapturePipelineForReprepare() {
+        releasePreviewForCaptureChange()
+        releaseProjection()
+        if (::genericStream.isInitialized) runCatching { genericStream.release() }
+        runCatching { microphoneSource?.release() }
+        runCatching { cameraSource?.release() }
+        microphoneSource = null
+        cameraSource = null
+        captureReady = false
+        previewAttached = false
+        prepared = false
+        delay(GL_PIPELINE_SHUTDOWN_SETTLE_MS)
+        genericStream = createGenericStream()
+        prepared = prepareGenericStream()
+    }
+
     override fun onCreate() {
         super.onCreate()
         historyStore = CreatorHistoryStore(applicationContext)
@@ -164,21 +231,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         latencyMode = LatencyModeStore(applicationContext).load()
         createNotificationChannel()
         registerNetworkCallback()
-        genericStream = GenericStream(this, this, NoVideoSource(), NoAudioSource()).apply {
-            getGlInterface().setForceRender(true, streamQuality.fps)
-            setFpsListener { fps ->
-                val previous = StreamingStatusBus.state.value
-                StreamingStatusBus.update(previous.copy(fps = fps.coerceAtLeast(0)))
-            }
-        }
-        if (latencyMode == LatencyMode.LOW_LATENCY) {
-            // RootEncoder exposes client-cache sizing, but no public keyframe-interval override in this version.
-            genericStream.getStreamClient().resizeCache(0)
-        }
-        prepared = runCatching {
-            genericStream.prepareVideo(streamQuality.width, streamQuality.height, streamQuality.bitrate, rotation = 0) &&
-                genericStream.prepareAudio(audioSettings.sampleRate, false, audioSettings.bitrate, echoCanceler = audioSettings.echoCanceler, noiseSuppressor = audioSettings.noiseSuppressor)
-        }.getOrDefault(false)
+        genericStream = createGenericStream()
+        prepared = prepareGenericStream()
         if (!prepared) publish(StreamStatus.ERROR, "This device cannot prepare the requested capture profile")
     }
 
@@ -209,6 +263,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private suspend fun prepareProjectionFromIntent(intent: Intent) {
         if (!startForegroundSafely(includeProjection = true)) return
+        releaseCapturePipelineForReprepare()
+        resetCaptureStateForPreparation()
         if (!hasAudioPermission()) {
             publish(StreamStatus.ERROR, "Microphone permission is not granted")
             return
@@ -234,8 +290,6 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private fun prepareProjection(resultCode: Int, data: Intent): Boolean {
         if (!prepared) return false
-        releasePreviewForCaptureChange()
-        releaseProjection()
         val projection = projectionManager.getMediaProjection(resultCode, data) ?: return false
         mediaProjection = projection
         projection.registerCallback(projectionCallback, handler)
@@ -247,12 +301,17 @@ class StreamingForegroundService : Service(), ConnectChecker {
             captureReady = true
             true
         }.getOrDefault(false).also {
-            if (!it) captureReady = false
+            if (!it) {
+                captureReady = false
+                releaseProjection()
+            }
         }
     }
 
     private suspend fun prepareCamera() {
         if (!startForegroundSafely(includeProjection = false)) return
+        releaseCapturePipelineForReprepare()
+        resetCaptureStateForPreparation()
         if (!hasAudioPermission()) {
             publish(StreamStatus.ERROR, "Microphone permission is not granted")
             return
@@ -270,8 +329,6 @@ class StreamingForegroundService : Service(), ConnectChecker {
             return
         }
         runCatching {
-            releasePreviewForCaptureChange()
-            cameraSource?.release()
             cameraSource = Camera2Source(applicationContext).also { genericStream.changeVideoSource(it) }
             microphoneSource?.release()
             microphoneSource = MicrophoneSource().also { genericStream.changeAudioSource(it) }
@@ -279,6 +336,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
             publish(StreamStatus.PREPARING, "Camera and microphone ready • waiting for Studio preview")
             attachPreviewIfPossible()
         }.onFailure {
+            runCatching { cameraSource?.release() }
+            cameraSource = null
             captureReady = false
             publish(StreamStatus.ERROR, "Camera could not start: ${it.message.orEmpty()}")
         }
@@ -503,6 +562,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         autoStopSeconds = 0L
         currentSessionId = ""
         sessionHealthSamples.clear()
+        resetTelemetryForInactiveSession()
         publish(StreamStatus.STOPPED, reason)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -527,6 +587,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         currentEndpoint = ""
         activeRecordingFile = null
         startedAtElapsed = 0L
+        resetTelemetryForInactiveSession()
         stopForeground(STOP_FOREGROUND_REMOVE)
         StreamingStatusBus.update(
             StreamingStatusBus.state.value.copy(
@@ -947,6 +1008,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         private const val NOTIFICATION_ID = 4101
         private const val MAX_RECONNECT_ATTEMPTS = 3
         private const val CAPTURE_TIMEOUT_MS = 30_000L
+        private const val GL_PIPELINE_SHUTDOWN_SETTLE_MS = 150L
         private const val RECONNECT_JITTER_MAX_MS = 500L
         private const val MIN_RECORDING_BYTES = 64L * 1024L * 1024L
 
