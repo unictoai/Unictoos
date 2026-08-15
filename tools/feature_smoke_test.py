@@ -64,6 +64,10 @@ check("AudioRecord security is guarded", "catch (_: SecurityException)" in SERVI
 check("microphone probe is off main thread", "withContext(Dispatchers.IO)" in SERVICE and "serviceScope.cancel()" in SERVICE)
 check("foreground start is guarded", "startForegroundSafely" in SERVICE and "catch (error: SecurityException)" in SERVICE)
 check("failed release remains retryable", "PipelineReleasePolicy.markReleased" in RELEASE_BLOCK and "genericStreamReleased = true" not in RELEASE_BLOCK)
+ADAPTER = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/SingleDestinationMultiStreamAdapter.kt").read_text()
+check("runtime uses single-slot MultiStream adapter", "SingleDestinationMultiStreamAdapter" in SERVICE and "MultiStream(" in ADAPTER and "RTMP_SLOT = 0" in ADAPTER)
+check("runtime adapter does not construct three encoders", "import com.pedro.library.generic.GenericStream" not in SERVICE and "= GenericStream(" not in SERVICE and "arrayOf(connectChecker)" in ADAPTER)
+check("adapter release preserves retryability", "closed.set(false)" in ADAPTER and "firstFailure" in ADAPTER and "throw it" in ADAPTER)
 check("backup rules exist", (ROOT / "app/src/main/res/xml/data_extraction_rules.xml").exists())
 
 if APK.exists():

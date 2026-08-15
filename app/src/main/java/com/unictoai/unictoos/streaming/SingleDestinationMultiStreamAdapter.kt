@@ -127,10 +127,21 @@ class SingleDestinationMultiStreamAdapter(
 
     fun release() {
         if (!closed.compareAndSet(false, true)) return
-        runCatching { multiStream.stopStream(MultiType.RTMP, RTMP_SLOT) }
-        runCatching { multiStream.stopPreview() }
-        runCatching { multiStream.getGlInterface().stop() }
-        runCatching { multiStream.release() }
+        var firstFailure: Throwable? = null
+        fun attempt(block: () -> Unit) {
+            runCatching(block).onFailure { if (firstFailure == null) firstFailure = it }
+        }
+        attempt { multiStream.stopStream(MultiType.RTMP, RTMP_SLOT) }
+        attempt { multiStream.stopPreview() }
+        attempt { multiStream.getGlInterface().stop() }
+        attempt { multiStream.release() }
+        firstFailure?.let {
+            // Keep the adapter retryable when any underlying RootEncoder teardown
+            // operation failed. The service's PipelineReleasePolicy must observe
+            // the failure instead of incorrectly marking the pipeline released.
+            closed.set(false)
+            throw it
+        }
     }
 
     private fun checkOpen() {
