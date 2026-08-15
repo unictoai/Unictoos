@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MAIN = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/MainActivity.kt").read_text()
 UI = "\n".join(path.read_text() for path in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui").rglob("*.kt"))
 SERVICE = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/StreamingForegroundService.kt").read_text()
+RELEASE_BLOCK = SERVICE.split("private fun releaseGenericStream", 1)[1].split("override fun onCreate", 1)[0]
 MANIFEST = (ROOT / "app/src/main/AndroidManifest.xml").read_text()
 APK = ROOT / "app/build/outputs/apk/debug/app-debug.apk"
 
@@ -62,6 +63,7 @@ check("empty scene state is guarded", "scenes.firstOrNull() ?: Scene(" in UI)
 check("AudioRecord security is guarded", "catch (_: SecurityException)" in SERVICE)
 check("microphone probe is off main thread", "withContext(Dispatchers.IO)" in SERVICE and "serviceScope.cancel()" in SERVICE)
 check("foreground start is guarded", "startForegroundSafely" in SERVICE and "catch (error: SecurityException)" in SERVICE)
+check("failed release remains retryable", "PipelineReleasePolicy.markReleased" in RELEASE_BLOCK and "genericStreamReleased = true" not in RELEASE_BLOCK)
 check("backup rules exist", (ROOT / "app/src/main/res/xml/data_extraction_rules.xml").exists())
 
 if APK.exists():

@@ -329,7 +329,6 @@ class StreamingForegroundService : Service(), ConnectChecker {
             .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "release_microphone: ${it.message.orEmpty()}") }
         runCatching { cameraSource?.release() }
             .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "release_camera: ${it.message.orEmpty()}") }
-        genericStreamReleased = true
         StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_complete", reason)
     }
 
