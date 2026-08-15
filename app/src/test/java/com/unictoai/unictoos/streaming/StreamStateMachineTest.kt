@@ -17,6 +17,11 @@ class StreamStateMachineTest {
     }
 
     @Test
+    fun previewFreeCaptureCanReturnToIdleBeforeBroadcastStart() {
+        assertTrue(StreamStateMachine.canTransition(StreamStatus.PREPARING, StreamStatus.IDLE))
+    }
+
+    @Test
     fun staleConnectionCannotResurrectStoppedSession() {
         assertFalse(StreamStateMachine.canTransition(StreamStatus.STOPPED, StreamStatus.LIVE))
         assertFalse(StreamStateMachine.canTransition(StreamStatus.IDLE, StreamStatus.LIVE))

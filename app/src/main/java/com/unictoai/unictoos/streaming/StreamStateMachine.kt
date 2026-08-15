@@ -13,7 +13,7 @@ import com.unictoai.unictoos.domain.StreamStatus
 object StreamStateMachine {
     fun canTransition(from: StreamStatus, to: StreamStatus): Boolean = when (from) {
         StreamStatus.IDLE -> to in setOf(StreamStatus.PREPARING, StreamStatus.STOPPED, StreamStatus.ERROR)
-        StreamStatus.PREPARING -> to in setOf(StreamStatus.PREPARING, StreamStatus.CONNECTING, StreamStatus.LIVE, StreamStatus.RECONNECTING, StreamStatus.STOPPING, StreamStatus.STOPPED, StreamStatus.ERROR)
+        StreamStatus.PREPARING -> to in setOf(StreamStatus.PREPARING, StreamStatus.IDLE, StreamStatus.CONNECTING, StreamStatus.LIVE, StreamStatus.RECONNECTING, StreamStatus.STOPPING, StreamStatus.STOPPED, StreamStatus.ERROR)
         StreamStatus.CONNECTING -> to in setOf(StreamStatus.CONNECTING, StreamStatus.LIVE, StreamStatus.RECONNECTING, StreamStatus.STOPPING, StreamStatus.STOPPED, StreamStatus.ERROR)
         StreamStatus.LIVE -> to in setOf(StreamStatus.LIVE, StreamStatus.RECONNECTING, StreamStatus.STOPPING, StreamStatus.STOPPED, StreamStatus.ERROR)
         StreamStatus.RECONNECTING -> to in setOf(StreamStatus.RECONNECTING, StreamStatus.CONNECTING, StreamStatus.LIVE, StreamStatus.STOPPING, StreamStatus.STOPPED, StreamStatus.ERROR)

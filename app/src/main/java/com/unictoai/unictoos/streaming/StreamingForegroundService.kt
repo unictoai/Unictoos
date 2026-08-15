@@ -166,7 +166,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
     private val captureTimeout = Runnable {
         val state = StreamingStatusBus.state.value
-        if (state.status == StreamStatus.PREPARING && pendingStart != null && (!captureReady || !previewAttached)) {
+        if (state.status == StreamStatus.PREPARING && pendingStart != null && (!captureReady || (!previewAttached && !isolateLivePreviewForDevice))) {
             pendingStart = null
             publish(StreamStatus.ERROR, "Preview did not start within 30 seconds. Check capture permission and try again")
         }
@@ -525,6 +525,26 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun attachPreviewIfPossible() {
+        if (isolateLivePreviewForDevice) {
+            previewAttached = false
+            val previous = StreamingStatusBus.state.value
+            StreamingStatusBus.update(
+                previous.copy(
+                    captureReady = captureReady,
+                    previewReady = false,
+                    message = if (pendingStart != null) {
+                        "Capture ready • starting without local preview for device stability"
+                    } else {
+                        "Capture ready • local preview paused for device stability"
+                    },
+                ),
+            )
+            if (pendingStart == null && StreamingStatusBus.state.value.status == StreamStatus.PREPARING) {
+                publish(StreamStatus.IDLE, "Capture ready • local preview paused for device stability")
+            }
+            tryStartPending()
+            return
+        }
         val surface = previewSurface ?: return
         if (!prepared || !captureReady || !surface.isValid || previewWidth <= 0 || previewHeight <= 0) return
         runCatching {
@@ -554,9 +574,13 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private fun tryStartPending() {
         val request = pendingStart ?: return
-        if (!prepared || !captureReady || !previewAttached) {
+        val previewRequired = !isolateLivePreviewForDevice
+        if (!prepared || !captureReady || (previewRequired && !previewAttached)) {
             val state = StreamingStatusBus.state.value
-            publish(StreamStatus.PREPARING, if (!previewAttached) "Waiting for Studio preview surface" else "Preparing capture")
+            publish(
+                StreamStatus.PREPARING,
+                if (previewRequired && !previewAttached) "Waiting for Studio preview surface" else "Preparing capture",
+            )
             handler.removeCallbacks(captureTimeout)
             handler.postDelayed(captureTimeout, CAPTURE_TIMEOUT_MS)
             return
@@ -619,7 +643,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         StreamingStatusBus.clearHealth()
         val previous = StreamingStatusBus.state.value
         StreamingStatusBus.update(previous.copy(mode = SessionMode.BROADCAST, bitrateKbps = 0, fps = 0, droppedFrames = -1, audioLevel = -1))
-        if (!prepared || !captureReady || !previewAttached || microphoneSource == null) {
+        if (!prepared || !captureReady || (!isolateLivePreviewForDevice && !previewAttached) || microphoneSource == null) {
             publish(StreamStatus.ERROR, "Capture is not ready. Approve capture and wait for the live preview first")
             return
         }
