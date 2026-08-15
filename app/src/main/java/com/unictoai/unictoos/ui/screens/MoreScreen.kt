@@ -131,6 +131,7 @@ import com.unictoai.unictoos.ui.components.TrustRow
 internal fun MoreScreen(
     onOpenEngage: () -> Unit,
     onOpenSettings: () -> Unit,
+    onReplayOnboarding: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -147,6 +148,9 @@ internal fun MoreScreen(
         }
         item {
             MoreMenuCard(Icons.Default.Settings, "Settings", "Destinations, device controls, privacy, and sponsor policy", onOpenSettings)
+        }
+        item {
+            MoreMenuCard(Icons.Default.LiveTv, "Replay the Unictoos tour", "Review the four creator principles and launch flow", onReplayOnboarding)
         }
         item {
             SectionHeader("Workspace principles", "Designed for reliable mobile broadcasting")

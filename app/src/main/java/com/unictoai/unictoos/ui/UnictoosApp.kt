@@ -200,6 +200,7 @@ internal fun UnictoosApp(
                 AppTab.MORE -> MoreScreen(
                     onOpenEngage = { selectedTab = AppTab.ENGAGEMENT },
                     onOpenSettings = { selectedTab = AppTab.SETTINGS },
+                    onReplayOnboarding = { showOnboarding = true },
                 )
                 AppTab.SETTINGS -> SettingsScreen(
                     destination = destination,
