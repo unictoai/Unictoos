@@ -194,7 +194,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
         graphicsFailureRequested.set(false)
         StreamingDiagnostics.record(currentSessionId, generation, "pipeline_created")
         return GenericStream(this, GenerationConnectChecker(generation), NoVideoSource(), NoAudioSource()).apply {
-            getGlInterface().setForceRender(true, streamQuality.fps)
+            // Camera2Source and ScreenSource deliver SurfaceTexture frames themselves. A periodic
+            // ForceRenderer adds a second render producer and can queue redundant GL work on devices
+            // with slower encoder/EGL drivers. prepareVideo already enables RootEncoder's FPS limiter.
+            getGlInterface().setForceRender(false)
             getGlInterface().setRenderErrorCallback(object : RenderErrorCallback {
                 override fun onRenderError(error: RuntimeException) {
                     runCatching { getGlInterface().stop() }
