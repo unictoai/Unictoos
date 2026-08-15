@@ -30,6 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -43,6 +44,12 @@ import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.domain.StreamStatus
+import com.unictoai.unictoos.DestinationConfig
+import com.unictoai.unictoos.domain.AudioSettings
+import com.unictoai.unictoos.domain.AutoStopDuration
+import com.unictoai.unictoos.domain.StreamDestination
+import com.unictoai.unictoos.domain.StreamQuality
+import com.unictoai.unictoos.monetization.AdsPolicy
 import com.unictoai.unictoos.ui.components.AddSceneDialog
 import com.unictoai.unictoos.ui.screens.EngagementScreen
 import com.unictoai.unictoos.ui.screens.HomeScreen
@@ -92,8 +99,6 @@ internal fun UnictoosApp(
     var showAddScene by rememberSaveable { mutableStateOf(false) }
     val scenes by vm.scenes.collectAsStateWithLifecycle()
     val destinations by vm.destinations.collectAsStateWithLifecycle()
-    val session by vm.session.collectAsStateWithLifecycle()
-    val healthHistory by vm.healthHistory.collectAsStateWithLifecycle()
     val destination by vm.destination.collectAsStateWithLifecycle()
     val adsPolicy by vm.adsPolicy.collectAsStateWithLifecycle()
     val streamQuality by vm.streamQuality.collectAsStateWithLifecycle()
@@ -101,12 +106,14 @@ internal fun UnictoosApp(
     val audioSettings by vm.audioSettings.collectAsStateWithLifecycle()
     val autoStopDuration by vm.autoStopDuration.collectAsStateWithLifecycle()
     val latencyMode by vm.latencyMode.collectAsStateWithLifecycle()
-    val selectedScene = scenes.firstOrNull { it.id == selectedSceneId } ?: scenes.firstOrNull() ?: Scene(
+    val selectedScene = remember(scenes, selectedSceneId) {
+        scenes.firstOrNull { it.id == selectedSceneId } ?: scenes.firstOrNull() ?: Scene(
         id = "fallback",
         name = "Quick Start",
         aspectRatio = AspectRatio.PORTRAIT,
-        sources = emptyList(),
-    )
+            sources = emptyList(),
+        )
+    }
 
     Scaffold(
         containerColor = UnictoosPalette.Ink,
@@ -121,15 +128,15 @@ internal fun UnictoosApp(
                 label = "tabTransition",
             ) { tab ->
             when (tab) {
-                AppTab.HOME -> HomeScreen(
+                AppTab.HOME -> HomeRoute(
+                    vm = vm,
                     scenes = scenes,
                     destinations = destinations,
-                    session = session,
+                    adsPolicy = adsPolicy,
                     onGoStudio = { selectedTab = AppTab.STUDIO },
                     onOpenScenes = { selectedTab = AppTab.SCENES },
                     onOpenLibrary = { selectedTab = AppTab.LIBRARY },
                     onOpenSettings = { selectedTab = AppTab.SETTINGS },
-                    showAdSlot = adsPolicy.enabled && adsPolicy.consentGranted && session.status != StreamStatus.LIVE,
                 )
                 AppTab.SCENES -> ScenesScreen(
                     scenes = scenes,
@@ -145,34 +152,18 @@ internal fun UnictoosApp(
                     onUpdateTextSource = vm::updateTextSource,
                     onOpenStudio = { selectedTab = AppTab.STUDIO },
                 )
-                AppTab.STUDIO -> StudioScreen(
+                AppTab.STUDIO -> StudioRoute(
+                    vm = vm,
                     scene = selectedScene,
-                    session = session,
-                    healthHistory = healthHistory,
                     destination = destination,
                     streamQuality = streamQuality,
                     audioSettings = audioSettings,
                     autoStopDuration = autoStopDuration,
-                    onAutoStopDurationChange = vm::setAutoStopDuration,
-                        onStart = {
-                            val captureMode = when {
-                                selectedScene.sources.any { it.type == SourceType.SCREEN && it.enabled } -> "screen"
-                                selectedScene.sources.any { it.type == SourceType.CAMERA && it.enabled } -> "camera"
-                                else -> "screen"
-                            }
-                            onRequestStreamStart(destination.endpoint, captureMode, com.unictoai.unictoos.streaming.ScenePayloadCodec.encode(selectedScene))
-                        },
-                        onPractice = {
-                            val captureMode = when {
-                                selectedScene.sources.any { it.type == SourceType.SCREEN && it.enabled } -> "screen"
-                                selectedScene.sources.any { it.type == SourceType.CAMERA && it.enabled } -> "camera"
-                                else -> "screen"
-                            }
-                            onRequestPracticeStart(captureMode, com.unictoai.unictoos.streaming.ScenePayloadCodec.encode(selectedScene))
-                        },
-                        onStop = onStopStream,
+                    onRequestStreamStart = onRequestStreamStart,
+                    onRequestPracticeStart = onRequestPracticeStart,
+                    onStopStream = onStopStream,
                     onToggleMute = onToggleMute,
-                    onToggleRecording = { onToggleRecording(session.recording) },
+                    onToggleRecording = onToggleRecording,
                     onCreateMarker = onCreateMarker,
                     onDismissStatusMessage = onDismissStatusMessage,
                     onEditScenes = { selectedTab = AppTab.SCENES },
@@ -220,6 +211,82 @@ internal fun UnictoosApp(
             },
         )
     }
+}
+
+@Composable
+private fun HomeRoute(
+    vm: StudioViewModel,
+    scenes: List<Scene>,
+    destinations: List<StreamDestination>,
+    adsPolicy: AdsPolicy,
+    onGoStudio: () -> Unit,
+    onOpenScenes: () -> Unit,
+    onOpenLibrary: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    val session by vm.session.collectAsStateWithLifecycle()
+    HomeScreen(
+        scenes = scenes,
+        destinations = destinations,
+        session = session,
+        onGoStudio = onGoStudio,
+        onOpenScenes = onOpenScenes,
+        onOpenLibrary = onOpenLibrary,
+        onOpenSettings = onOpenSettings,
+        showAdSlot = adsPolicy.enabled && adsPolicy.consentGranted && session.status != StreamStatus.LIVE,
+    )
+}
+
+@Composable
+private fun StudioRoute(
+    vm: StudioViewModel,
+    scene: Scene,
+    destination: DestinationConfig,
+    streamQuality: StreamQuality,
+    audioSettings: AudioSettings,
+    autoStopDuration: AutoStopDuration,
+    onRequestStreamStart: (String, String, String) -> Unit,
+    onRequestPracticeStart: (String, String) -> Unit,
+    onStopStream: () -> Unit,
+    onToggleMute: () -> Unit,
+    onToggleRecording: (Boolean) -> Unit,
+    onCreateMarker: () -> Unit,
+    onDismissStatusMessage: () -> Unit,
+    onEditScenes: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onPreviewSurfaceAvailable: (Surface, Int, Int) -> Unit,
+    onPreviewSurfaceDestroyed: (Surface) -> Unit,
+) {
+    val session by vm.session.collectAsStateWithLifecycle()
+    val healthHistory by vm.healthHistory.collectAsStateWithLifecycle()
+    val captureMode = remember(scene) {
+        when {
+            scene.sources.any { it.type == SourceType.SCREEN && it.enabled } -> "screen"
+            scene.sources.any { it.type == SourceType.CAMERA && it.enabled } -> "camera"
+            else -> "screen"
+        }
+    }
+    StudioScreen(
+        scene = scene,
+        session = session,
+        healthHistory = healthHistory,
+        destination = destination,
+        streamQuality = streamQuality,
+        audioSettings = audioSettings,
+        autoStopDuration = autoStopDuration,
+        onAutoStopDurationChange = vm::setAutoStopDuration,
+        onStart = { onRequestStreamStart(destination.endpoint, captureMode, com.unictoai.unictoos.streaming.ScenePayloadCodec.encode(scene)) },
+        onPractice = { onRequestPracticeStart(captureMode, com.unictoai.unictoos.streaming.ScenePayloadCodec.encode(scene)) },
+        onStop = onStopStream,
+        onToggleMute = onToggleMute,
+        onToggleRecording = { onToggleRecording(session.recording) },
+        onCreateMarker = onCreateMarker,
+        onDismissStatusMessage = onDismissStatusMessage,
+        onEditScenes = onEditScenes,
+        onOpenSettings = onOpenSettings,
+        onPreviewSurfaceAvailable = onPreviewSurfaceAvailable,
+        onPreviewSurfaceDestroyed = onPreviewSurfaceDestroyed,
+    )
 }
 
 @Composable
