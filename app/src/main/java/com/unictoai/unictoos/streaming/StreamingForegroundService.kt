@@ -57,6 +57,7 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -99,6 +100,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private lateinit var latencyMode: LatencyMode
     private var currentSessionId = ""
     private var activeRecordingFile: File? = null
+    private var recordingFinalizationJob: Job? = null
+    private var pendingTerminalStopReason: String? = null
     private val sessionHealthSamples = mutableListOf<StreamHealthSample>()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -613,7 +616,16 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
         releasePreviewForCaptureChange()
         if (::genericStream.isInitialized && genericStream.isStreaming) genericStream.stopStream()
-        if (StreamingStatusBus.state.value.recording) stopRecording()
+        if (StreamingStatusBus.state.value.recording) {
+            pendingTerminalStopReason = reason
+            stopRecording()
+            return
+        }
+        completeStop(reason)
+    }
+
+    private fun completeStop(reason: String) {
+        pendingTerminalStopReason = null
         val completed = StreamingStatusBus.state.value
         if (sessionHealthSamples.isNotEmpty()) historyStore.addHealthSamples(sessionHealthSamples.toList())
         if (completed.elapsedSeconds > 0L) {
@@ -671,6 +683,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun releaseFailedPipeline() {
+        recordingFinalizationJob?.cancel()
+        recordingFinalizationJob = null
+        pendingTerminalStopReason = null
         releasePreviewForCaptureChange()
         releaseProjection()
         if (::genericStream.isInitialized && !genericStreamReleased) {
@@ -747,12 +762,16 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val directory = File(filesDir, "recordings").apply { mkdirs() }
         val output = File(directory, "$prefix-${System.currentTimeMillis()}.mp4")
         activeRecordingFile = output
+        val generation = sessionGeneration.get()
         runCatching {
             genericStream.startRecord(output.absolutePath, object : RecordController.Listener {
                 override fun onStatusChange(status: RecordController.Status) {
-                    val recording = status == RecordController.Status.STARTED || status == RecordController.Status.RECORDING || status == RecordController.Status.RESUMED
-                    val previous = StreamingStatusBus.state.value
-                    StreamingStatusBus.update(previous.copy(recording = recording, message = if (recording) "Recording ${output.name}" else previous.message))
+                    postSerialized {
+                        if (!isCurrentGeneration(generation)) return@postSerialized
+                        val recording = status == RecordController.Status.STARTED || status == RecordController.Status.RECORDING || status == RecordController.Status.RESUMED
+                        val previous = StreamingStatusBus.state.value
+                        StreamingStatusBus.update(previous.copy(recording = recording, message = if (recording) "Recording ${output.name}" else previous.message))
+                    }
                 }
             })
         }.onFailure {
@@ -762,18 +781,24 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun stopRecording() {
-        if (::genericStream.isInitialized && StreamingStatusBus.state.value.recording) {
-            genericStream.stopRecord()
-            val output = activeRecordingFile
-            activeRecordingFile = null
-            val result = output?.let(RecordingValidator::validate)
+        if (!::genericStream.isInitialized || !StreamingStatusBus.state.value.recording) return
+        val generation = sessionGeneration.get()
+        val output = activeRecordingFile
+        activeRecordingFile = null
+        runCatching { genericStream.stopRecord() }
+            .onFailure { publish(StreamStatus.ERROR, "Recording could not finalize: ${it.message.orEmpty()}") }
+        StreamingStatusBus.update(StreamingStatusBus.state.value.copy(recording = false, message = "Finalizing recording…"))
+        recordingFinalizationJob?.cancel()
+        recordingFinalizationJob = serviceScope.launch {
+            val result = withContext(Dispatchers.IO) { output?.let(RecordingValidator::validateWhenStable) }
+            if (!isCurrentGeneration(generation)) return@launch
             val message = when (result) {
                 is RecordingValidation.Valid -> "Recording saved on this device • ${result.durationMs / 1_000}s verified"
                 is RecordingValidation.Invalid -> "Recording may be incomplete: ${result.reason}"
                 null -> "Recording stopped"
             }
-            val previous = StreamingStatusBus.state.value
-            StreamingStatusBus.update(previous.copy(recording = false, message = message))
+            StreamingStatusBus.update(StreamingStatusBus.state.value.copy(message = message))
+            pendingTerminalStopReason?.let { completeStop(it) }
         }
     }
 
@@ -1004,6 +1029,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
         sessionGeneration.incrementAndGet()
         reconnectRunnable?.let(handler::removeCallbacks)
         reconnectRunnable = null
+        recordingFinalizationJob?.cancel()
+        recordingFinalizationJob = null
+        pendingTerminalStopReason = null
         serviceScope.cancel()
         handler.removeCallbacksAndMessages(null)
         if (::genericStream.isInitialized && !genericStreamReleased) {

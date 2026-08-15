@@ -9,6 +9,19 @@ sealed interface RecordingValidation {
 }
 
 object RecordingValidator {
+    fun validateWhenStable(file: File, attempts: Int = 8, waitMs: Long = 150L): RecordingValidation {
+        var previousLength = -1L
+        repeat(attempts.coerceAtLeast(1)) {
+            if (file.exists()) {
+                val length = file.length()
+                if (length > 0L && length == previousLength) return validate(file)
+                previousLength = length
+            }
+            Thread.sleep(waitMs.coerceAtLeast(0L))
+        }
+        return validate(file)
+    }
+
     fun validate(file: File): RecordingValidation {
         if (!file.exists()) return RecordingValidation.Invalid("Recording file was not created")
         if (file.length() <= 0L) return RecordingValidation.Invalid("Recording file is empty")
