@@ -120,7 +120,8 @@ import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
-import com.unictoai.unictoos.ui.theme.UnictoosPalette
+import com.unictoai.unictoos.ui.theme.Spacing
+import com.unictoai.unictoos.ui.theme.V02Palette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
 import com.unictoai.unictoos.ui.components.BrandHeader
 import com.unictoai.unictoos.ui.components.SectionHeader
@@ -133,13 +134,13 @@ internal fun MoreScreen(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        contentPadding = PaddingValues(Spacing.xl),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
         item {
             BrandHeader("Workspace", "More tools")
             Spacer(Modifier.height(6.dp))
-            Text("Secondary creator tools stay here so the main navigation remains focused.", color = UnictoosPalette.TextMuted)
+            Text("Secondary creator tools stay here so the main navigation remains focused.", color = V02Palette.Neutral500)
         }
         item {
             MoreMenuCard(Icons.AutoMirrored.Filled.Chat, "Engage", "Chat, alerts, events, and moderation", onOpenEngage)
@@ -149,8 +150,8 @@ internal fun MoreScreen(
         }
         item {
             SectionHeader("Workspace principles", "Designed for reliable mobile broadcasting")
-            Card(colors = CardDefaults.cardColors(containerColor = UnictoosPalette.Surface), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     TrustRow(Icons.Default.CheckCircle, "One clear action", "Primary broadcast controls stay in Studio")
                     TrustRow(Icons.Default.Bolt, "Battery-aware motion", "No continuous idle effects or unnecessary polling")
                     TrustRow(Icons.Default.Lock, "Local-first trust", "Credentials, recordings, scenes, and analytics stay on device by default")
@@ -167,17 +168,17 @@ internal fun MoreMenuCard(
     subtitle: String,
     onClick: () -> Unit,
 ) {
-    Card(onClick = onClick, colors = CardDefaults.cardColors(containerColor = UnictoosPalette.SurfaceRaised), shape = RoundedCornerShape(20.dp)) {
+    Card(onClick = onClick, colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(20.dp)) {
         Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(color = UnictoosPalette.Violet.copy(alpha = 0.18f), shape = RoundedCornerShape(13.dp)) {
-                Icon(icon, null, tint = UnictoosPalette.Cyan, modifier = Modifier.padding(11.dp).size(22.dp))
+            Surface(color = V02Palette.AccentBlue.copy(alpha = 0.18f), shape = RoundedCornerShape(13.dp)) {
+                Icon(icon, null, tint = V02Palette.Neutral300, modifier = Modifier.padding(11.dp).size(22.dp))
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, fontWeight = FontWeight.Bold)
-                Text(subtitle, color = UnictoosPalette.TextMuted, style = MaterialTheme.typography.bodySmall)
+                Text(subtitle, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
             }
-            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = UnictoosPalette.TextMuted)
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = V02Palette.Neutral500)
         }
     }
 }
