@@ -83,6 +83,22 @@ APP = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/UnictoosApp.kt").read_
 check("glassy top navigation", "GlassyTopBar" in APP and "DropdownMenu" in APP and "AppTab.SETTINGS" in APP)
 check("glassy three-item bottom navigation", "GlassyBottomBar" in APP and "listOf(AppTab.HOME, AppTab.STUDIO, AppTab.LIBRARY)" in APP)
 check("secondary workspace menu", "AppTab.SCENES" in APP and "AppTab.ENGAGEMENT" in APP and "AppTab.MORE" in APP)
+STREAMING_CONTRACTS = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/StreamingStateContracts.kt").read_text()
+DESTINATION_MANAGER = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/DestinationSessionManager.kt").read_text()
+SERVICE_SOURCE = SERVICE
+SCENE_CODEC = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/ScenePayloadCodec.kt").read_text()
+PLATFORM_CAPABILITIES = (ROOT / "app/src/main/java/com/unictoai/unictoos/domain/PlatformCapabilities.kt").read_text()
+DIAGNOSTICS = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/StreamingDiagnostics.kt").read_text()
+THERMAL = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/ThermalProtectionPolicy.kt").read_text()
+check("authoritative recording state", "recordingState" in (ROOT / "app/src/main/java/com/unictoai/unictoos/domain/StudioModels.kt").read_text() and "RecordingReadinessPolicy" in SERVICE_SOURCE)
+check("preview-independent recording policy", "captureReady && encoderReady" in (ROOT / "app/src/main/java/com/unictoai/unictoos/domain/RecordingState.kt").read_text() and "!previewAttached" not in SERVICE_SOURCE.split("private fun startRecording", 1)[1].split("private fun stopRecording", 1)[0])
+check("destination isolation foundation", "class DestinationSessionManager" in DESTINATION_MANAGER and "markFailure" in DESTINATION_MANAGER and "StreamingError" in DESTINATION_MANAGER)
+check("bounded destination retry", "maximumReconnectAttempts" in DESTINATION_MANAGER and "DestinationState.RECONNECTING" in DESTINATION_MANAGER)
+check("versioned scene persistence", 'put("schemaVersion"' in SCENE_CODEC and "MAX_SOURCES" in SCENE_CODEC)
+check("truthful provider capabilities", "REQUIRES_BACKEND" in PLATFORM_CAPABILITIES and "STREAM_KEY_READY" in PLATFORM_CAPABILITIES)
+check("thermal debounce policy", "DEFAULT_DEBOUNCE_SECONDS" in THERMAL and "highThermalSinceElapsed" in SERVICE_SOURCE)
+check("structured error boundary", "sealed interface StreamingError" in STREAMING_CONTRACTS and "AuthenticationFailed" in STREAMING_CONTRACTS)
+check("diagnostic secret redaction", "Bearer" in DIAGNOSTICS and "ENDPOINT_REDACTED" in DIAGNOSTICS)
 
 if APK.exists():
     aapt = Path("/home/ubuntu/android-sdk/build-tools/35.0.0/aapt")
