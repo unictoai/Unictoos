@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
+import com.unictoai.unictoos.domain.RecordingState
 import com.unictoai.unictoos.domain.StreamStatus
 import com.unictoai.unictoos.streaming.EncoderCrashPolicy
 import com.unictoai.unictoos.streaming.StreamingForegroundService
@@ -21,8 +22,10 @@ class UnictoosApplication : Application() {
                     previous.copy(
                         status = StreamStatus.ERROR,
                         captureReady = false,
+                        encoderReady = false,
                         previewReady = false,
                         recording = false,
+                        recordingState = RecordingState.IDLE,
                         message = EncoderCrashPolicy.GRAPHICS_RESOURCE_MESSAGE,
                     ),
                 )

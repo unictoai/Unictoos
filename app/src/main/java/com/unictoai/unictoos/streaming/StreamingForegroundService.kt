@@ -43,6 +43,8 @@ import com.unictoai.unictoos.data.AutoStopStore
 import com.unictoai.unictoos.data.LatencyModeStore
 import com.unictoai.unictoos.domain.LatencyMode
 import com.unictoai.unictoos.domain.AudioSettings
+import com.unictoai.unictoos.domain.RecordingReadinessPolicy
+import com.unictoai.unictoos.domain.RecordingState
 import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.SessionMode
 import com.unictoai.unictoos.domain.StreamHealthSample
@@ -163,9 +165,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
     private val captureTimeout = Runnable {
         val state = StreamingStatusBus.state.value
-        if (state.status == StreamStatus.PREPARING && pendingStart != null && (!captureReady || (!previewAttached && !isolateLivePreviewForDevice))) {
+        if (state.status == StreamStatus.PREPARING && pendingStart != null && !captureReady) {
             pendingStart = null
-            publish(StreamStatus.ERROR, "Preview did not start within 30 seconds. Check capture permission and try again")
+            publish(StreamStatus.ERROR, "Capture did not become ready within 30 seconds. Check capture permission and try again")
         }
     }
 
@@ -278,6 +280,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 droppedFrames = -1,
                 audioLevel = -1,
                 recording = false,
+                recordingState = RecordingState.IDLE,
+                encoderReady = false,
             ),
         )
     }
@@ -528,6 +532,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             StreamingStatusBus.update(
                 previous.copy(
                     captureReady = captureReady,
+                    encoderReady = prepared,
                     previewReady = false,
                     message = if (pendingStart != null) {
                         "Capture ready • starting without local preview for device stability"
@@ -549,7 +554,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             genericStream.startPreview(surface, previewWidth, previewHeight)
             previewAttached = true
             val previous = StreamingStatusBus.state.value
-            StreamingStatusBus.update(previous.copy(captureReady = captureReady, previewReady = true, message = if (pendingStart != null) "Preview is ready • starting capture" else previous.message))
+            StreamingStatusBus.update(previous.copy(captureReady = captureReady, encoderReady = prepared, previewReady = true, message = if (pendingStart != null) "Preview is ready • starting capture" else previous.message))
         }.onFailure {
             previewAttached = false
             publish(StreamStatus.ERROR, "Preview could not start: ${it.message.orEmpty()}")
@@ -572,11 +577,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private fun tryStartPending() {
         val request = pendingStart ?: return
         val previewRequired = !isolateLivePreviewForDevice
-        if (!prepared || !captureReady || (previewRequired && !previewAttached)) {
-            val state = StreamingStatusBus.state.value
+        if (!prepared || !captureReady) {
             publish(
                 StreamStatus.PREPARING,
-                if (previewRequired && !previewAttached) "Waiting for Studio preview surface" else "Preparing capture",
+                if (previewRequired && !previewAttached) "Capture ready • preview optional; preparing session" else "Preparing capture",
             )
             handler.removeCallbacks(captureTimeout)
             handler.postDelayed(captureTimeout, CAPTURE_TIMEOUT_MS)
@@ -616,8 +620,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun startPractice(sceneJson: String) {
-        if (!prepared || !captureReady || !previewAttached || microphoneSource == null) {
-            publish(StreamStatus.ERROR, "Practice capture is not ready. Approve capture and wait for the live preview first")
+        if (!prepared || !captureReady || microphoneSource == null) {
+            publish(StreamStatus.ERROR, "Practice capture is not ready. Approve capture and wait for the capture pipeline")
             return
         }
         if (!runEnvironmentPreflight(practice = true)) return
@@ -640,8 +644,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         StreamingStatusBus.clearHealth()
         val previous = StreamingStatusBus.state.value
         StreamingStatusBus.update(previous.copy(mode = SessionMode.BROADCAST, bitrateKbps = 0, fps = 0, droppedFrames = -1, audioLevel = -1))
-        if (!prepared || !captureReady || (!isolateLivePreviewForDevice && !previewAttached) || microphoneSource == null) {
-            publish(StreamStatus.ERROR, "Capture is not ready. Approve capture and wait for the live preview first")
+        if (!RecordingReadinessPolicy.isReady(captureReady, prepared) || microphoneSource == null) {
+            publish(StreamStatus.ERROR, "Capture is not ready. Approve capture and wait for the capture pipeline")
             return
         }
         if (!runEndpointPreflight(endpoint)) return
@@ -676,7 +680,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
         releasePreviewForCaptureChange()
         if (::genericStream.isInitialized && genericStream.isStreaming) genericStream.stopStream()
-        if (StreamingStatusBus.state.value.recording) {
+        if (StreamingStatusBus.state.value.recordingState in setOf(RecordingState.STARTING, RecordingState.RECORDING)) {
             pendingTerminalStopReason = reason
             stopRecording()
             return
@@ -734,8 +738,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
             StreamingStatusBus.state.value.copy(
                 status = StreamStatus.IDLE,
                 captureReady = false,
+                encoderReady = false,
                 previewReady = false,
                 recording = false,
+                recordingState = RecordingState.IDLE,
                 message = "Capture resources released. Start capture again",
             ),
         )
@@ -785,8 +791,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
             StreamingStatusBus.state.value.copy(
                 status = StreamStatus.ERROR,
                 captureReady = false,
+                encoderReady = false,
                 previewReady = false,
                 recording = false,
+                recordingState = RecordingState.IDLE,
                 message = EncoderCrashPolicy.GRAPHICS_RESOURCE_MESSAGE,
             ),
         )
@@ -811,8 +819,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         // RootEncoder 2.4.5 records the already encoded stream buffers; it does not expose a separate
         // recording bitrate/resolution encoder. Local MP4 quality therefore follows the active stream profile.
         val session = StreamingStatusBus.state.value
-        if (!prepared || !captureReady || !previewAttached || session.recording) {
-            publish(StreamStatus.ERROR, "Recording requires a verified camera or screen preview")
+        if (!RecordingReadinessPolicy.isReady(captureReady, prepared) || session.recordingState != RecordingState.IDLE) {
+            publish(StreamStatus.ERROR, "Recording requires a ready capture and encoder pipeline")
             return
         }
         if (!hasRecordingStorage()) {
@@ -823,6 +831,13 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val output = File(directory, "$prefix-${System.currentTimeMillis()}.mp4")
         activeRecordingFile = output
         val generation = sessionGeneration.get()
+        StreamingStatusBus.update(
+            StreamingStatusBus.state.value.copy(
+                recording = false,
+                recordingState = RecordingState.STARTING,
+                message = "Starting recording",
+            ),
+        )
         runCatching {
             genericStream.startRecord(output.absolutePath, object : RecordController.Listener {
                 override fun onStatusChange(status: RecordController.Status) {
@@ -830,24 +845,32 @@ class StreamingForegroundService : Service(), ConnectChecker {
                         if (!isCurrentGeneration(generation)) return@postSerialized
                         val recording = status == RecordController.Status.STARTED || status == RecordController.Status.RECORDING || status == RecordController.Status.RESUMED
                         val previous = StreamingStatusBus.state.value
-                        StreamingStatusBus.update(previous.copy(recording = recording, message = if (recording) "Recording ${output.name}" else previous.message))
+                        StreamingStatusBus.update(
+                            previous.copy(
+                                recording = recording,
+                                recordingState = if (recording) RecordingState.RECORDING else previous.recordingState,
+                                message = if (recording) "Recording ${output.name}" else previous.message,
+                            ),
+                        )
                     }
                 }
             })
         }.onFailure {
             activeRecordingFile = null
+            StreamingStatusBus.update(StreamingStatusBus.state.value.copy(recording = false, recordingState = RecordingState.FAILED))
             publish(StreamStatus.ERROR, "Recording could not start: ${it.message.orEmpty()}")
         }
     }
 
     private fun stopRecording() {
-        if (!::genericStream.isInitialized || !StreamingStatusBus.state.value.recording) return
+        val current = StreamingStatusBus.state.value
+        if (!::genericStream.isInitialized || current.recordingState !in setOf(RecordingState.STARTING, RecordingState.RECORDING)) return
         val generation = sessionGeneration.get()
         val output = activeRecordingFile
         activeRecordingFile = null
         runCatching { genericStream.stopRecord() }
             .onFailure { publish(StreamStatus.ERROR, "Recording could not finalize: ${it.message.orEmpty()}") }
-        StreamingStatusBus.update(StreamingStatusBus.state.value.copy(recording = false, message = "Finalizing recording…"))
+        StreamingStatusBus.update(StreamingStatusBus.state.value.copy(recording = false, recordingState = RecordingState.STOPPING, message = "Finalizing recording…"))
         recordingFinalizationJob?.cancel()
         recordingFinalizationJob = serviceScope.launch {
             val result = withContext(Dispatchers.IO) { output?.let(RecordingValidator::validateWhenStable) }
@@ -857,7 +880,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 is RecordingValidation.Invalid -> "Recording may be incomplete: ${result.reason}"
                 null -> "Recording stopped"
             }
-            StreamingStatusBus.update(StreamingStatusBus.state.value.copy(message = message))
+            val finalState = if (result is RecordingValidation.Invalid) RecordingState.FAILED else RecordingState.IDLE
+            StreamingStatusBus.update(StreamingStatusBus.state.value.copy(recording = false, recordingState = finalState, message = message))
             pendingTerminalStopReason?.let { completeStop(it) }
         }
     }
@@ -991,6 +1015,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 fps = previous.fps,
                 reconnectAttempt = reconnectAttempt,
                 captureReady = captureReady,
+                encoderReady = prepared,
                 previewReady = previewAttached,
                 message = message,
             ),
@@ -1098,7 +1123,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         handler.removeCallbacksAndMessages(null)
         if (::genericStream.isInitialized && !genericStreamReleased) {
             releasePreviewForCaptureChange()
-            if (StreamingStatusBus.state.value.recording) genericStream.stopRecord()
+            if (StreamingStatusBus.state.value.recordingState in setOf(RecordingState.STARTING, RecordingState.RECORDING, RecordingState.STOPPING)) genericStream.stopRecord()
             if (genericStream.isStreaming) genericStream.stopStream()
             genericStream.release()
             genericStreamReleased = true

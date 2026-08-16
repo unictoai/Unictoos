@@ -5,6 +5,7 @@ import com.unictoai.unictoos.domain.DestinationId
 import com.unictoai.unictoos.domain.DestinationSession
 import com.unictoai.unictoos.domain.DestinationState
 import com.unictoai.unictoos.domain.DestinationProfiles
+import com.unictoai.unictoos.domain.RecordingState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

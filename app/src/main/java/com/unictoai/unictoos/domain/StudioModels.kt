@@ -99,8 +99,10 @@ data class StreamSessionState(
     val audioLevel: Int = -1,
     val microphoneMuted: Boolean = false,
     val recording: Boolean = false,
+    val recordingState: RecordingState = RecordingState.IDLE,
     val reconnectAttempt: Int = 0,
     val captureReady: Boolean = false,
+    val encoderReady: Boolean = false,
     val previewReady: Boolean = false,
     val message: String? = null,
 )

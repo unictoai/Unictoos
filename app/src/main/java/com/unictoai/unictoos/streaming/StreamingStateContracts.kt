@@ -4,15 +4,7 @@ import com.unictoai.unictoos.domain.AggregateStreamState
 import com.unictoai.unictoos.domain.DestinationId
 import com.unictoai.unictoos.domain.DestinationSession
 import com.unictoai.unictoos.domain.DestinationState
-
-/** Recording has an explicit lifecycle independent from streaming and preview UI state. */
-enum class RecordingState {
-    IDLE,
-    STARTING,
-    RECORDING,
-    STOPPING,
-    FAILED,
-}
+import com.unictoai.unictoos.domain.RecordingState
 
 /** Safe, structured failures exposed to UI and diagnostics instead of raw exceptions. */
 sealed interface StreamingError {
