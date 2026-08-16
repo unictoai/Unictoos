@@ -487,7 +487,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private fun queueStart(request: PendingStart) {
         val current = StreamingStatusBus.state.value
-        if (pendingStart != null || !StreamStateMachine.acceptsStart(current.status)) {
+        if (pendingStart != null || !StreamStateMachine.acceptsQueuedStart(current.status)) {
             return
         }
         pendingStart = request

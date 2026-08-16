@@ -28,6 +28,13 @@ class StreamStateMachineTest {
     }
 
     @Test
+    fun aStartRequestCanQueueWhileCaptureIsPreparing() {
+        assertTrue(StreamStateMachine.acceptsQueuedStart(StreamStatus.PREPARING))
+        assertFalse(StreamStateMachine.acceptsQueuedStart(StreamStatus.CONNECTING))
+        assertFalse(StreamStateMachine.acceptsQueuedStart(StreamStatus.LIVE))
+    }
+
+    @Test
     fun onlyIdleStoppedOrErrorAcceptsAStartRequest() {
         assertTrue(StreamStateMachine.acceptsStart(StreamStatus.IDLE))
         assertTrue(StreamStateMachine.acceptsStart(StreamStatus.STOPPED))

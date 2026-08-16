@@ -163,13 +163,24 @@ internal fun UnictoosApp(
 
     Scaffold(
         containerColor = UnictoosPalette.Ink,
+        topBar = {
+            GlassyTopBar(
+                selectedTab = selectedTab,
+                menuExpanded = secondaryMenuExpanded,
+                onMenuExpandedChange = { secondaryMenuExpanded = it },
+                onSelectTab = {
+                    selectedTab = it
+                    secondaryMenuExpanded = false
+                },
+            )
+        },
         bottomBar = {
             GlassyBottomBar(selectedTab = selectedTab, onSelect = { selectedTab = it })
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            Box(Modifier.fillMaxSize().padding(top = 72.dp)) {
             AnimatedContent(
+                modifier = Modifier.fillMaxSize(),
                 targetState = selectedTab,
                 transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(180)) },
                 label = "tabTransition",
@@ -264,16 +275,6 @@ internal fun UnictoosApp(
                 )
             }
             }
-            GlassyTopBar(
-                selectedTab = selectedTab,
-                menuExpanded = secondaryMenuExpanded,
-                onMenuExpandedChange = { secondaryMenuExpanded = it },
-                onSelectTab = {
-                    selectedTab = it
-                    secondaryMenuExpanded = false
-                },
-            )
-        }
         }
     }
 

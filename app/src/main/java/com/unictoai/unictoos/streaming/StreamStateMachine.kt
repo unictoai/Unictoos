@@ -24,6 +24,9 @@ object StreamStateMachine {
 
     fun acceptsStart(status: StreamStatus): Boolean = status == StreamStatus.IDLE || status == StreamStatus.STOPPED || status == StreamStatus.ERROR
 
+    /** A user start may arrive while capture preparation is still completing. */
+    fun acceptsQueuedStart(status: StreamStatus): Boolean = acceptsStart(status) || status == StreamStatus.PREPARING
+
     fun acceptsStop(status: StreamStatus): Boolean = status != StreamStatus.IDLE && status != StreamStatus.STOPPED
 
     fun normalizeRequested(from: StreamStatus, requested: StreamStatus): StreamStatus? =

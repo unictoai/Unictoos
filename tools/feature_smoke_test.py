@@ -81,6 +81,8 @@ check("diagnostic export UI wiring", "onExportDiagnostics" in SETTINGS and "Supp
 check("session timeline UI", "Session timeline" in LIBRARY and "StreamingDiagnostics.snapshot" in LIBRARY)
 APP = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/UnictoosApp.kt").read_text()
 check("glassy top navigation", "GlassyTopBar" in APP and "DropdownMenu" in APP and "AppTab.SETTINGS" in APP)
+check("top bar uses Scaffold slot", "topBar = {" in APP and "padding(top = 72.dp)" not in APP)
+check("queued stream start is preserved", "acceptsQueuedStart" in SERVICE and "pendingStart = request" in SERVICE)
 check("glassy three-item bottom navigation", "GlassyBottomBar" in APP and "listOf(AppTab.HOME, AppTab.STUDIO, AppTab.LIBRARY)" in APP)
 check("secondary workspace menu", "AppTab.SCENES" in APP and "AppTab.ENGAGEMENT" in APP and "AppTab.MORE" in APP)
 STREAMING_CONTRACTS = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/StreamingStateContracts.kt").read_text()
