@@ -8,9 +8,15 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object ScenePayloadCodec {
+    private const val CURRENT_SCHEMA_VERSION = 2
+    private const val MAX_SOURCES = 64
+    private const val MAX_ID_LENGTH = 120
+    private const val MAX_NAME_LENGTH = 160
+
     fun encode(scene: Scene): String = JSONObject().apply {
-        put("id", scene.id)
-        put("name", scene.name)
+        put("schemaVersion", CURRENT_SCHEMA_VERSION)
+        put("id", scene.id.take(MAX_ID_LENGTH))
+        put("name", scene.name.take(MAX_NAME_LENGTH))
         put("aspectRatio", scene.aspectRatio.name)
         put("sources", JSONArray().apply {
             scene.sources.forEach { source ->
@@ -40,13 +46,13 @@ object ScenePayloadCodec {
         val json = JSONObject(raw)
         val sources = buildList {
             val array = json.optJSONArray("sources") ?: JSONArray()
-            for (index in 0 until array.length()) {
+            for (index in 0 until array.length().coerceAtMost(MAX_SOURCES)) {
                 val item = array.optJSONObject(index) ?: continue
                 val type = runCatching { SourceType.valueOf(item.optString("type")) }.getOrDefault(SourceType.COLOR)
                 add(
                     Source(
-                        id = item.optString("id").ifBlank { "source-$index" },
-                        name = item.optString("name").ifBlank { type.label },
+                        id = item.optString("id").take(MAX_ID_LENGTH).ifBlank { "source-$index" },
+                        name = item.optString("name").take(MAX_NAME_LENGTH).ifBlank { type.label },
                         type = type,
                         enabled = item.optBoolean("enabled", true),
                         zIndex = item.optInt("zIndex", index),
@@ -65,8 +71,8 @@ object ScenePayloadCodec {
             }
         }
         Scene(
-            id = json.optString("id", "scene"),
-            name = json.optString("name", "Scene"),
+            id = json.optString("id", "scene").take(MAX_ID_LENGTH).ifBlank { "scene" },
+            name = json.optString("name", "Scene").take(MAX_NAME_LENGTH).ifBlank { "Scene" },
             aspectRatio = runCatching { AspectRatio.valueOf(json.optString("aspectRatio")) }.getOrDefault(AspectRatio.PORTRAIT),
             sources = sources,
         )
