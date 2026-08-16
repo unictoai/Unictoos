@@ -93,6 +93,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var degradedSinceElapsed = 0L
     private var recoveredSinceElapsed = 0L
     private var thermalCapApplied = false
+    private var highThermalSinceElapsed = 0L
     private val bitrateHistory = java.util.ArrayDeque<Int>()
     private val reconnectJitter = kotlin.random.Random(System.currentTimeMillis())
     private lateinit var historyStore: CreatorHistoryStore
@@ -710,6 +711,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         degradedSinceElapsed = 0L
         recoveredSinceElapsed = 0L
         thermalCapApplied = false
+        highThermalSinceElapsed = 0L
         bitrateHistory.clear()
         reconnectAttempt = 0
         currentEndpoint = ""
@@ -767,6 +769,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         activeRecordingFile = null
         currentEndpoint = ""
         startedAtElapsed = 0L
+        highThermalSinceElapsed = 0L
+        thermalCapApplied = false
         SystemClock.sleep(GL_PIPELINE_SHUTDOWN_SETTLE_MS)
     }
 
@@ -1033,7 +1037,22 @@ class StreamingForegroundService : Service(), ConnectChecker {
         } else {
             PowerManager.THERMAL_STATUS_NONE
         }
-        if (ThermalProtectionStore(applicationContext).isEnabled() && thermalStatus >= PowerManager.THERMAL_STATUS_MODERATE && !thermalCapApplied && prepared) {
+        val nowElapsed = SystemClock.elapsedRealtime()
+        if (thermalStatus >= PowerManager.THERMAL_STATUS_MODERATE) {
+            if (highThermalSinceElapsed == 0L) highThermalSinceElapsed = nowElapsed
+        } else if (ThermalProtectionPolicy.resetOnRecovery(thermalStatus, PowerManager.THERMAL_STATUS_MODERATE)) {
+            highThermalSinceElapsed = 0L
+            thermalCapApplied = false
+        }
+        if (ThermalProtectionPolicy.shouldThrottle(
+                enabled = ThermalProtectionStore(applicationContext).isEnabled(),
+                thermalStatus = thermalStatus,
+                highThermalSinceElapsedMs = highThermalSinceElapsed,
+                nowElapsedMs = nowElapsed,
+                alreadyApplied = thermalCapApplied,
+                moderateStatus = PowerManager.THERMAL_STATUS_MODERATE,
+            ) && prepared
+        ) {
             applyThermalProtection(thermalStatus)
         }
         val connectivity = getSystemService(ConnectivityManager::class.java)
