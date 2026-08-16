@@ -79,6 +79,10 @@ check("compatibility report contract", COMPATIBILITY.exists() and "DeviceCompati
 check("preflight outcome contract", PREFLIGHT.exists() and "PreflightOutcomeEvaluator" in PREFLIGHT.read_text() and "ACTION_REQUIRED" in PREFLIGHT.read_text())
 check("diagnostic export UI wiring", "onExportDiagnostics" in SETTINGS and "SupportabilityExport" in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/UnictoosApp.kt").read_text())
 check("session timeline UI", "Session timeline" in LIBRARY and "StreamingDiagnostics.snapshot" in LIBRARY)
+APP = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/UnictoosApp.kt").read_text()
+check("glassy top navigation", "GlassyTopBar" in APP and "DropdownMenu" in APP and "AppTab.SETTINGS" in APP)
+check("glassy three-item bottom navigation", "GlassyBottomBar" in APP and "listOf(AppTab.HOME, AppTab.STUDIO, AppTab.LIBRARY)" in APP)
+check("secondary workspace menu", "AppTab.SCENES" in APP and "AppTab.ENGAGEMENT" in APP and "AppTab.MORE" in APP)
 
 if APK.exists():
     aapt = Path("/home/ubuntu/android-sdk/build-tools/35.0.0/aapt")
