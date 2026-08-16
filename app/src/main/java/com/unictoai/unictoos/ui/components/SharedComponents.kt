@@ -122,6 +122,9 @@ import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
+import com.unictoai.unictoos.domain.StreamQuality
+import com.unictoai.unictoos.streaming.PreflightOutcomeEvaluator
+import com.unictoai.unictoos.streaming.PreflightOutcomeState
 import com.unictoai.unictoos.ui.theme.MotionTokens
 import com.unictoai.unictoos.ui.theme.Spacing
 import com.unictoai.unictoos.ui.theme.V02Palette
@@ -164,20 +167,34 @@ internal fun LivePulseDot() {
     Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(V02Palette.AccentBlue.copy(alpha = alpha)))
 }
 @Composable
-internal fun PreflightCard() {
+internal fun PreflightCard(
+    destinationReady: Boolean,
+    quality: StreamQuality,
+) {
     val context = LocalContext.current
     val audioReady = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
     val cameraReady = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
     val networkReady = context.getSystemService(android.net.ConnectivityManager::class.java)?.activeNetwork != null
+    val outcomes = PreflightOutcomeEvaluator.evaluate(audioReady, cameraReady, networkReady, destinationReady, quality)
+    val blocking = outcomes.firstOrNull { it.state == PreflightOutcomeState.ACTION_REQUIRED }
+    val caution = outcomes.firstOrNull { it.state == PreflightOutcomeState.CAUTION }
     Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column { Text("Preflight check", fontWeight = FontWeight.Bold); Text("Know what is ready before you start", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall) }
-                Icon(Icons.Default.Wifi, null, tint = if (networkReady) V02Palette.AccentBlue else V02Palette.Caution)
+                Column {
+                    Text("Preflight check", fontWeight = FontWeight.Bold)
+                    Text("Know what is ready before you start", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                }
+                Icon(Icons.Default.Wifi, null, tint = if (blocking == null) V02Palette.AccentBlue else V02Palette.Caution)
             }
-            ReadinessRow("Network", if (networkReady) "Connected" else "Check connection", networkReady)
-            ReadinessRow("Microphone", if (audioReady) "Permission granted" else "Permission needed", audioReady)
-            ReadinessRow("Camera", if (cameraReady) "Permission granted" else "Requested for camera scenes", cameraReady)
+            outcomes.forEach { outcome ->
+                ReadinessRow(outcome.label, outcome.value, outcome.state == PreflightOutcomeState.READY)
+            }
+            Text(
+                blocking?.detail ?: caution?.detail ?: "All essential checks are ready for the selected profile.",
+                color = V02Palette.Neutral500,
+                style = MaterialTheme.typography.bodySmall,
+            )
             Text("Screen capture is requested by Android each time you begin a screen broadcast.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
         }
     }

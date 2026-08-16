@@ -120,6 +120,7 @@ import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
+import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.ui.theme.MotionTokens
 import com.unictoai.unictoos.ui.theme.Spacing
 import com.unictoai.unictoos.ui.theme.V02Palette
@@ -142,6 +143,7 @@ internal fun HomeScreen(
     onOpenScenes: () -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenSettings: () -> Unit,
+    streamQuality: StreamQuality,
     showAdSlot: Boolean = false,
 ) {
     LazyColumn(
@@ -153,7 +155,7 @@ internal fun HomeScreen(
         if (session.status == StreamStatus.ERROR) item { SessionErrorCard(session.message.orEmpty(), onGoStudio) }
         if (showAdSlot) item { SponsorBanner() }
         item { ExecutiveHero(session = session, onOpenStudio = onGoStudio) }
-        item { PreflightCard() }
+        item { PreflightCard(destinationReady = destinations.any { it.isConfigured }, quality = streamQuality) }
         item {
             AnimatedVisibility(
                 visible = true,

@@ -12,7 +12,7 @@ The current build remains an **alpha engineering milestone**. It compiles and pa
 
 ## Latest test build
 
-The latest architecture build is **Unictoos v0.2.5** with Android `versionCode 31`. It migrates the single-destination foreground service from the GenericStream owner to a compatibility wrapper backed by RootEncoder’s shared-encoder MultiStream API, while retaining the mobile-first UI, the v0.2.3 onboarding, the v0.2.2 stream-format options, and the Infinix X6853 preview-free stability fallback. This build still enables only one destination; simultaneous multistreaming remains gated behind physical single-pipeline validation. Review `V024_LIVELENS_INSPIRED_ARCHITECTURE.md` and `RELEASE_NOTES_v0.2.5.md` for the migration boundary. The installable retest APK will be published as a clearly labeled prerelease after validation.
+The latest supportability build is **Unictoos v0.2.6** with Android `versionCode 32`. It adds redacted diagnostic export, a structured session timeline, device compatibility reporting, and clearer preflight outcomes while retaining the mobile-first UI, the v0.2.3 onboarding, the v0.2.2 stream-format options, and the v0.2.5 single-slot RootEncoder MultiStream migration. This build still enables only one destination; simultaneous multistreaming remains gated behind physical single-pipeline validation. The graphics-resource failure is not claimed fixed by generic build validation. Review `RELEASE_NOTES_v0.2.6.md` and `AUTONOMOUS_GRAPHICS_TEST_REPORT.md` for the current evidence boundary.
 
 ## Build locally
 
@@ -49,13 +49,13 @@ Platform OAuth, unified chat, alerts, scheduling, thumbnails, metadata publishin
 | Scenes | Select scenes, create portrait or landscape scenes, and toggle individual sources |
 | Studio | Branded preview surface, destination readiness, bitrate/FPS cards, microphone state, mute, recording, Go Live, and Stop |
 | Destinations | Separate YouTube, Twitch, Kick, and Custom RTMP credential slots with secure local storage |
-| Reliability | Permission checks, AudioRecord availability check, explicit capture readiness, bounded reconnects, authentication error handling, and cleanup |
+| Reliability | Permission checks, AudioRecord availability check, explicit capture readiness, bounded reconnects, authentication error handling, cleanup, clearer preflight outcomes, and support diagnostics |
 | Recordings | Start/stop local MP4 recording from Studio and index saved files in Library |
 | Advertising | Opt-in policy and provider-neutral app-only slot architecture; no advertising SDK or broadcast insertion is enabled in this alpha |
 
 ## Architecture
 
-The application is organized around a Compose UI layer, shared domain models, a ViewModel state layer, a Keystore-backed credential store, an app-only ads policy, and a foreground media service. The service owns MediaProjection, microphone capture, hardware encoding, RootEncoder transport, recording, reconnect scheduling, notifications, and cleanup. The UI observes a process-local status bus for connection, bitrate, live, error, recording, mute, and disconnect states.
+The application is organized around a Compose UI layer, shared domain models, a ViewModel state layer, a Keystore-backed credential store, an app-only ads policy, and a foreground media service. The service owns MediaProjection, microphone capture, hardware encoding, RootEncoder transport, recording, reconnect scheduling, notifications, and cleanup. The UI observes a process-local status bus for connection, bitrate, live, error, recording, mute, and disconnect states. Settings can export a redacted support bundle containing compatibility checks, the selected profile, session status, and bounded lifecycle diagnostics; Library exposes the recent session event timeline locally.
 
 The project uses [RootEncoder](https://github.com/pedroSG94/RootEncoder) under its Apache-2.0 license for the open-source RTMP/RTMPS/media pipeline integration. v0.2.5 uses a bounded single-slot adapter around RootEncoder’s open `MultiStream` API at runtime; the v0.2.4 destination manager remains the foundation for future shared-encoder fan-out. See `V024_LIVELENS_INSPIRED_ARCHITECTURE.md`, `RELEASE_NOTES_v0.2.5.md`, and `THIRD_PARTY_NOTICES.md` for the migration boundary and dependency attribution.
 

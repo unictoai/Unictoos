@@ -122,6 +122,8 @@ import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
+import com.unictoai.unictoos.streaming.StreamingDiagnostic
+import com.unictoai.unictoos.streaming.StreamingDiagnostics
 import com.unictoai.unictoos.ui.theme.Spacing
 import com.unictoai.unictoos.ui.theme.V02Palette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
@@ -137,6 +139,7 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
     var sessionSummaries by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var markerCount by rememberSaveable { mutableStateOf(0) }
     var healthSamples by remember { mutableStateOf(emptyList<StreamHealthSample>()) }
+    var timeline by remember { mutableStateOf(emptyList<StreamingDiagnostic>()) }
     var renameTarget by rememberSaveable { mutableStateOf<String?>(null) }
     var renameValue by rememberSaveable { mutableStateOf("") }
 
@@ -185,6 +188,7 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
         sessionSummaries = sessions.map { summary -> "${summary.mode.name.lowercase().replaceFirstChar { it.uppercase() }} • ${summary.elapsedSeconds / 60} min • ${summary.bitrateKbps} kbps" }
         markerCount = history.loadMarkers().size
         healthSamples = history.loadHealthSamples()
+        timeline = StreamingDiagnostics.snapshot().takeLast(24)
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -223,6 +227,24 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
                             }
                         }
                         Text("${healthSamples.size} samples retained • latest ${recent.lastOrNull()?.bitrateKbps ?: 0} kbps", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        }
+        item {
+            SectionHeader("Session timeline", "Recent lifecycle events retained for support")
+            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    if (timeline.isEmpty()) {
+                        Text("Events will appear after Unictoos prepares or starts a session.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        timeline.asReversed().take(12).forEach { event ->
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(event.event.replace('_', ' '), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                val detail = event.detail.ifBlank { "generation ${event.generation}" }
+                                Text(detail, color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
                     }
                 }
             }

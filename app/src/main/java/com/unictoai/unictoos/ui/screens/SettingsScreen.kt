@@ -126,12 +126,15 @@ import com.unictoai.unictoos.domain.StreamQualityPreset
 import com.unictoai.unictoos.domain.AudioQuality
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.LatencyMode
+import com.unictoai.unictoos.streaming.CompatibilityLevel
+import com.unictoai.unictoos.streaming.DeviceCompatibilityReportFactory
 import com.unictoai.unictoos.ui.theme.Spacing
 import com.unictoai.unictoos.ui.theme.V02Palette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
 import com.unictoai.unictoos.DestinationConfig
 import com.unictoai.unictoos.ui.components.BrandHeader
 import com.unictoai.unictoos.ui.components.SectionHeader
+import com.unictoai.unictoos.ui.components.ReadinessRow
 import com.unictoai.unictoos.ui.components.SettingToggle
 import com.unictoai.unictoos.ui.components.TrustRow
 
@@ -156,6 +159,7 @@ internal fun SettingsScreen(
     latencyMode: LatencyMode,
     onLatencyModeChange: (LatencyMode) -> Unit,
     onExportConfig: () -> Unit,
+    onExportDiagnostics: () -> Unit,
 ) {
     val context = LocalContext.current
     var microphoneEnabled by rememberSaveable { mutableStateOf(true) }
@@ -286,6 +290,29 @@ internal fun SettingsScreen(
                         Icon(Icons.Default.Share, contentDescription = null)
                         Spacer(Modifier.width(7.dp))
                         Text("Export safe configuration")
+                    }
+                }
+            }
+        }
+        item {
+            val report = DeviceCompatibilityReportFactory.current(context, streamQuality)
+            SectionHeader("Device compatibility", "A quick explanation of what this profile can safely handle")
+            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
+                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text("${report.manufacturer} ${report.model} • Android ${report.sdkInt}", fontWeight = FontWeight.SemiBold)
+                    Text(report.summary, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                    report.checks.take(4).forEach { check ->
+                        ReadinessRow(
+                            label = check.label,
+                            value = check.value,
+                            ready = check.level == CompatibilityLevel.READY,
+                        )
+                    }
+                    Text(report.checks.firstOrNull { it.level != CompatibilityLevel.READY }?.detail ?: "No compatibility warnings for the selected profile.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                    FilledTonalButton(onClick = onExportDiagnostics, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                        Icon(Icons.Default.Share, contentDescription = null)
+                        Spacer(Modifier.width(7.dp))
+                        Text("Export redacted diagnostics")
                     }
                 }
             }

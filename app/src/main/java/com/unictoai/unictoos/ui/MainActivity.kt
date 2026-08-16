@@ -8,6 +8,9 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Surface
 import android.widget.Toast
+import androidx.core.content.FileProvider
+import com.unictoai.unictoos.BuildConfig
+import java.io.File
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -76,6 +79,7 @@ class MainActivity : ComponentActivity() {
                     onCreateMarker = ::createMarker,
                     onDismissStatusMessage = ::dismissStatusMessage,
                     onShareConfig = ::shareConfig,
+                    onShareDiagnostics = ::shareDiagnostics,
                     onPreviewSurfaceAvailable = ::attachPreviewSurface,
                     onPreviewSurfaceDestroyed = ::detachPreviewSurface,
                 )
@@ -218,6 +222,18 @@ class MainActivity : ComponentActivity() {
             type = "application/json"
             putExtra(Intent.EXTRA_TEXT, json)
         }, "Export Unictoos configuration"))
+    }
+
+    internal fun shareDiagnostics(json: String) {
+        val file = File(cacheDir, "unictoos-diagnostics-${System.currentTimeMillis()}.json").apply {
+            writeText(json)
+        }
+        val uri = FileProvider.getUriForFile(this, "${BuildConfig.APPLICATION_ID}.fileprovider", file)
+        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+            type = "application/json"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }, "Export Unictoos diagnostics"))
     }
 
     companion object {

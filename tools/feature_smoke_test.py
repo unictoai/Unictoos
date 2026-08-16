@@ -69,6 +69,16 @@ check("runtime uses single-slot MultiStream adapter", "SingleDestinationMultiStr
 check("runtime adapter does not construct three encoders", "import com.pedro.library.generic.GenericStream" not in SERVICE and "= GenericStream(" not in SERVICE and "arrayOf(connectChecker)" in ADAPTER)
 check("adapter release preserves retryability", "closed.set(false)" in ADAPTER and "firstFailure" in ADAPTER and "throw it" in ADAPTER)
 check("backup rules exist", (ROOT / "app/src/main/res/xml/data_extraction_rules.xml").exists())
+SUPPORT_EXPORT = ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/SupportabilityExport.kt"
+COMPATIBILITY = ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/DeviceCompatibilityReport.kt"
+PREFLIGHT = ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/PreflightOutcome.kt"
+SETTINGS = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/SettingsScreen.kt").read_text()
+LIBRARY = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/LibraryScreen.kt").read_text()
+check("supportability export contract", SUPPORT_EXPORT.exists() and "unictoos-support-bundle-v1" in SUPPORT_EXPORT.read_text() and "[REDACTED]" not in SUPPORT_EXPORT.read_text())
+check("compatibility report contract", COMPATIBILITY.exists() and "DeviceCompatibilityReportFactory" in COMPATIBILITY.read_text() and "DIRECT_DESTINATION_CAP" in COMPATIBILITY.read_text())
+check("preflight outcome contract", PREFLIGHT.exists() and "PreflightOutcomeEvaluator" in PREFLIGHT.read_text() and "ACTION_REQUIRED" in PREFLIGHT.read_text())
+check("diagnostic export UI wiring", "onExportDiagnostics" in SETTINGS and "SupportabilityExport" in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/UnictoosApp.kt").read_text())
+check("session timeline UI", "Session timeline" in LIBRARY and "StreamingDiagnostics.snapshot" in LIBRARY)
 
 if APK.exists():
     aapt = Path("/home/ubuntu/android-sdk/build-tools/35.0.0/aapt")

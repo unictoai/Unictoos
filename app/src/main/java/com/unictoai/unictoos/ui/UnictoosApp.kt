@@ -52,6 +52,9 @@ import com.unictoai.unictoos.domain.AutoStopDuration
 import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.monetization.AdsPolicy
+import com.unictoai.unictoos.streaming.DeviceCompatibilityReportFactory
+import com.unictoai.unictoos.streaming.StreamingDiagnostics
+import com.unictoai.unictoos.streaming.SupportabilityExport
 import com.unictoai.unictoos.ui.components.AddSceneDialog
 import com.unictoai.unictoos.ui.screens.EngagementScreen
 import com.unictoai.unictoos.ui.screens.HomeScreen
@@ -95,6 +98,7 @@ internal fun UnictoosApp(
     onCreateMarker: () -> Unit,
     onDismissStatusMessage: () -> Unit,
     onShareConfig: (String) -> Unit,
+    onShareDiagnostics: (String) -> Unit,
     onPreviewSurfaceAvailable: (Surface, Int, Int) -> Unit,
     onPreviewSurfaceDestroyed: (Surface) -> Unit,
     vm: StudioViewModel = viewModel(factory = studioViewModelFactory),
@@ -159,6 +163,7 @@ internal fun UnictoosApp(
                     onOpenScenes = { selectedTab = AppTab.SCENES },
                     onOpenLibrary = { selectedTab = AppTab.LIBRARY },
                     onOpenSettings = { selectedTab = AppTab.SETTINGS },
+                    streamQuality = streamQuality,
                 )
                 AppTab.SCENES -> ScenesScreen(
                     scenes = scenes,
@@ -222,6 +227,19 @@ internal fun UnictoosApp(
                     latencyMode = latencyMode,
                     onLatencyModeChange = vm::setLatencyMode,
                     onExportConfig = { onShareConfig(vm.exportConfigJson()) },
+                    onExportDiagnostics = {
+                        val report = DeviceCompatibilityReportFactory.current(context, streamQuality)
+                        onShareDiagnostics(
+                            SupportabilityExport.json(
+                                report = report,
+                                quality = streamQuality,
+                                sessionStatus = session.status.name,
+                                configuredDestinationCount = destinations.count { it.isConfigured },
+                                diagnostics = StreamingDiagnostics.snapshot(),
+                                generatedAtMillis = System.currentTimeMillis(),
+                            ),
+                        )
+                    },
                 )
             }
             }
@@ -245,6 +263,7 @@ private fun HomeRoute(
     scenes: List<Scene>,
     destinations: List<StreamDestination>,
     adsPolicy: AdsPolicy,
+    streamQuality: StreamQuality,
     onGoStudio: () -> Unit,
     onOpenScenes: () -> Unit,
     onOpenLibrary: () -> Unit,
@@ -255,6 +274,7 @@ private fun HomeRoute(
         scenes = scenes,
         destinations = destinations,
         session = session,
+        streamQuality = streamQuality,
         onGoStudio = onGoStudio,
         onOpenScenes = onOpenScenes,
         onOpenLibrary = onOpenLibrary,
