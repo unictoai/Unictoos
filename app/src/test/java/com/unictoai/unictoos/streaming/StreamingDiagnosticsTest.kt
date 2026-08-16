@@ -20,6 +20,23 @@ class StreamingDiagnosticsTest {
     }
 
     @Test
+    fun redactsJsonCredentialsAndBearerAuthorization() {
+        StreamingDiagnostics.clear()
+        StreamingDiagnostics.record(
+            "session-json",
+            5L,
+            "failure",
+            "{\"streamKey\":\"secret-json\",\"token\":\"secret-token\"} Authorization: Bearer abc.def.ghi",
+        )
+
+        val detail = StreamingDiagnostics.snapshot().single().detail
+        assertFalse(detail.contains("secret-json"))
+        assertFalse(detail.contains("secret-token"))
+        assertFalse(detail.contains("abc.def.ghi"))
+        assertTrue(detail.contains("[REDACTED]"))
+    }
+
+    @Test
     fun storesOptionalDestinationAndNetworkMetadata() {
         StreamingDiagnostics.clear()
         StreamingDiagnostics.record(

@@ -50,6 +50,14 @@ object StreamingDiagnostics {
     fun clear() = events.clear()
 
     private fun redact(value: String): String = value
-        .replace(Regex("(?i)(stream[_-]?key|token|password|authorization|secret)\\s*[=:]\\s*\\S+"), "$1=[REDACTED]")
+        .replace(Regex("""(?i)Bearer\s+[A-Za-z0-9._~+/=-]+"""), "Bearer [REDACTED]")
+        .replace(
+            Regex("""(?i)(\"?(?:stream[_-]?key|token|password|authorization|secret)\"?\s*[:=]\s*\")([^\"]*)(\")"""),
+            "$1[REDACTED]$3",
+        )
+        .replace(
+            Regex("""(?i)(stream[_-]?key|token|password|authorization|secret)\s*[=:]\s*[^\s,}]+"""),
+            "$1=[REDACTED]",
+        )
         .replace(Regex("(?i)rtmps?://\\S+"), "[ENDPOINT_REDACTED]")
 }
