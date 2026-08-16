@@ -112,7 +112,7 @@ class SingleDestinationMultiStreamAdapter(
 
     fun startRecord(path: String, listener: RecordController.Listener) {
         checkOpen()
-        multiStream.startRecord(path, listener)
+        multiStream.startRecord(path, RecordController.RecordTracks.ALL, listener)
     }
 
     fun stopRecord(): Boolean {

@@ -104,5 +104,6 @@ data class StreamSessionState(
     val captureReady: Boolean = false,
     val encoderReady: Boolean = false,
     val previewReady: Boolean = false,
+    val pipelineGeneration: Long = 0L,
     val message: String? = null,
 )

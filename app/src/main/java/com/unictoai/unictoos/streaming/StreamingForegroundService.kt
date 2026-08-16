@@ -60,7 +60,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -72,6 +71,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var cameraSource: Camera2Source? = null
     private var prepared = false
     private var genericStreamReleased = false
+    private var pipelineReleaseState = PipelineReleaseState.AVAILABLE
     private val graphicsFailureRequested = java.util.concurrent.atomic.AtomicBoolean(false)
     @Volatile private var serviceDestroyed = false
     private val sessionGeneration = AtomicLong(0L)
@@ -293,24 +293,39 @@ class StreamingForegroundService : Service(), ConnectChecker {
         resetTelemetryForInactiveSession()
     }
 
-    private suspend fun releaseCapturePipelineForReprepare() {
+    private suspend fun releaseCapturePipelineForReprepare(): Boolean {
         sessionGeneration.incrementAndGet()
         releaseProjection()
-        releaseGenericStream("reprepare")
+        val released = releaseGenericStream("reprepare")
+        if (!released || !PipelineReleasePolicy.canCreateNewPipeline(pipelineReleaseState)) {
+            prepared = false
+            captureReady = false
+            previewAttached = false
+            publish(StreamStatus.ERROR, "Previous capture resources are not fully released. Tap Fix and retry")
+            return false
+        }
         microphoneSource = null
         cameraSource = null
         captureReady = false
         previewAttached = false
         prepared = false
-        delay(GL_PIPELINE_SHUTDOWN_SETTLE_MS)
         genericStream = createGenericStream()
         genericStreamReleased = false
+        pipelineReleaseState = PipelineReleaseState.AVAILABLE
         prepared = prepareGenericStream()
+        return prepared
     }
 
-    private fun releaseGenericStream(reason: String) {
-        if (!::genericStream.isInitialized || genericStreamReleased) return
+    private fun releaseGenericStream(reason: String): Boolean {
+        if (!::genericStream.isInitialized) {
+            genericStreamReleased = true
+            pipelineReleaseState = PipelineReleaseState.TERMINAL
+            return true
+        }
+        if (genericStreamReleased && pipelineReleaseState == PipelineReleaseState.TERMINAL) return true
         val generation = sessionGeneration.get()
+        val attempt = PipelineReleasePolicy.begin(pipelineReleaseState, generation) ?: return false
+        pipelineReleaseState = PipelineReleaseState.RELEASING
         StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_begin", reason)
         runCatching { if (genericStream.isRecording) genericStream.stopRecord() }
             .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "stop_record: ${it.message.orEmpty()}") }
@@ -326,12 +341,23 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }.onFailure {
             StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "release_stream: ${it.message.orEmpty()}")
         }.getOrDefault(false)
-        genericStreamReleased = PipelineReleasePolicy.markReleased(genericStreamReleased, releaseSucceeded)
-        runCatching { microphoneSource?.release() }
-            .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "release_microphone: ${it.message.orEmpty()}") }
-        runCatching { cameraSource?.release() }
-            .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "release_camera: ${it.message.orEmpty()}") }
-        StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_complete", reason)
+        pipelineReleaseState = PipelineReleasePolicy.complete(
+            state = pipelineReleaseState,
+            attempt = attempt,
+            currentGeneration = sessionGeneration.get(),
+            releaseSucceeded = releaseSucceeded,
+        )
+        genericStreamReleased = pipelineReleaseState == PipelineReleaseState.TERMINAL
+        if (genericStreamReleased) {
+            runCatching { microphoneSource?.release() }
+                .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "release_microphone: ${it.message.orEmpty()}") }
+            runCatching { cameraSource?.release() }
+                .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "release_camera: ${it.message.orEmpty()}") }
+            StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_complete", reason)
+        } else {
+            StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_incomplete", reason)
+        }
+        return genericStreamReleased
     }
 
     override fun onCreate() {
@@ -369,14 +395,16 @@ class StreamingForegroundService : Service(), ConnectChecker {
             ACTION_STOP_RECORDING -> stopRecording()
             ACTION_DISMISS_STATUS -> dismissStatusMessage()
             ACTION_RELEASE_CAPTURE -> releaseCaptureAfterFailure()
-            ACTION_ENCODER_GRAPHICS_FAILURE -> handleEncoderGraphicsFailure()
+            ACTION_ENCODER_GRAPHICS_FAILURE -> handleEncoderGraphicsFailure(
+                intent.getLongExtra(EXTRA_PIPELINE_GENERATION, 0L).takeIf { it > 0L },
+            )
         }
         return START_NOT_STICKY
     }
 
     private suspend fun prepareProjectionFromIntent(intent: Intent) {
         if (!startForegroundSafely(includeProjection = true)) return
-        releaseCapturePipelineForReprepare()
+        if (!releaseCapturePipelineForReprepare()) return
         resetCaptureStateForPreparation()
         if (!hasAudioPermission()) {
             publish(StreamStatus.ERROR, "Microphone permission is not granted")
@@ -425,7 +453,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private suspend fun prepareCamera() {
         if (!startForegroundSafely(includeProjection = false)) return
-        releaseCapturePipelineForReprepare()
+        if (!releaseCapturePipelineForReprepare()) return
         resetCaptureStateForPreparation()
         if (!hasAudioPermission()) {
             publish(StreamStatus.ERROR, "Microphone permission is not granted")
@@ -734,30 +762,36 @@ class StreamingForegroundService : Service(), ConnectChecker {
         handler.removeCallbacksAndMessages(null)
         sessionGeneration.incrementAndGet()
         elapsedTickerGeneration = 0L
-        releaseFailedPipeline()
+        val released = releaseFailedPipeline()
         resetTelemetryForInactiveSession()
         StreamingStatusBus.update(
             StreamingStatusBus.state.value.copy(
-                status = StreamStatus.IDLE,
+                status = if (released) StreamStatus.IDLE else StreamStatus.ERROR,
                 captureReady = false,
                 encoderReady = false,
                 previewReady = false,
                 recording = false,
                 recordingState = RecordingState.IDLE,
-                message = "Capture resources released. Start capture again",
+                message = if (released) "Capture resources released. Start capture again" else "Capture release is incomplete. Retry Fix before starting again",
             ),
         )
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
-    private fun releaseFailedPipeline() {
+    private fun releaseFailedPipeline(): Boolean {
         recordingFinalizationJob?.cancel()
         recordingFinalizationJob = null
         pendingTerminalStopReason = null
         releasePreviewForCaptureChange()
         releaseProjection()
-        releaseGenericStream("failed_pipeline")
+        val released = releaseGenericStream("failed_pipeline")
+        if (!released) {
+            prepared = false
+            captureReady = false
+            previewAttached = false
+            return false
+        }
         microphoneSource = null
         cameraSource = null
         captureReady = false
@@ -771,7 +805,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         startedAtElapsed = 0L
         highThermalSinceElapsed = 0L
         thermalCapApplied = false
-        SystemClock.sleep(GL_PIPELINE_SHUTDOWN_SETTLE_MS)
+        return true
     }
 
     private fun handleEncoderGraphicsFailure(expectedGeneration: Long? = null) {
@@ -787,10 +821,14 @@ class StreamingForegroundService : Service(), ConnectChecker {
         handler.removeCallbacksAndMessages(null)
         sessionGeneration.incrementAndGet()
         elapsedTickerGeneration = 0L
-        releaseFailedPipeline()
+        val released = releaseFailedPipeline()
         resetTelemetryForInactiveSession()
-        StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "graphics_failure_released")
-        updateNotification("Graphics resources released • tap Fix to retry")
+        StreamingDiagnostics.record(
+            currentSessionId,
+            sessionGeneration.get(),
+            if (released) "graphics_failure_released" else "graphics_failure_release_incomplete",
+        )
+        updateNotification(if (released) "Graphics resources released • tap Fix to retry" else "Graphics release incomplete • tap Fix to retry")
         StreamingStatusBus.update(
             StreamingStatusBus.state.value.copy(
                 status = StreamStatus.ERROR,
@@ -799,7 +837,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 previewReady = false,
                 recording = false,
                 recordingState = RecordingState.IDLE,
-                message = EncoderCrashPolicy.GRAPHICS_RESOURCE_MESSAGE,
+                message = if (released) EncoderCrashPolicy.GRAPHICS_RESOURCE_MESSAGE else "Graphics resources are still releasing. Tap Fix again before retrying",
             ),
         )
     }
@@ -1021,6 +1059,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 captureReady = captureReady,
                 encoderReady = prepared,
                 previewReady = previewAttached,
+                pipelineGeneration = sessionGeneration.get(),
                 message = message,
             ),
         )
@@ -1142,10 +1181,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
         handler.removeCallbacksAndMessages(null)
         if (::genericStream.isInitialized && !genericStreamReleased) {
             releasePreviewForCaptureChange()
-            if (StreamingStatusBus.state.value.recordingState in setOf(RecordingState.STARTING, RecordingState.RECORDING, RecordingState.STOPPING)) genericStream.stopRecord()
-            if (genericStream.isStreaming) genericStream.stopStream()
-            genericStream.release()
-            genericStreamReleased = true
+            if (StreamingStatusBus.state.value.recordingState in setOf(RecordingState.STARTING, RecordingState.RECORDING, RecordingState.STOPPING)) {
+                runCatching { genericStream.stopRecord() }
+            }
+            releaseGenericStream("service_destroy")
         }
         microphoneSource?.release()
         cameraSource?.release()
@@ -1339,13 +1378,13 @@ class StreamingForegroundService : Service(), ConnectChecker {
         const val EXTRA_SCENE_JSON = "extra_scene_json"
         const val EXTRA_PREVIEW_SURFACE = "extra_preview_surface"
         const val EXTRA_PREVIEW_WIDTH = "extra_preview_width"
-        const val EXTRA_PREVIEW_HEIGHT = "extra_preview_height"
+        const val EXTRA_PREVIEW_HEIGHT = "preview_height"
+        const val EXTRA_PIPELINE_GENERATION = "pipeline_generation"
         const val EXTRA_MARKER_LABEL = "extra_marker_label"
         private const val CHANNEL_ID = "unictoos-broadcasting"
         private const val NOTIFICATION_ID = 4101
         private const val MAX_RECONNECT_ATTEMPTS = 3
         private const val CAPTURE_TIMEOUT_MS = 30_000L
-        private const val GL_PIPELINE_SHUTDOWN_SETTLE_MS = 150L
         private const val RECONNECT_JITTER_MAX_MS = 500L
         private const val MIN_RECORDING_BYTES = 64L * 1024L * 1024L
         private const val MAX_SESSION_HEALTH_SAMPLES = 1_200

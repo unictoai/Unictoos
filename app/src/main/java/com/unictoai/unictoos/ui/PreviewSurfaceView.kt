@@ -47,7 +47,6 @@ class PreviewSurfaceView @JvmOverloads constructor(
     }
 
     init {
-        registerHolderCallback()
         setZOrderOnTop(false)
     }
 
@@ -70,10 +69,10 @@ class PreviewSurfaceView @JvmOverloads constructor(
     }
 
     fun releasePreviewListener() {
-        val releasedSurface = lastSurface
-        lastSurface = null
-        releasedSurface?.let { surface -> listener?.onSurfaceDestroyed(surface) }
+        // Do not synthesize surface destruction here. Android owns the holder
+        // lifecycle and will deliver the real surfaceDestroyed callback.
         listener = null
+        lastSurface = null
     }
 
     private fun notifyAvailable(holder: SurfaceHolder) {

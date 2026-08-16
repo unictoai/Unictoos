@@ -34,6 +34,10 @@ class UnictoosApplication : Application() {
                         applicationContext.startService(
                             Intent(applicationContext, StreamingForegroundService::class.java).apply {
                                 action = StreamingForegroundService.ACTION_ENCODER_GRAPHICS_FAILURE
+                                putExtra(
+                                    StreamingForegroundService.EXTRA_PIPELINE_GENERATION,
+                                    previous.pipelineGeneration,
+                                )
                             },
                         )
                     }
