@@ -18,14 +18,11 @@ enum class TransportProtocol {
 /** Per-destination state. It deliberately contains no endpoint or plaintext credential. */
 enum class DestinationState {
     DISABLED,
-    READY,
+    CONFIGURING,
     CONNECTING,
     LIVE,
     RECONNECTING,
-    DEGRADED,
-    AUTH_ERROR,
-    SERVER_ERROR,
-    NETWORK_ERROR,
+    FAILED,
     STOPPING,
     STOPPED,
 }
@@ -33,14 +30,12 @@ enum class DestinationState {
 enum class AggregateStreamState {
     IDLE,
     PREPARING,
-    CONNECTING,
+    STARTING,
     LIVE,
-    PARTIAL_LIVE,
-    RECONNECTING,
-    PARTIAL_FAILURE,
+    DEGRADED,
     STOPPING,
     STOPPED,
-    ERROR,
+    FAILED,
 }
 
 /**

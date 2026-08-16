@@ -51,16 +51,16 @@ class MultistreamModelsTest {
     @Test
     fun aggregateSessionCanRepresentPartialLiveWithoutStartingAnything() {
         val state = MultistreamSessionState(
-            aggregateState = AggregateStreamState.PARTIAL_LIVE,
+            aggregateState = AggregateStreamState.DEGRADED,
             destinations = listOf(
                 DestinationSession(DestinationId.YOUTUBE, DestinationProfiles.youtube, DestinationState.LIVE),
-                DestinationSession(DestinationId.TWITCH, DestinationProfiles.twitch, DestinationState.NETWORK_ERROR),
+                DestinationSession(DestinationId.TWITCH, DestinationProfiles.twitch, DestinationState.FAILED),
             ),
         )
 
-        assertEquals(AggregateStreamState.PARTIAL_LIVE, state.aggregateState)
+        assertEquals(AggregateStreamState.DEGRADED, state.aggregateState)
         assertEquals(2, state.destinations.size)
         assertEquals(DestinationState.LIVE, state.destinations.first().state)
-        assertEquals(DestinationState.NETWORK_ERROR, state.destinations.last().state)
+        assertEquals(DestinationState.FAILED, state.destinations.last().state)
     }
 }
