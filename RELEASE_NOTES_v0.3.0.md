@@ -18,7 +18,7 @@ Unictoos v0.3.0 upgrades the streaming engine to RootEncoder 2.8.0 and hardens t
 
 The clean debug gate passed `lintDebug`, `testDebugUnitTest`, `assembleDebug`, and `assembleAndroidTest`. The expanded static smoke suite passed **77/77 checks**. Unit coverage includes a 50-cycle terminal release/recreate model test, generation mismatch protection, failed-release retryability, and Android-runtime preview listener tests covering 50 repeated listener recreate cycles.
 
-The R8 release gate also passed with the sandbox’s bounded 768 MiB Gradle heap after a previous 1024 MiB attempt was terminated by sandbox resource pressure.
+The R8 release gate passed with a bounded 1024 MiB Gradle heap after the initial 768 MiB attempt reported Java heap space and an earlier 1024 MiB attempt was terminated under sandbox memory pressure. The final retry completed successfully.
 
 ## Validation boundary
 
