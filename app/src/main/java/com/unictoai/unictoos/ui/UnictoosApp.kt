@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.view.Surface
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -53,6 +53,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -127,15 +129,6 @@ internal fun UnictoosApp(
     var showAddScene by rememberSaveable { mutableStateOf(false) }
     var secondaryMenuExpanded by rememberSaveable { mutableStateOf(false) }
     val scenes by vm.scenes.collectAsStateWithLifecycle()
-    val destinations by vm.destinations.collectAsStateWithLifecycle()
-    val destination by vm.destination.collectAsStateWithLifecycle()
-    val session by vm.session.collectAsStateWithLifecycle()
-    val adsPolicy by vm.adsPolicy.collectAsStateWithLifecycle()
-    val streamQuality by vm.streamQuality.collectAsStateWithLifecycle()
-    val thermalProtectionEnabled by vm.thermalProtectionEnabled.collectAsStateWithLifecycle()
-    val audioSettings by vm.audioSettings.collectAsStateWithLifecycle()
-    val autoStopDuration by vm.autoStopDuration.collectAsStateWithLifecycle()
-    val latencyMode by vm.latencyMode.collectAsStateWithLifecycle()
     val selectedScene = remember(scenes, selectedSceneId) {
         scenes.firstOrNull { it.id == selectedSceneId } ?: scenes.firstOrNull() ?: Scene(
         id = "fallback",
@@ -182,20 +175,17 @@ internal fun UnictoosApp(
             AnimatedContent(
                 modifier = Modifier.fillMaxSize(),
                 targetState = selectedTab,
-                transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(180)) },
+                transitionSpec = { fadeIn(tween(120)) togetherWith fadeOut(tween(120)) },
                 label = "tabTransition",
             ) { tab ->
             when (tab) {
                 AppTab.HOME -> HomeRoute(
                     vm = vm,
                     scenes = scenes,
-                    destinations = destinations,
-                    adsPolicy = adsPolicy,
                     onGoStudio = { selectedTab = AppTab.STUDIO },
                     onOpenScenes = { selectedTab = AppTab.SCENES },
                     onOpenLibrary = { selectedTab = AppTab.LIBRARY },
                     onOpenSettings = { selectedTab = AppTab.SETTINGS },
-                    streamQuality = streamQuality,
                 )
                 AppTab.SCENES -> ScenesScreen(
                     scenes = scenes,
@@ -214,10 +204,6 @@ internal fun UnictoosApp(
                 AppTab.STUDIO -> StudioRoute(
                     vm = vm,
                     scene = selectedScene,
-                    destination = destination,
-                    streamQuality = streamQuality,
-                    audioSettings = audioSettings,
-                    autoStopDuration = autoStopDuration,
                     onAspectRatioChange = { ratio -> vm.setSceneAspectRatio(selectedScene.id, ratio) },
                     onRequestStreamStart = onRequestStreamStart,
                     onRequestPracticeStart = onRequestPracticeStart,
@@ -239,39 +225,11 @@ internal fun UnictoosApp(
                     onOpenSettings = { selectedTab = AppTab.SETTINGS },
                     onReplayOnboarding = { showOnboarding = true },
                 )
-                AppTab.SETTINGS -> SettingsScreen(
-                    destination = destination,
-                    sessionStatus = session.status,
-                    onSelectPlatform = vm::selectDestination,
-                    onSaveDestination = vm::updateDestination,
-                    onClearDestination = vm::clearDestination,
-                    adsEnabled = adsPolicy.enabled,
-                    onAdsEnabledChange = vm::setAdsEnabled,
-                    streamQuality = streamQuality,
-                    onStreamQualityPreset = vm::setStreamQualityPreset,
-                    onCustomStreamQualityChange = vm::updateCustomStreamQuality,
-                    thermalProtectionEnabled = thermalProtectionEnabled,
-                    onThermalProtectionChange = vm::setThermalProtectionEnabled,
-                    audioSettings = audioSettings,
-                    onAudioQualityChange = vm::setAudioQuality,
-                    onEchoCancelerChange = vm::setEchoCanceler,
-                    onNoiseSuppressorChange = vm::setNoiseSuppressor,
-                    latencyMode = latencyMode,
-                    onLatencyModeChange = vm::setLatencyMode,
-                    onExportConfig = { onShareConfig(vm.exportConfigJson()) },
-                    onExportDiagnostics = {
-                        val report = DeviceCompatibilityReportFactory.current(context, streamQuality)
-                        onShareDiagnostics(
-                            SupportabilityExport.json(
-                                report = report,
-                                quality = streamQuality,
-                                sessionStatus = session.status.name,
-                                configuredDestinationCount = destinations.count { it.isConfigured },
-                                diagnostics = StreamingDiagnostics.snapshot(),
-                                generatedAtMillis = System.currentTimeMillis(),
-                            ),
-                        )
-                    },
+                AppTab.SETTINGS -> SettingsRoute(
+                    vm = vm,
+                    context = context,
+                    onShareConfig = onShareConfig,
+                    onShareDiagnostics = onShareDiagnostics,
                 )
             }
             }
@@ -293,14 +251,14 @@ internal fun UnictoosApp(
 private fun HomeRoute(
     vm: StudioViewModel,
     scenes: List<Scene>,
-    destinations: List<StreamDestination>,
-    adsPolicy: AdsPolicy,
-    streamQuality: StreamQuality,
     onGoStudio: () -> Unit,
     onOpenScenes: () -> Unit,
     onOpenLibrary: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    val destinations by vm.destinations.collectAsStateWithLifecycle()
+    val adsPolicy by vm.adsPolicy.collectAsStateWithLifecycle()
+    val streamQuality by vm.streamQuality.collectAsStateWithLifecycle()
     val session by vm.session.collectAsStateWithLifecycle()
     HomeScreen(
         scenes = scenes,
@@ -319,10 +277,6 @@ private fun HomeRoute(
 private fun StudioRoute(
     vm: StudioViewModel,
     scene: Scene,
-    destination: DestinationConfig,
-    streamQuality: StreamQuality,
-    audioSettings: AudioSettings,
-    autoStopDuration: AutoStopDuration,
     onAspectRatioChange: (AspectRatio) -> Unit,
     onRequestStreamStart: (String, String, String) -> Unit,
     onRequestPracticeStart: (String, String) -> Unit,
@@ -337,6 +291,10 @@ private fun StudioRoute(
     onPreviewSurfaceAvailable: (Surface, Int, Int) -> Unit,
     onPreviewSurfaceDestroyed: (Surface) -> Unit,
 ) {
+    val destination by vm.destination.collectAsStateWithLifecycle()
+    val streamQuality by vm.streamQuality.collectAsStateWithLifecycle()
+    val audioSettings by vm.audioSettings.collectAsStateWithLifecycle()
+    val autoStopDuration by vm.autoStopDuration.collectAsStateWithLifecycle()
     val session by vm.session.collectAsStateWithLifecycle()
     val healthHistory by vm.healthHistory.collectAsStateWithLifecycle()
     val captureMode = remember(scene) {
@@ -371,6 +329,57 @@ private fun StudioRoute(
     )
 }
 
+@Composable
+private fun SettingsRoute(
+    vm: StudioViewModel,
+    context: android.content.Context,
+    onShareConfig: (String) -> Unit,
+    onShareDiagnostics: (String) -> Unit,
+) {
+    val destination by vm.destination.collectAsStateWithLifecycle()
+    val destinations by vm.destinations.collectAsStateWithLifecycle()
+    val session by vm.session.collectAsStateWithLifecycle()
+    val adsPolicy by vm.adsPolicy.collectAsStateWithLifecycle()
+    val streamQuality by vm.streamQuality.collectAsStateWithLifecycle()
+    val thermalProtectionEnabled by vm.thermalProtectionEnabled.collectAsStateWithLifecycle()
+    val audioSettings by vm.audioSettings.collectAsStateWithLifecycle()
+    val latencyMode by vm.latencyMode.collectAsStateWithLifecycle()
+    SettingsScreen(
+        destination = destination,
+        sessionStatus = session.status,
+        onSelectPlatform = vm::selectDestination,
+        onSaveDestination = vm::updateDestination,
+        onClearDestination = vm::clearDestination,
+        adsEnabled = adsPolicy.enabled,
+        onAdsEnabledChange = vm::setAdsEnabled,
+        streamQuality = streamQuality,
+        onStreamQualityPreset = vm::setStreamQualityPreset,
+        onCustomStreamQualityChange = vm::updateCustomStreamQuality,
+        thermalProtectionEnabled = thermalProtectionEnabled,
+        onThermalProtectionChange = vm::setThermalProtectionEnabled,
+        audioSettings = audioSettings,
+        onAudioQualityChange = vm::setAudioQuality,
+        onEchoCancelerChange = vm::setEchoCanceler,
+        onNoiseSuppressorChange = vm::setNoiseSuppressor,
+        latencyMode = latencyMode,
+        onLatencyModeChange = vm::setLatencyMode,
+        onExportConfig = { onShareConfig(vm.exportConfigJson()) },
+        onExportDiagnostics = {
+            val report = DeviceCompatibilityReportFactory.current(context, streamQuality)
+            onShareDiagnostics(
+                SupportabilityExport.json(
+                    report = report,
+                    quality = streamQuality,
+                    sessionStatus = session.status.name,
+                    configuredDestinationCount = destinations.count { it.isConfigured },
+                    diagnostics = StreamingDiagnostics.snapshot(),
+                    generatedAtMillis = System.currentTimeMillis(),
+                ),
+            )
+        },
+    )
+}
+
 private const val ONBOARDING_PREFERENCES = "unictoos_onboarding"
 private const val ONBOARDING_COMPLETE = "complete"
 
@@ -384,10 +393,13 @@ private fun GlassyTopBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = Spacing.lg, vertical = Spacing.sm),
+            .statusBarsPadding()
+            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
     ) {
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 52.dp),
             color = V02Palette.Neutral900.copy(alpha = 0.88f),
             contentColor = V02Palette.Neutral100,
             shape = RoundedCornerShape(22.dp),
@@ -395,11 +407,11 @@ private fun GlassyTopBar(
             shadowElevation = 10.dp,
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 6.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = Spacing.xs),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box {
-                    IconButton(onClick = { onMenuExpandedChange(true) }) {
+                Box(modifier = Modifier.weight(0.18f)) {
+                    IconButton(modifier = Modifier.size(44.dp), onClick = { onMenuExpandedChange(true) }) {
                         Icon(Icons.Default.Tune, contentDescription = "Open workspace menu", tint = V02Palette.Neutral100)
                     }
                     DropdownMenu(
@@ -424,12 +436,17 @@ private fun GlassyTopBar(
                         )
                     }
                 }
-                Column(modifier = Modifier.weight(1f).padding(start = 4.dp)) {
-                    Text("UNIC TOOS", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, color = V02Palette.Neutral500, letterSpacing = 1.1.sp)
-                    Text(selectedTab.label, style = androidx.compose.material3.MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                Column(
+                    modifier = Modifier.weight(1f).padding(horizontal = Spacing.xs),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text("UNIC TOOS", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, color = V02Palette.Neutral500, letterSpacing = 1.1.sp, maxLines = 1)
+                    Text(selectedTab.label, style = androidx.compose.material3.MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                IconButton(onClick = { onSelectTab(AppTab.SETTINGS) }) {
+                Box(modifier = Modifier.weight(0.18f), contentAlignment = Alignment.CenterEnd) {
+                    IconButton(modifier = Modifier.size(44.dp), onClick = { onSelectTab(AppTab.SETTINGS) }) {
                     Icon(Icons.Default.Settings, contentDescription = "Open Settings", tint = V02Palette.Neutral100)
+                    }
                 }
             }
         }
@@ -446,7 +463,6 @@ private fun GlassyBottomBar(selectedTab: AppTab, onSelect: (AppTab) -> Unit) {
         shadowElevation = 14.dp,
     ) {
         NavigationBar(
-            modifier = Modifier.animateContentSize(tween(220)),
             containerColor = Color.Transparent,
             tonalElevation = 0.dp,
         ) {
