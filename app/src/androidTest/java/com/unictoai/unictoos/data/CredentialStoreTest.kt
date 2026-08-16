@@ -86,6 +86,54 @@ class CredentialStoreTest {
     }
 
     @Test
+    fun plaintextLegacyCredentialsAreEncryptedAndMigrated() {
+        preferences.edit()
+            .putString("encrypted_server_url", "rtmps://youtube.example/live")
+            .putString("encrypted_stream_key", "plaintext-key-123")
+            .commit()
+
+        val migrated = CredentialStore(context)
+
+        assertEquals("rtmps://youtube.example/live" to "plaintext-key-123", migrated.load(PlatformPreset.YOUTUBE))
+        assertFalse(preferences.contains("encrypted_server_url"))
+        assertFalse(preferences.contains("encrypted_stream_key"))
+        assertTrue(preferences.getString("youtube_server_url", "") != "rtmps://youtube.example/live")
+        assertTrue(preferences.getString("youtube_stream_key", "") != "plaintext-key-123")
+    }
+
+    @Test
+    fun malformedLegacyCredentialsRemainForSafeRecovery() {
+        preferences.edit()
+            .putString("encrypted_server_url", "%%%malformed%%")
+            .putString("encrypted_stream_key", "***malformed***")
+            .commit()
+
+        val migrated = CredentialStore(context)
+
+        assertEquals("" to "", migrated.load(PlatformPreset.YOUTUBE))
+        assertEquals("%%%malformed%%", preferences.getString("encrypted_server_url", null))
+        assertEquals("***malformed***", preferences.getString("encrypted_stream_key", null))
+        assertFalse(preferences.contains("youtube_server_url"))
+        assertFalse(preferences.contains("youtube_stream_key"))
+    }
+
+    @Test
+    fun existingNewFormatWinsAndLegacyCopiesAreRemoved() {
+        val store = CredentialStore(context)
+        store.save(PlatformPreset.YOUTUBE, "current-url", "current-key")
+        preferences.edit()
+            .putString("encrypted_server_url", "rtmps://legacy.example/live")
+            .putString("encrypted_stream_key", "legacy-key-123")
+            .commit()
+
+        val reloaded = CredentialStore(context)
+
+        assertEquals("current-url" to "current-key", reloaded.load(PlatformPreset.YOUTUBE))
+        assertFalse(preferences.contains("encrypted_server_url"))
+        assertFalse(preferences.contains("encrypted_stream_key"))
+    }
+
+    @Test
     fun corruptedPayloadReturnsEmptyValueWithoutThrowing() {
         CredentialStore(context)
         preferences.edit()
