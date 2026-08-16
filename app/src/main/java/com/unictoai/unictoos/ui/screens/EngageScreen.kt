@@ -112,6 +112,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.unictoai.unictoos.domain.AspectRatio
+import com.unictoai.unictoos.domain.IntegrationReadiness
+import com.unictoai.unictoos.domain.PlatformCapabilityCatalog
 import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
@@ -193,11 +195,29 @@ internal fun IntegrationCard(platform: PlatformPreset) {
         Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(color = V02Palette.AccentBlue.copy(alpha = 0.20f), shape = RoundedCornerShape(12.dp)) { Text(platform.label.take(1), Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = V02Palette.AccentBlue, fontWeight = FontWeight.Bold) }
             Spacer(Modifier.width(12.dp))
+            val capabilities = PlatformCapabilityCatalog.forPlatform(platform)
             Column(Modifier.weight(1f)) {
                 Text(platform.label, fontWeight = FontWeight.SemiBold)
-                Text(if (platform == PlatformPreset.CUSTOM) "Custom RTMP only" else "Stream key works now • OAuth tools are separate", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    when (capabilities.streamingReadiness) {
+                        IntegrationReadiness.STREAM_KEY_READY -> "Stream key streaming • OAuth tools require backend"
+                        IntegrationReadiness.MANUAL_CONFIGURATION -> "Manual RTMP/RTMPS endpoint"
+                        IntegrationReadiness.REQUIRES_BACKEND -> "Backend integration required"
+                    },
+                    color = V02Palette.Neutral500,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
-            Text("READY".takeIf { platform != PlatformPreset.CUSTOM } ?: "MANUAL", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            Text(
+                when (capabilities.streamingReadiness) {
+                    IntegrationReadiness.STREAM_KEY_READY -> "STREAM KEY"
+                    IntegrationReadiness.MANUAL_CONFIGURATION -> "MANUAL"
+                    IntegrationReadiness.REQUIRES_BACKEND -> "BACKEND"
+                },
+                color = V02Palette.Neutral500,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }
