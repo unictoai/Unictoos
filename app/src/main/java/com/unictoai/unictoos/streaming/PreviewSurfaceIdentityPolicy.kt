@@ -22,5 +22,5 @@ object PreviewSurfaceIdentityPolicy {
             currentHeight == incomingHeight
 
     fun isStaleDetach(activeToken: Long, detachToken: Long): Boolean =
-        detachToken > 0L && activeToken > 0L && detachToken != activeToken
+        activeToken > 0L && detachToken != activeToken
 }

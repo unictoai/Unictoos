@@ -36,6 +36,11 @@ class PreviewSurfaceIdentityPolicyTest {
     }
 
     @Test
+    fun missingDetachTokenCannotDetachActiveSurface() {
+        assertTrue(PreviewSurfaceIdentityPolicy.isStaleDetach(activeToken = 42L, detachToken = 0L))
+    }
+
+    @Test
     fun staleDestroyCannotDetachNewSurface() {
         assertTrue(PreviewSurfaceIdentityPolicy.isStaleDetach(activeToken = 42L, detachToken = 41L))
         assertFalse(PreviewSurfaceIdentityPolicy.isStaleDetach(activeToken = 42L, detachToken = 42L))

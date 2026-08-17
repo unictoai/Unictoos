@@ -138,6 +138,18 @@ class StudioViewModelBehaviorTest {
     }
 
     @Test
+    fun startupHydratesConfiguredDestinationsFromSecureRepository() {
+        credentials.values[PlatformPreset.TWITCH] = "rtmps://twitch.example/app" to "saved-key"
+
+        val hydrated = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal, audio, autoStop, latency)
+        val twitch = hydrated.destinations.value.first { it.platform == PlatformPreset.TWITCH }
+
+        assertTrue(twitch.isConfigured)
+        assertEquals("rtmps://twitch.example/app", twitch.serverUrl)
+        assertEquals("saved-key", twitch.streamKey)
+    }
+
+    @Test
     fun destinationOperationsUseRepositoryAndUpdateState() {
         credentials.values[PlatformPreset.TWITCH] = "saved-url" to "saved-key"
 

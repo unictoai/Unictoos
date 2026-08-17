@@ -105,6 +105,7 @@ class MainActivity : ComponentActivity() {
         pendingEndpoint = endpoint
         pendingSceneJson = sceneJson
         pendingCaptureMode = captureMode
+        pendingPractice = false
         val needsAudio = androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
         val needsCamera = captureMode == CAPTURE_CAMERA && androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED
         if (needsAudio || needsCamera) {

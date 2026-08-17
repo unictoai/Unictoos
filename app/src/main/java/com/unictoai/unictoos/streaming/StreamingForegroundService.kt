@@ -62,6 +62,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class StreamingForegroundService : Service(), ConnectChecker {
     private lateinit var genericStream: SingleDestinationMultiStreamAdapter
@@ -108,6 +110,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var pendingTerminalStopReason: String? = null
     private val sessionHealthSamples = mutableListOf<StreamHealthSample>()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val capturePreparationMutex = Mutex()
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -378,12 +381,16 @@ class StreamingForegroundService : Service(), ConnectChecker {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_PREPARE_PROJECTION -> serviceScope.launch {
-                prepareProjectionFromIntent(intent)
-                tryStartPending()
+                capturePreparationMutex.withLock {
+                    prepareProjectionFromIntent(intent)
+                    tryStartPending()
+                }
             }
             ACTION_PREPARE_CAMERA -> serviceScope.launch {
-                prepareCamera()
-                tryStartPending()
+                capturePreparationMutex.withLock {
+                    prepareCamera()
+                    tryStartPending()
+                }
             }
             ACTION_ATTACH_PREVIEW -> attachPreview(
                 readPreviewSurface(intent),
@@ -409,7 +416,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private suspend fun prepareProjectionFromIntent(intent: Intent) {
-        if (!startForegroundSafely(includeProjection = true)) return
+        if (!startForegroundSafely(includeProjection = true, includeCamera = false)) return
         if (!releaseCapturePipelineForReprepare()) return
         resetCaptureStateForPreparation()
         if (!hasAudioPermission()) {
@@ -458,7 +465,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private suspend fun prepareCamera() {
-        if (!startForegroundSafely(includeProjection = false)) return
+        if (!startForegroundSafely(includeProjection = false, includeCamera = true)) return
         if (!releaseCapturePipelineForReprepare()) return
         resetCaptureStateForPreparation()
         if (!hasAudioPermission()) {
@@ -526,7 +533,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
         pendingStart = request
         manualStop = false
-        if (startForegroundSafely(mediaProjection != null)) tryStartPending()
+        if (startForegroundSafely(includeProjection = mediaProjection != null, includeCamera = cameraSource != null)) tryStartPending()
     }
 
     private fun attachPreview(surface: Surface?, width: Int, height: Int, token: Long) {
@@ -1038,12 +1045,15 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }.also { runnable -> handler.postDelayed(runnable, delay) }
     }
 
-    private fun startForegroundSafely(includeProjection: Boolean): Boolean {
-        val serviceTypes = when {
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && includeProjection -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && includeProjection -> ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-            else -> 0
+    private fun startForegroundSafely(includeProjection: Boolean, includeCamera: Boolean): Boolean {
+        val serviceTypes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
+                (if (includeProjection) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION else 0) or
+                (if (includeCamera) ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA else 0)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && includeProjection) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+        } else {
+            0
         }
         return try {
             ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), serviceTypes)

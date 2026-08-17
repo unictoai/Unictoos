@@ -158,7 +158,8 @@ class StudioViewModel @JvmOverloads constructor(
 
     init {
         _scenes.value = runCatching { sceneStore.loadOrDefault(_scenes.value) }.getOrDefault(_scenes.value)
-        val saved = runCatching { credentialStore.load(PlatformPreset.YOUTUBE) }.getOrDefault("" to "")
+        hydrateSavedDestinations()
+        val saved = loadCredentials(PlatformPreset.YOUTUBE)
         _destination.value = DestinationConfig(platform = PlatformPreset.YOUTUBE, serverUrl = saved.first, streamKey = saved.second)
         viewModelScope.launch {
             StreamingStatusBus.state.collect { state -> _session.value = state }
@@ -226,22 +227,55 @@ class StudioViewModel @JvmOverloads constructor(
 
     fun selectDestination(platform: PlatformPreset) {
         _activePlatform.value = platform
-        val saved = credentialStore.load(platform)
+        val saved = loadCredentials(platform)
         _destination.value = DestinationConfig(platform = platform, serverUrl = saved.first, streamKey = saved.second)
-    }
-
-    fun updateDestination(platform: PlatformPreset, serverUrl: String, streamKey: String) {
-        credentialStore.save(platform, serverUrl, streamKey)
-        _activePlatform.value = platform
-        _destination.value = DestinationConfig(platform, serverUrl, streamKey)
         _destinations.update { destinations ->
             destinations.map { destination ->
                 if (destination.platform == platform) {
-                    destination.copy(serverUrl = serverUrl, streamKey = streamKey, isConfigured = serverUrl.isNotBlank() && streamKey.isNotBlank())
+                    destination.copy(
+                        serverUrl = saved.first,
+                        streamKey = saved.second,
+                        isConfigured = saved.first.isNotBlank() && saved.second.isNotBlank(),
+                    )
                 } else {
                     destination
                 }
             }
+        }
+    }
+
+    fun updateDestination(platform: PlatformPreset, serverUrl: String, streamKey: String) {
+        val normalizedServerUrl = serverUrl.trim()
+        val normalizedStreamKey = streamKey.trim()
+        credentialStore.save(platform, normalizedServerUrl, normalizedStreamKey)
+        _activePlatform.value = platform
+        _destination.value = DestinationConfig(platform, normalizedServerUrl, normalizedStreamKey)
+        _destinations.update { destinations ->
+            destinations.map { destination ->
+                if (destination.platform == platform) {
+                    destination.copy(
+                        serverUrl = normalizedServerUrl,
+                        streamKey = normalizedStreamKey,
+                        isConfigured = normalizedServerUrl.isNotBlank() && normalizedStreamKey.isNotBlank(),
+                    )
+                } else {
+                    destination
+                }
+            }
+        }
+    }
+
+    private fun loadCredentials(platform: PlatformPreset): Pair<String, String> =
+        runCatching { credentialStore.load(platform) }.getOrDefault("" to "")
+
+    private fun hydrateSavedDestinations() {
+        _destinations.value = _destinations.value.map { destination ->
+            val saved = loadCredentials(destination.platform)
+            destination.copy(
+                serverUrl = saved.first,
+                streamKey = saved.second,
+                isConfigured = saved.first.isNotBlank() && saved.second.isNotBlank(),
+            )
         }
     }
 

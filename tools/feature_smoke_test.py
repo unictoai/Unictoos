@@ -28,6 +28,7 @@ for permission in (
     "android.permission.FOREGROUND_SERVICE",
     "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
     "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+    "android.permission.FOREGROUND_SERVICE_CAMERA",
 ):
     check(f"manifest permission: {permission}", permission in MANIFEST)
 for action in (
@@ -63,6 +64,8 @@ check("empty scene state is guarded", "scenes.firstOrNull() ?: Scene(" in UI)
 check("AudioRecord security is guarded", "catch (_: SecurityException)" in SERVICE)
 check("microphone probe is off main thread", "withContext(Dispatchers.IO)" in SERVICE and "serviceScope.cancel()" in SERVICE)
 check("foreground start is guarded", "startForegroundSafely" in SERVICE and "catch (error: SecurityException)" in SERVICE)
+check("camera foreground service type is declared", 'android:foregroundServiceType="mediaProjection|microphone|camera"' in MANIFEST and "FOREGROUND_SERVICE_TYPE_CAMERA" in SERVICE)
+check("capture preparation is serialized", "capturePreparationMutex.withLock" in SERVICE and "private val capturePreparationMutex = Mutex()" in SERVICE)
 check("failed release remains retryable", "PipelineReleasePolicy.complete" in RELEASE_BLOCK and "pipelineReleaseState" in RELEASE_BLOCK and "genericStreamReleased = pipelineReleaseState == PipelineReleaseState.TERMINAL" in RELEASE_BLOCK)
 ADAPTER = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/SingleDestinationMultiStreamAdapter.kt").read_text()
 check("runtime uses single-slot MultiStream adapter", "SingleDestinationMultiStreamAdapter" in SERVICE and "MultiStream(" in ADAPTER and "RTMP_SLOT = 0" in ADAPTER)
@@ -118,7 +121,9 @@ check("no synthetic surface destruction", "onSurfaceDestroyed(surface)" not in P
 PREVIEW_POLICY = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/PreviewSurfaceIdentityPolicy.kt").read_text()
 MAIN_ACTIVITY = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/MainActivity.kt").read_text()
 check("preview surface identity replacement", "PreviewSurfaceIdentityPolicy.shouldReuse" in SERVICE_SOURCE and "sameSurfaceObject" in PREVIEW_POLICY and "EXTRA_PREVIEW_TOKEN" in MAIN_ACTIVITY)
-check("stale preview detach protection", "isStaleDetach" in SERVICE_SOURCE and "activePreviewSurface !== surface" in MAIN_ACTIVITY)
+check("stale preview detach protection", "isStaleDetach" in SERVICE and "activePreviewSurface !== surface" in MAIN_ACTIVITY)
+check("tokenless detach cannot detach active preview", "activeToken > 0L && detachToken != activeToken" in PREVIEW_POLICY)
+check("saved destinations hydrate on startup", "hydrateSavedDestinations" in (ROOT / "app/src/main/java/com/unictoai/unictoos/StudioViewModel.kt").read_text())
 check("projection callback reset per generation", "intentionallyReleasingProjection = false" in SERVICE_SOURCE and "projection.registerCallback" in SERVICE_SOURCE)
 check("repeated lifecycle test exists", "repeat(50)" in (ROOT / "app/src/test/java/com/unictoai/unictoos/streaming/PipelineReleasePolicyTest.kt").read_text() and (ROOT / "app/src/androidTest/java/com/unictoai/unictoos/ui/PreviewSurfaceViewLifecycleTest.kt").exists())
 
