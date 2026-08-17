@@ -22,6 +22,8 @@ class MainActivity : ComponentActivity() {
     private var pendingSceneJson: String = ""
     private var pendingCaptureMode: String = CAPTURE_SCREEN
     private var pendingPractice: Boolean = false
+    private var previewSurfaceToken: Long = 0L
+    private var activePreviewSurface: Surface? = null
 
     private val projectionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != RESULT_OK || result.data == null) {
@@ -203,17 +205,30 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun attachPreviewSurface(surface: Surface, width: Int, height: Int) {
+        val token = if (activePreviewSurface === surface && previewSurfaceToken > 0L) {
+            previewSurfaceToken
+        } else {
+            previewSurfaceToken += 1L
+            activePreviewSurface = surface
+            previewSurfaceToken
+        }
+        activePreviewSurface = surface
         startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_ATTACH_PREVIEW
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PREVIEW_SURFACE, surface)
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PREVIEW_WIDTH, width)
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PREVIEW_HEIGHT, height)
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PREVIEW_TOKEN, token)
         })
     }
 
     private fun detachPreviewSurface(surface: Surface) {
+        if (activePreviewSurface !== surface) return
+        val token = previewSurfaceToken
+        activePreviewSurface = null
         startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_DETACH_PREVIEW
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PREVIEW_TOKEN, token)
         })
     }
 

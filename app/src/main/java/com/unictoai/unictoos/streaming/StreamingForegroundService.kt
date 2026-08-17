@@ -78,6 +78,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private val isolateLivePreviewForDevice = CaptureCompatibilityPolicy.shouldIsolateLivePreview(Build.MANUFACTURER, Build.MODEL)
     private var captureReady = false
     private var previewSurface: Surface? = null
+    private var previewSurfaceToken = 0L
     private var previewWidth = 0
     private var previewHeight = 0
     private var previewAttached = false
@@ -384,8 +385,13 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 prepareCamera()
                 tryStartPending()
             }
-            ACTION_ATTACH_PREVIEW -> attachPreview(readPreviewSurface(intent), intent.getIntExtra(EXTRA_PREVIEW_WIDTH, 0), intent.getIntExtra(EXTRA_PREVIEW_HEIGHT, 0))
-            ACTION_DETACH_PREVIEW -> detachPreview()
+            ACTION_ATTACH_PREVIEW -> attachPreview(
+                readPreviewSurface(intent),
+                intent.getIntExtra(EXTRA_PREVIEW_WIDTH, 0),
+                intent.getIntExtra(EXTRA_PREVIEW_HEIGHT, 0),
+                intent.getLongExtra(EXTRA_PREVIEW_TOKEN, 0L),
+            )
+            ACTION_DETACH_PREVIEW -> detachPreview(intent.getLongExtra(EXTRA_PREVIEW_TOKEN, 0L))
             ACTION_START -> queueStart(PendingStart(intent.getStringExtra(EXTRA_ENDPOINT).orEmpty(), intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty(), practice = false))
             ACTION_START_PRACTICE -> queueStart(PendingStart(endpoint = "", sceneJson = intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty(), practice = true))
             ACTION_CREATE_MARKER -> createMarker(intent.getStringExtra(EXTRA_MARKER_LABEL).orEmpty())
@@ -432,9 +438,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private fun prepareProjection(resultCode: Int, data: Intent): Boolean {
         if (!prepared) return false
         val projection = projectionManager.getMediaProjection(resultCode, data) ?: return false
+        intentionallyReleasingProjection = false
         mediaProjection = projection
         projection.registerCallback(projectionCallback, handler)
-        intentionallyReleasingProjection = false
 
         return runCatching {
             genericStream.changeVideoSource(ScreenSource(applicationContext, projection))
@@ -523,15 +529,27 @@ class StreamingForegroundService : Service(), ConnectChecker {
         if (startForegroundSafely(mediaProjection != null)) tryStartPending()
     }
 
-    private fun attachPreview(surface: Surface?, width: Int, height: Int) {
+    private fun attachPreview(surface: Surface?, width: Int, height: Int, token: Long) {
         if (surface == null || !surface.isValid || width <= 0 || height <= 0) {
             publish(StreamStatus.ERROR, "Studio preview surface is unavailable")
             return
         }
-        if (previewAttached && previewSurface?.isValid == true && previewWidth == width && previewHeight == height) {
+        val sameSurface = previewSurface === surface
+        if (previewAttached && PreviewSurfaceIdentityPolicy.shouldReuse(
+                currentToken = previewSurfaceToken,
+                incomingToken = token,
+                sameSurfaceObject = sameSurface,
+                currentWidth = previewWidth,
+                currentHeight = previewHeight,
+                incomingWidth = width,
+                incomingHeight = height,
+            )
+        ) {
             return
         }
+        if (previewAttached && !sameSurface) releasePreviewForCaptureChange()
         previewSurface = surface
+        previewSurfaceToken = token
         previewWidth = width
         previewHeight = height
         attachPreviewIfPossible()
@@ -590,9 +608,11 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
     }
 
-    private fun detachPreview() {
+    private fun detachPreview(token: Long) {
+        if (PreviewSurfaceIdentityPolicy.isStaleDetach(previewSurfaceToken, token)) return
         releasePreviewForCaptureChange()
         previewSurface = null
+        previewSurfaceToken = 0L
         previewWidth = 0
         previewHeight = 0
         val previous = StreamingStatusBus.state.value
@@ -798,6 +818,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         prepared = false
         previewAttached = false
         previewSurface = null
+        previewSurfaceToken = 0L
         previewWidth = 0
         previewHeight = 0
         activeRecordingFile = null
@@ -1379,6 +1400,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         const val EXTRA_PREVIEW_SURFACE = "extra_preview_surface"
         const val EXTRA_PREVIEW_WIDTH = "extra_preview_width"
         const val EXTRA_PREVIEW_HEIGHT = "preview_height"
+        const val EXTRA_PREVIEW_TOKEN = "preview_token"
         const val EXTRA_PIPELINE_GENERATION = "pipeline_generation"
         const val EXTRA_MARKER_LABEL = "extra_marker_label"
         private const val CHANNEL_ID = "unictoos-broadcasting"

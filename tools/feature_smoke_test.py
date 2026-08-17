@@ -115,6 +115,11 @@ check("generation-safe graphics recovery", "EXTRA_PIPELINE_GENERATION" in SERVIC
 check("no fixed graphics settle delay", "GL_PIPELINE_SHUTDOWN_SETTLE_MS" not in SERVICE_SOURCE)
 check("single holder callback registration", PREVIEW_SURFACE.count("holder.addCallback(callback)") == 1 and "registerHolderCallback()" not in PREVIEW_SURFACE.split("init", 1)[1].split("}", 1)[0])
 check("no synthetic surface destruction", "onSurfaceDestroyed(surface)" not in PREVIEW_SURFACE.split("fun releasePreviewListener", 1)[1].split("}", 1)[0])
+PREVIEW_POLICY = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/PreviewSurfaceIdentityPolicy.kt").read_text()
+MAIN_ACTIVITY = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/MainActivity.kt").read_text()
+check("preview surface identity replacement", "PreviewSurfaceIdentityPolicy.shouldReuse" in SERVICE_SOURCE and "sameSurfaceObject" in PREVIEW_POLICY and "EXTRA_PREVIEW_TOKEN" in MAIN_ACTIVITY)
+check("stale preview detach protection", "isStaleDetach" in SERVICE_SOURCE and "activePreviewSurface !== surface" in MAIN_ACTIVITY)
+check("projection callback reset per generation", "intentionallyReleasingProjection = false" in SERVICE_SOURCE and "projection.registerCallback" in SERVICE_SOURCE)
 check("repeated lifecycle test exists", "repeat(50)" in (ROOT / "app/src/test/java/com/unictoai/unictoos/streaming/PipelineReleasePolicyTest.kt").read_text() and (ROOT / "app/src/androidTest/java/com/unictoai/unictoos/ui/PreviewSurfaceViewLifecycleTest.kt").exists())
 
 if APK.exists():
