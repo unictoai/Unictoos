@@ -54,4 +54,25 @@ class StreamStateMachineTest {
         assertTrue(StreamStateMachine.acceptsStop(StreamStatus.LIVE))
         assertTrue(StreamStateMachine.acceptsStop(StreamStatus.RECONNECTING))
     }
+
+    @Test
+    fun repeatedStopRequestsRemainSafeAcrossActiveStates() {
+        listOf(
+            StreamStatus.PREPARING,
+            StreamStatus.CONNECTING,
+            StreamStatus.LIVE,
+            StreamStatus.RECONNECTING,
+            StreamStatus.STOPPING,
+            StreamStatus.ERROR,
+        ).forEach { state ->
+            repeat(20) { assertTrue("stop rejected for $state", StreamStateMachine.acceptsStop(state)) }
+        }
+    }
+
+    @Test
+    fun reconnectCanRecoverOrStopButCannotJumpToLiveFromIdle() {
+        assertTrue(StreamStateMachine.canTransition(StreamStatus.RECONNECTING, StreamStatus.LIVE))
+        assertTrue(StreamStateMachine.canTransition(StreamStatus.RECONNECTING, StreamStatus.STOPPING))
+        assertFalse(StreamStateMachine.canTransition(StreamStatus.IDLE, StreamStatus.LIVE))
+    }
 }
