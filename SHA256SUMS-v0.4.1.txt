@@ -1,0 +1,3 @@
+3588316cb5f03eca94a9fec08c2ca8059ac560ac4e887cae218b47b2d2b493dc  unictoos-v0.4.1-debug.apk
+afd487a57ba498e4dde48ef1fe70a10fcb1abb89b75ca049abb83ab5900586d4  unictoos-v0.4.1-androidTest.apk
+982e8afcdd6aae08657b9b0dbbefc83ad7cb20a869d7e6b5e9301164029e58e9  unictoos-v0.4.1-release-unsigned.apk

@@ -48,6 +48,15 @@ class GoLiveReadinessPolicyTest {
     }
 
     @Test
+    fun noCaptureSourceIsBlocking() {
+        val result = GoLiveReadinessPolicy.evaluate(true, "none", true, true, true, quality)
+
+        assertFalse(result.canStart)
+        assertFalse(result.checks.first { it.id == "capture" }.ready)
+        assertTrue(result.checks.first { it.id == "capture" }.blocking)
+    }
+
+    @Test
     fun highLoadQualityIsCautionOnly() {
         val result = GoLiveReadinessPolicy.evaluate(
             destinationReady = true,

@@ -98,6 +98,10 @@ class MainActivity : ComponentActivity() {
     }
 
     internal fun requestStreamStart(endpoint: String, captureMode: String, sceneJson: String) {
+        if (captureMode != CAPTURE_SCREEN && captureMode != CAPTURE_CAMERA) {
+            Toast.makeText(this, "Enable a camera or screen source in the selected scene", Toast.LENGTH_LONG).show()
+            return
+        }
         if (endpoint.isBlank()) {
             Toast.makeText(this, "Add a streaming destination before going live", Toast.LENGTH_LONG).show()
             return
@@ -144,6 +148,10 @@ class MainActivity : ComponentActivity() {
     }
 
     internal fun requestPracticeStart(captureMode: String, sceneJson: String) {
+        if (captureMode != CAPTURE_SCREEN && captureMode != CAPTURE_CAMERA) {
+            Toast.makeText(this, "Enable a camera or screen source in the selected scene", Toast.LENGTH_LONG).show()
+            return
+        }
         pendingEndpoint = ""
         pendingSceneJson = sceneJson
         pendingCaptureMode = captureMode

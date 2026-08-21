@@ -33,8 +33,16 @@ object GoLiveReadinessPolicy {
         networkAvailable: Boolean,
         quality: StreamQuality,
     ): GoLiveReadiness {
-        val captureReady = captureMode != "camera" || cameraPermission
-        val captureLabel = if (captureMode == "camera") "Camera" else "Screen capture"
+        val captureReady = when (captureMode) {
+            "screen" -> true
+            "camera" -> cameraPermission
+            else -> false
+        }
+        val captureLabel = when (captureMode) {
+            "screen" -> "Screen capture"
+            "camera" -> "Camera"
+            else -> "Capture source"
+        }
         val highLoad = quality.fps >= 60 || quality.width * quality.height >= 2_073_600
         return GoLiveReadiness(
             checks = listOf(
@@ -68,7 +76,11 @@ object GoLiveReadinessPolicy {
                     value = if (captureReady) "Ready" else "Permission needed",
                     ready = captureReady,
                     blocking = true,
-                    detail = if (captureReady) "$captureLabel is available" else "Allow camera access for the selected camera scene",
+                    detail = when {
+                        captureReady -> "$captureLabel is available"
+                        captureMode == "camera" -> "Allow camera access for the selected camera scene"
+                        else -> "Enable a camera or screen source in the selected scene before going live"
+                    },
                 ),
                 GoLiveReadinessCheck(
                     id = "quality",

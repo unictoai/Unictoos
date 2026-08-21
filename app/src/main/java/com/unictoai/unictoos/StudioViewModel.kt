@@ -45,6 +45,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.unictoai.unictoos.streaming.PreflightResult
+import com.unictoai.unictoos.streaming.StreamPreflight
 import com.unictoai.unictoos.streaming.StreamingStatusBus
 
 private object UnavailableCredentialRepository : CredentialRepository {
@@ -73,7 +75,9 @@ data class DestinationConfig(
     val serverUrl: String = "",
     val streamKey: String = "",
 ) {
-    val isConfigured: Boolean get() = serverUrl.isNotBlank() && streamKey.isNotBlank()
+    val isConfigured: Boolean
+        get() = serverUrl.isNotBlank() && streamKey.isNotBlank() &&
+            (serverUrl.trim().startsWith("rtmp://", ignoreCase = true) || serverUrl.trim().startsWith("rtmps://", ignoreCase = true))
     val endpoint: String get() = if (isConfigured) serverUrl.trimEnd('/') + "/" + streamKey else ""
 }
 
@@ -235,7 +239,7 @@ class StudioViewModel @JvmOverloads constructor(
                     destination.copy(
                         serverUrl = saved.first,
                         streamKey = saved.second,
-                        isConfigured = saved.first.isNotBlank() && saved.second.isNotBlank(),
+                        isConfigured = isUsableDestination(saved.first, saved.second),
                     )
                 } else {
                     destination
@@ -249,14 +253,18 @@ class StudioViewModel @JvmOverloads constructor(
         val normalizedStreamKey = streamKey.trim()
         credentialStore.save(platform, normalizedServerUrl, normalizedStreamKey)
         _activePlatform.value = platform
-        _destination.value = DestinationConfig(platform, normalizedServerUrl, normalizedStreamKey)
+        _destination.value = DestinationConfig(
+            platform = platform,
+            serverUrl = normalizedServerUrl,
+            streamKey = normalizedStreamKey,
+        )
         _destinations.update { destinations ->
             destinations.map { destination ->
                 if (destination.platform == platform) {
                     destination.copy(
                         serverUrl = normalizedServerUrl,
                         streamKey = normalizedStreamKey,
-                        isConfigured = normalizedServerUrl.isNotBlank() && normalizedStreamKey.isNotBlank(),
+                        isConfigured = isUsableDestination(normalizedServerUrl, normalizedStreamKey),
                     )
                 } else {
                     destination
@@ -268,13 +276,17 @@ class StudioViewModel @JvmOverloads constructor(
     private fun loadCredentials(platform: PlatformPreset): Pair<String, String> =
         runCatching { credentialStore.load(platform) }.getOrDefault("" to "")
 
+    private fun isUsableDestination(serverUrl: String, streamKey: String): Boolean =
+        serverUrl.isNotBlank() && streamKey.isNotBlank() &&
+            StreamPreflight.validateEndpoint(serverUrl, practice = false) is PreflightResult.Ready
+
     private fun hydrateSavedDestinations() {
         _destinations.value = _destinations.value.map { destination ->
             val saved = loadCredentials(destination.platform)
             destination.copy(
                 serverUrl = saved.first,
                 streamKey = saved.second,
-                isConfigured = saved.first.isNotBlank() && saved.second.isNotBlank(),
+                isConfigured = isUsableDestination(saved.first, saved.second),
             )
         }
     }

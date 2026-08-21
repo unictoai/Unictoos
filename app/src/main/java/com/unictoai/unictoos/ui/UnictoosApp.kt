@@ -301,7 +301,7 @@ private fun StudioRoute(
         when {
             scene.sources.any { it.type == SourceType.SCREEN && it.enabled } -> "screen"
             scene.sources.any { it.type == SourceType.CAMERA && it.enabled } -> "camera"
-            else -> "screen"
+            else -> "none"
         }
     }
     StudioScreen(
