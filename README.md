@@ -12,7 +12,7 @@ The current build remains an **alpha engineering milestone**. It compiles and pa
 
 ## Latest test build
 
-The latest supportability build is **Unictoos v0.4.2** with Android `versionCode 43`. It adds local scene templates, safe scene-only configuration import, camera switching, actionable broadcast notifications, live encoder telemetry, a post-session recap, bounded two-output RootEncoder fan-out, and integration-ready SRT routing while retaining the mobile-first UI and generation-safe capture lifecycle. Two-destination fan-out and SRT interoperability still require physical-device validation with real destinations or an SRT listener. OAuth chat/moderation, cloud backup, remote control, bonding, and USB capture remain explicit integration boundaries. Review `RELEASE_NOTES_v0.4.2.md` and `docs/V0.4.2_FEATURE_BOUNDARIES.md` for the current evidence boundary.
+The latest supportability build is **Unictoos v0.4.3** with Android `versionCode 44`. It adds SQLite-backed local analytics, session comparison, persisted source groups, scene transition preferences, capability-matrix guidance, recording trim validation, and advanced-audio validation contracts on top of the v0.4.2 creator workflows. True screen-plus-camera PiP, media remux/edit export, and DSP processing remain explicitly gated until a verified implementation and physical-device validation are available. Review `RELEASE_NOTES_v0.4.3.md` and `docs/V0.4.3_ENHANCEMENT_IMPLEMENTATION.md` for the current evidence boundary.
 
 ## Build locally
 
@@ -46,18 +46,18 @@ Platform OAuth, unified chat, alerts, scheduling, thumbnails, metadata publishin
 
 | Area | Current behavior |
 |---|---|
-| Scenes | Select scenes, create portrait or landscape scenes, and toggle individual sources |
-| Studio | Branded preview surface, destination readiness, bitrate/FPS cards, microphone state, mute, recording, Go Live, and Stop |
+| Scenes | Select scenes, create portrait or landscape scenes, toggle sources, save source groups, and choose local transition metadata |
+| Studio | Branded preview surface, destination readiness, bitrate/FPS cards, microphone state, mute, recording, Go Live, Stop, camera switching, and actionable notification controls |
 | Destinations | Separate YouTube, Twitch, Kick, and Custom RTMP credential slots with secure local storage |
 | Reliability | Permission checks, AudioRecord availability check, explicit capture readiness, bounded reconnects, authentication error handling, cleanup, clearer preflight outcomes, and support diagnostics |
-| Recordings | Start/stop local MP4 recording from Studio and index saved files in Library |
+| Recordings | Start/stop local MP4 recording, index saved files in Library, retain chapter-style markers, and validate safe trim plans |
 | Advertising | Opt-in policy and provider-neutral app-only slot architecture; no advertising SDK or broadcast insertion is enabled in this alpha |
 
 ## Architecture
 
 The application is organized around a Compose UI layer, shared domain models, a ViewModel state layer, a Keystore-backed credential store, an app-only ads policy, and a foreground media service. The service owns MediaProjection, microphone capture, hardware encoding, RootEncoder transport, recording, reconnect scheduling, notifications, and cleanup. The UI observes a process-local status bus for connection, bitrate, live, error, recording, mute, and disconnect states. Settings can export a redacted support bundle containing compatibility checks, the selected profile, session status, and bounded lifecycle diagnostics; Library exposes the recent session event timeline locally.
 
-The project uses [RootEncoder](https://github.com/pedroSG94/RootEncoder) under its Apache-2.0 license for the open-source RTMP/RTMPS/SRT/media pipeline integration. v0.4.2 configures a bounded two-slot shared-encoder adapter around RootEncoder’s `MultiStream` API. The service treats multi-output callbacks as one aggregate session until per-destination callback identity and retry policy are added. See `RELEASE_NOTES_v0.4.2.md`, `docs/V0.4.2_FEATURE_BOUNDARIES.md`, and `THIRD_PARTY_NOTICES.md` for the current migration boundary and dependency attribution.
+The project uses [RootEncoder](https://github.com/pedroSG94/RootEncoder) under its Apache-2.0 license for the open-source RTMP/RTMPS/SRT/media pipeline integration. v0.4.3 keeps the bounded two-slot shared-encoder adapter around RootEncoder’s `MultiStream` API and adds local analytics outside the media path. The service treats multi-output callbacks as one aggregate session until per-destination callback identity and retry policy are added. See `RELEASE_NOTES_v0.4.3.md`, `docs/V0.4.3_ENHANCEMENT_IMPLEMENTATION.md`, and `THIRD_PARTY_NOTICES.md` for the current migration boundary and dependency attribution.
 
 ## Advertising policy
 

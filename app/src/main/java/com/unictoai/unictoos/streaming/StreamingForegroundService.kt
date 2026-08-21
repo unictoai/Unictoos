@@ -38,6 +38,7 @@ import com.pedro.encoder.input.sources.video.ScreenSource
 import com.unictoai.unictoos.R
 import com.unictoai.unictoos.ui.MainActivity
 import com.unictoai.unictoos.data.CreatorHistoryStore
+import com.unictoai.unictoos.data.LocalAnalyticsStore
 import com.unictoai.unictoos.data.StreamQualityStore
 import com.unictoai.unictoos.data.ThermalProtectionStore
 import com.unictoai.unictoos.data.AudioSettingsStore
@@ -103,6 +104,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private val bitrateHistory = java.util.ArrayDeque<Int>()
     private val reconnectJitter = kotlin.random.Random(System.currentTimeMillis())
     private lateinit var historyStore: CreatorHistoryStore
+    private lateinit var analyticsStore: LocalAnalyticsStore
     private lateinit var streamQuality: StreamQuality
     private lateinit var audioSettings: AudioSettings
     private var autoStopSeconds = 0L
@@ -406,6 +408,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         super.onCreate()
         serviceDestroyed = false
         historyStore = CreatorHistoryStore(applicationContext)
+        analyticsStore = LocalAnalyticsStore(applicationContext)
         streamQuality = StreamQualityStore(applicationContext).load()
         audioSettings = AudioSettingsStore(applicationContext).load()
         latencyMode = LatencyModeStore(applicationContext).load()
@@ -827,17 +830,26 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val completed = StreamingStatusBus.state.value
         if (sessionHealthSamples.isNotEmpty()) historyStore.addHealthSamples(sessionHealthSamples.toList())
         if (completed.elapsedSeconds > 0L) {
-            historyStore.addSession(
-                SessionSummary(
-                    id = "session-${System.currentTimeMillis()}",
-                    mode = completed.mode,
-                    elapsedSeconds = completed.elapsedSeconds,
-                    bitrateKbps = completed.bitrateKbps,
-                    fps = completed.fps,
-                    droppedFrames = completed.droppedFrames,
-                    finishedAtMillis = System.currentTimeMillis(),
-                ),
+            val summary = SessionSummary(
+                id = currentSessionId.ifBlank { "session-${System.currentTimeMillis()}" },
+                mode = completed.mode,
+                elapsedSeconds = completed.elapsedSeconds,
+                bitrateKbps = completed.bitrateKbps,
+                fps = completed.fps,
+                droppedFrames = completed.droppedFrames,
+                finishedAtMillis = System.currentTimeMillis(),
             )
+            historyStore.addSession(summary)
+            runCatching {
+                analyticsStore.recordSession(
+                    summary = summary,
+                    platform = if (completed.mode == SessionMode.PRACTICE) "practice" else "direct",
+                    reconnectCount = reconnectAttempt,
+                    healthSamples = sessionHealthSamples.toList(),
+                )
+            }.onFailure { error ->
+                StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "analytics_write_failed", error.message.orEmpty())
+            }
         }
         startedAtElapsed = 0L
         adaptiveTargetBitrate = 0

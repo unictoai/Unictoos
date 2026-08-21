@@ -8,6 +8,8 @@ data class Scene(
     val name: String,
     val sources: List<Source> = emptyList(),
     val aspectRatio: AspectRatio = AspectRatio.PORTRAIT,
+    val sourceGroups: List<SourceGroup> = emptyList(),
+    val transition: SceneTransition = SceneTransition(),
 )
 
 @Immutable
@@ -27,6 +29,7 @@ data class Source(
     val height: Float = 0.24f,
     val fillColor: Long = 0xFF101216,
     val imageUri: String = "",
+    val groupId: String? = null,
 )
 
 enum class SourceType(val label: String) {

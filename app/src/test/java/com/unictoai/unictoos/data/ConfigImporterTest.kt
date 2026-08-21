@@ -52,6 +52,20 @@ class ConfigImporterTest {
     }
 
     @Test
+    fun restoresPresentationMetadataWithoutCredentials() {
+        val raw = """
+            {"schema":"unictoos-config-v1","scenes":[{"id":"s","name":"S","aspectRatio":"LANDSCAPE","transitionMode":"FADE","transitionDurationMs":900,"sourceGroups":[{"id":"g","name":"Host","enabled":true,"sourceIds":["camera","title"]}],"sources":[{"id":"camera","name":"Camera","type":"CAMERA","groupId":"g"},{"id":"title","name":"Title","type":"TEXT","groupId":"g"}]}],"destinations":[{"streamKey":"must-not-be-used"}]}
+        """.trimIndent()
+        val result = ConfigImporter.importScenes(raw)
+        assertTrue(result.toString(), result is ConfigImportResult.Success)
+        val scene = (result as ConfigImportResult.Success).scenes.single()
+        assertEquals("FADE", scene.transition.mode.name)
+        assertEquals(900L, scene.transition.safeDurationMs)
+        assertEquals(listOf("camera", "title"), scene.sourceGroups.single().sourceIds)
+        assertEquals("g", scene.sources.first().groupId)
+    }
+
+    @Test
     fun clampsImportedGeometryAndText() {
         val raw = """
             {"schema":"unictoos-config-v1","scenes":[{"id":"s","name":"S","aspectRatio":"LANDSCAPE","sources":[{"id":"t","name":"T","type":"TEXT","textContent":"${"x".repeat(2_200)}","opacity":4,"x":-2,"y":3,"width":0,"height":9}]}]}

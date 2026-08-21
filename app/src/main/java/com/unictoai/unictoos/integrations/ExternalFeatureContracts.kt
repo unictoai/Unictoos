@@ -91,3 +91,56 @@ sealed interface ExternalVideoInputResult {
     data class Unsupported(val explanation: String) : ExternalVideoInputResult
     data class Failure(val message: String) : ExternalVideoInputResult
 }
+
+/** Future shared-surface compositor boundary for simultaneous screen and camera composition. */
+interface PictureInPictureCompositor {
+    suspend fun prepare(request: PipCompositionRequest): PipCompositionResult
+    suspend fun release(): PipCompositionResult
+}
+
+data class PipCompositionRequest(
+    val outputWidth: Int,
+    val outputHeight: Int,
+    val cameraX: Float = 0.68f,
+    val cameraY: Float = 0.68f,
+    val cameraWidth: Float = 0.28f,
+    val cameraHeight: Float = 0.28f,
+    val cornerRadiusDp: Float = 16f,
+)
+
+sealed interface PipCompositionResult {
+    data object Ready : PipCompositionResult
+    data class Unsupported(val explanation: String) : PipCompositionResult
+    data class Failure(val message: String) : PipCompositionResult
+}
+
+/** Local edit-plan boundary; actual MP4 remuxing requires a verified media-editing implementation. */
+interface RecordingEditor {
+    fun trim(request: RecordingTrimRequest): RecordingEditResult
+    fun addChapter(marker: RecordingChapter): RecordingEditResult
+    fun export(request: RecordingExportRequest): RecordingEditResult
+}
+
+data class RecordingTrimRequest(val inputPath: String, val startMs: Long, val endMs: Long)
+data class RecordingChapter(val timeMs: Long, val title: String)
+data class RecordingExportRequest(val inputPath: String, val outputPath: String, val format: String = "mp4")
+sealed interface RecordingEditResult {
+    data object Planned : RecordingEditResult
+    data class Unsupported(val explanation: String) : RecordingEditResult
+    data class Failure(val message: String) : RecordingEditResult
+}
+
+/** Advanced audio DSP boundary. The active v0.4.x path remains RootEncoder microphone capture. */
+interface AudioProcessor {
+    val id: String
+    fun process(samples: ShortArray, sampleRate: Int, channelCount: Int): ShortArray
+}
+
+data class AudioProcessingProfile(
+    val noiseGateThresholdDb: Float? = null,
+    val compressorRatio: Float? = null,
+    val limiterCeilingDb: Float? = null,
+    val equalizerBands: List<EqualizerBand> = emptyList(),
+)
+
+data class EqualizerBand(val centerHz: Int, val gainDb: Float)

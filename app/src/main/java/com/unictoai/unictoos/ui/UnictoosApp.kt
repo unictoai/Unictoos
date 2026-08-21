@@ -202,6 +202,9 @@ internal fun UnictoosApp(
                     onSetSourceOpacity = vm::setSourceOpacity,
                     onSetSourceGeometry = vm::setSourceGeometry,
                     onUpdateTextSource = vm::updateTextSource,
+                    onSetTransition = vm::setSceneTransition,
+                    onCreateSourceGroup = vm::createSourceGroup,
+                    onToggleSourceGroup = vm::setSourceGroup,
                     onOpenStudio = { selectedTab = AppTab.STUDIO },
                 )
                 AppTab.STUDIO -> StudioRoute(

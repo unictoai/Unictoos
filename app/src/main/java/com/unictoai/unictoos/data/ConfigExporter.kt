@@ -11,7 +11,22 @@ object ConfigExporter {
             append("{\"id\":").append(quote(scene.id))
                 .append(",\"name\":").append(quote(scene.name))
                 .append(",\"aspectRatio\":").append(quote(scene.aspectRatio.name))
-                .append(",\"sources\":[")
+                .append(",\"transitionMode\":").append(quote(scene.transition.mode.name))
+                .append(",\"transitionDurationMs\":").append(scene.transition.safeDurationMs)
+                .append(",\"sourceGroups\":[")
+            scene.sourceGroups.forEachIndexed { groupIndex, group ->
+                if (groupIndex > 0) append(',')
+                append("{\"id\":").append(quote(group.id))
+                    .append(",\"name\":").append(quote(group.name))
+                    .append(",\"enabled\":").append(group.enabled)
+                    .append(",\"sourceIds\":[")
+                group.sourceIds.forEachIndexed { sourceIdIndex, sourceId ->
+                    if (sourceIdIndex > 0) append(',')
+                    append(quote(sourceId))
+                }
+                append("]}")
+            }
+            append("],\"sources\":[")
             scene.sources.forEachIndexed { sourceIndex, source ->
                 if (sourceIndex > 0) append(',')
                 append("{\"id\":").append(quote(source.id))
@@ -29,7 +44,8 @@ object ConfigExporter {
                     .append(",\"height\":").append(source.height)
                     .append(",\"fillColor\":").append(source.fillColor)
                     .append(",\"imageUri\":").append(quote(source.imageUri))
-                    .append('}')
+                source.groupId?.let { groupId -> append(",\"groupId\":").append(quote(groupId)) }
+                append('}')
             }
             append("]}")
         }

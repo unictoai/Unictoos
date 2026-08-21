@@ -32,8 +32,11 @@ import com.unictoai.unictoos.domain.AudioQuality
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
-import com.unictoai.unictoos.domain.SceneGeometryPolicy
+import com.unictoai.unictoos.domain.SceneTransition
+import com.unictoai.unictoos.domain.SceneTransitionMode
 import com.unictoai.unictoos.domain.Source
+import com.unictoai.unictoos.domain.SourceGroup
+import com.unictoai.unictoos.domain.SceneGeometryPolicy
 import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
@@ -381,31 +384,73 @@ class StudioViewModel @JvmOverloads constructor(
                 name = "Portrait Live",
                 aspectRatio = AspectRatio.PORTRAIT,
                 sources = listOf(
-                    Source("camera-$suffix", "Camera", SourceType.CAMERA),
-                    Source("text-$suffix", "Live title", SourceType.TEXT, textContent = "Live now"),
+                    Source("camera-$suffix", "Camera", SourceType.CAMERA, groupId = "group-$suffix"),
+                    Source("text-$suffix", "Live title", SourceType.TEXT, textContent = "Live now", groupId = "group-$suffix"),
                 ),
+                sourceGroups = listOf(SourceGroup("group-$suffix", "On camera", listOf("camera-$suffix", "text-$suffix"))),
+                transition = SceneTransition(SceneTransitionMode.FADE),
             )
             "gameplay" -> Scene(
                 id = "template-gameplay-$suffix",
                 name = "Gameplay + Camera",
                 aspectRatio = AspectRatio.LANDSCAPE,
                 sources = listOf(
-                    Source("screen-$suffix", "Gameplay", SourceType.SCREEN),
-                    Source("camera-$suffix", "Face cam", SourceType.CAMERA, x = 0.70f, y = 0.06f, width = 0.25f, height = 0.25f),
-                    Source("text-$suffix", "Stream title", SourceType.TEXT, textContent = "Gameplay"),
+                    Source("screen-$suffix", "Gameplay", SourceType.SCREEN, groupId = "group-$suffix"),
+                    Source("camera-$suffix", "Face cam", SourceType.CAMERA, x = 0.70f, y = 0.06f, width = 0.25f, height = 0.25f, groupId = "group-$suffix"),
+                    Source("text-$suffix", "Stream title", SourceType.TEXT, textContent = "Gameplay", groupId = "group-$suffix"),
                 ),
+                sourceGroups = listOf(SourceGroup("group-$suffix", "Live composition", listOf("screen-$suffix", "camera-$suffix", "text-$suffix"))),
+                transition = SceneTransition(SceneTransitionMode.CUT),
             )
             else -> Scene(
                 id = "template-talk-$suffix",
                 name = "Talk Show",
                 aspectRatio = AspectRatio.LANDSCAPE,
                 sources = listOf(
-                    Source("camera-$suffix", "Camera", SourceType.CAMERA),
-                    Source("text-$suffix", "Lower third", SourceType.TEXT, textContent = "Unictoos live", y = 0.78f, height = 0.14f),
+                    Source("camera-$suffix", "Camera", SourceType.CAMERA, groupId = "group-$suffix"),
+                    Source("text-$suffix", "Lower third", SourceType.TEXT, textContent = "Unictoos live", y = 0.78f, height = 0.14f, groupId = "group-$suffix"),
                 ),
+                sourceGroups = listOf(SourceGroup("group-$suffix", "Host", listOf("camera-$suffix", "text-$suffix"))),
+                transition = SceneTransition(SceneTransitionMode.FADE),
             )
         }
         _scenes.update { (it + template).also(sceneStore::save) }
+    }
+
+    fun setSceneTransition(sceneId: String, mode: SceneTransitionMode, durationMs: Long = SceneTransition.DEFAULT_DURATION_MS) {
+        _scenes.update { scenes ->
+            scenes.map { scene ->
+                if (scene.id == sceneId) scene.copy(transition = SceneTransition(mode, durationMs)) else scene
+            }.also(sceneStore::save)
+        }
+    }
+
+    fun setSourceGroup(sceneId: String, groupId: String, enabled: Boolean) {
+        _scenes.update { scenes ->
+            scenes.map { scene ->
+                if (scene.id != sceneId) scene else scene.copy(
+                    sourceGroups = scene.sourceGroups.map { group -> if (group.id == groupId) group.copy(enabled = enabled) else group },
+                )
+            }.also(sceneStore::save)
+        }
+    }
+
+    fun createSourceGroup(sceneId: String, name: String, sourceIds: List<String>) {
+        val safeName = name.trim().ifBlank { "Source group" }.take(64)
+        _scenes.update { scenes ->
+            scenes.map { scene ->
+                if (scene.id != sceneId) scene else {
+                    val validIds = sourceIds.filter { id -> scene.sources.any { it.id == id } }.distinct()
+                    if (validIds.isEmpty()) scene else {
+                        val groupId = "group-${System.currentTimeMillis()}"
+                        scene.copy(
+                            sourceGroups = (scene.sourceGroups + SourceGroup(groupId, safeName, validIds)).take(16),
+                            sources = scene.sources.map { source -> if (source.id in validIds) source.copy(groupId = groupId) else source },
+                        )
+                    }
+                }
+            }.also(sceneStore::save)
+        }
     }
 
     fun toggleSource(sceneId: String, sourceId: String) {

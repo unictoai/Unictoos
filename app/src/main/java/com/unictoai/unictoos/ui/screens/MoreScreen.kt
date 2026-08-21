@@ -113,6 +113,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.PlatformPreset
+import com.unictoai.unictoos.domain.CapabilityStatus
+import com.unictoai.unictoos.domain.FeatureCapability
+import com.unictoai.unictoos.domain.FeatureCapabilityCatalog
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.data.CreatorHistoryStore
@@ -161,6 +164,27 @@ internal fun MoreScreen(
                     TrustRow(Icons.Default.Lock, "Local-first trust", "Credentials, recordings, scenes, and analytics stay on device by default")
                 }
             }
+        }
+        item { SectionHeader("Capability matrix", "A truthful map of what Unictoos can do today") }
+        items(FeatureCapabilityCatalog.all()) { capability -> CapabilityCard(capability) }
+    }
+}
+
+@Composable
+private fun CapabilityCard(capability: FeatureCapability) {
+    val tint = when (capability.status) {
+        CapabilityStatus.AVAILABLE -> V02Palette.AccentBlue
+        CapabilityStatus.DEVICE_VALIDATION -> V02Palette.Caution
+        CapabilityStatus.INTEGRATION_READY -> V02Palette.Neutral300
+        CapabilityStatus.SERVICE_REQUIRED -> V02Palette.Danger
+    }
+    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(16.dp)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(capability.name, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Text(capability.status.label, color = tint, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+            }
+            Text(capability.detail, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
         }
     }
 }

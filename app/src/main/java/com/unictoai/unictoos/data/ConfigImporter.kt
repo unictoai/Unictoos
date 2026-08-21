@@ -4,6 +4,9 @@ import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.Source
 import com.unictoai.unictoos.domain.SourceType
+import com.unictoai.unictoos.domain.SceneTransition
+import com.unictoai.unictoos.domain.SceneTransitionMode
+import com.unictoai.unictoos.domain.SourceGroup
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -45,9 +48,26 @@ object ConfigImporter {
             val sources = sourcesJson?.toSourceList().orEmpty()
             val ratio = runCatching { AspectRatio.valueOf(sceneJson.optString("aspectRatio")) }
                 .getOrDefault(AspectRatio.PORTRAIT)
+            val transition = SceneTransition(
+                mode = runCatching { SceneTransitionMode.valueOf(sceneJson.optString("transitionMode")) }.getOrDefault(SceneTransitionMode.CUT),
+                durationMs = sceneJson.optLong("transitionDurationMs", SceneTransition.DEFAULT_DURATION_MS),
+            )
+            val groups = sceneJson.optJSONArray("sourceGroups")?.toSourceGroupList().orEmpty()
             val id = sceneJson.optString("id").trim().ifBlank { "imported-scene-$index" }
             val name = sceneJson.optString("name").trim().ifBlank { "Imported scene" }
-            add(Scene(id = id, name = name, aspectRatio = ratio, sources = sources))
+            add(Scene(id = id, name = name, aspectRatio = ratio, sources = sources, sourceGroups = groups, transition = transition))
+        }
+    }
+
+    private fun JSONArray.toSourceGroupList(): List<SourceGroup> = buildList {
+        for (index in 0 until length()) {
+            val groupJson = optJSONObject(index) ?: continue
+            val sourceIds = groupJson.optJSONArray("sourceIds")?.let { ids ->
+                buildList { for (idIndex in 0 until ids.length()) ids.optString(idIndex).takeIf(String::isNotBlank)?.let(::add) }
+            }.orEmpty()
+            val id = groupJson.optString("id").trim().ifBlank { "imported-group-$index" }
+            val name = groupJson.optString("name").trim().ifBlank { "Imported group ${index + 1}" }
+            add(SourceGroup(id = id, name = name, sourceIds = sourceIds.distinct().take(32), enabled = groupJson.optBoolean("enabled", true)))
         }
     }
 
@@ -73,6 +93,7 @@ object ConfigImporter {
                     height = sourceJson.optDouble("height", 0.24).toFloat().coerceIn(0.05f, 1f),
                     fillColor = sourceJson.optLong("fillColor", 0xFF101216),
                     imageUri = sourceJson.optString("imageUri", "").take(2_000),
+                    groupId = sourceJson.optString("groupId", "").trim().takeIf(String::isNotBlank),
                 ),
             )
         }

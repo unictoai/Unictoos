@@ -115,6 +115,7 @@ import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
+import com.unictoai.unictoos.domain.SceneTransitionMode
 import com.unictoai.unictoos.data.CreatorHistoryStore
 import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamHealthSample
@@ -143,9 +144,14 @@ internal fun ScenesScreen(
     onSetSourceOpacity: (String, String, Float) -> Unit,
     onSetSourceGeometry: (String, String, Float, Float, Float, Float) -> Unit,
     onUpdateTextSource: (String, String, String, Float) -> Unit,
+    onSetTransition: (String, SceneTransitionMode, Long) -> Unit,
+    onCreateSourceGroup: (String, String, List<String>) -> Unit,
+    onToggleSourceGroup: (String, String, Boolean) -> Unit,
     onOpenStudio: () -> Unit,
 ) {
     var showAddSource by rememberSaveable { mutableStateOf(false) }
+    var groupName by rememberSaveable(selectedScene.id) { mutableStateOf("") }
+    var selectedGroupSourceIds by rememberSaveable(selectedScene.id) { mutableStateOf(emptySet<String>()) }
     Column(Modifier.fillMaxSize().padding(Spacing.xl)) {
         BrandHeader("Your layouts", "Scenes") {
             FilledTonalButton(onClick = onAdd, shape = RoundedCornerShape(12.dp)) {
@@ -216,6 +222,23 @@ internal fun ScenesScreen(
                         }
                     }
                 }
+                Spacer(Modifier.height(Spacing.md))
+                PresentationControls(
+                    scene = selectedScene,
+                    groupName = groupName,
+                    selectedGroupSourceIds = selectedGroupSourceIds,
+                    onGroupNameChange = { groupName = it },
+                    onGroupSelectionChange = { sourceId ->
+                        selectedGroupSourceIds = if (sourceId in selectedGroupSourceIds) selectedGroupSourceIds - sourceId else selectedGroupSourceIds + sourceId
+                    },
+                    onSetTransition = { mode -> onSetTransition(selectedScene.id, mode, selectedScene.transition.safeDurationMs) },
+                    onCreateGroup = {
+                        onCreateSourceGroup(selectedScene.id, groupName, selectedGroupSourceIds.toList())
+                        groupName = ""
+                        selectedGroupSourceIds = emptySet()
+                    },
+                    onToggleGroup = { groupId, enabled -> onToggleSourceGroup(selectedScene.id, groupId, enabled) },
+                )
             }
         }
     }
@@ -227,5 +250,76 @@ internal fun ScenesScreen(
                 showAddSource = false
             },
         )
+    }
+}
+
+@Composable
+private fun PresentationControls(
+    scene: Scene,
+    groupName: String,
+    selectedGroupSourceIds: Set<String>,
+    onGroupNameChange: (String) -> Unit,
+    onGroupSelectionChange: (String) -> Unit,
+    onSetTransition: (SceneTransitionMode) -> Unit,
+    onCreateGroup: () -> Unit,
+    onToggleGroup: (String, Boolean) -> Unit,
+) {
+    SectionHeader("Presentation", "Local transitions and reusable source groups")
+    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Text("Scene transition", fontWeight = FontWeight.SemiBold)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                items(SceneTransitionMode.values().toList()) { mode ->
+                    FilterChip(
+                        selected = scene.transition.mode == mode,
+                        onClick = { onSetTransition(mode) },
+                        label = { Text(mode.label) },
+                    )
+                }
+            }
+            Text("Transitions are stored with the scene. Live media crossfades remain disabled until a compositor is available.", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
+            if (scene.sources.size >= 2) {
+                HorizontalDivider(color = V02Palette.Neutral700)
+                Text("Source group", fontWeight = FontWeight.SemiBold)
+                Text("Select two or more sources to save a reusable group.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    items(scene.sources, key = { it.id }) { source ->
+                        FilterChip(
+                            selected = source.id in selectedGroupSourceIds,
+                            onClick = { onGroupSelectionChange(source.id) },
+                            label = { Text(source.name) },
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = groupName,
+                    onValueChange = onGroupNameChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Group name") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                )
+                Button(
+                    onClick = onCreateGroup,
+                    enabled = groupName.trim().isNotBlank() && selectedGroupSourceIds.size >= 2,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Text("Save source group")
+                }
+            }
+            if (scene.sourceGroups.isNotEmpty()) {
+                Text("Saved groups", fontWeight = FontWeight.SemiBold)
+                scene.sourceGroups.forEach { group ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(group.name, fontWeight = FontWeight.SemiBold)
+                            Text("${group.sourceIds.size} sources", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
+                        }
+                        Switch(checked = group.enabled, onCheckedChange = { onToggleGroup(group.id, it) })
+                    }
+                }
+            }
+        }
     }
 }

@@ -115,11 +115,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.data.CreatorHistoryStore
+import com.unictoai.unictoos.data.LocalAnalyticsComparison
+import com.unictoai.unictoos.data.LocalAnalyticsSession
+import com.unictoai.unictoos.data.LocalAnalyticsStore
 import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.SessionSummary
 import com.unictoai.unictoos.domain.StreamHealthSample
@@ -141,6 +146,7 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
     var recordings by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var sessionSummaries by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var latestSession by remember { mutableStateOf<SessionSummary?>(null) }
+    var analyticsSessions by remember { mutableStateOf(emptyList<LocalAnalyticsSession>()) }
     var markerCount by rememberSaveable { mutableIntStateOf(0) }
     var healthSamples by remember { mutableStateOf(emptyList<StreamHealthSample>()) }
     var timeline by remember { mutableStateOf(emptyList<StreamingDiagnostic>()) }
@@ -188,12 +194,14 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
     LaunchedEffect(Unit) {
         refresh()
         val history = CreatorHistoryStore(context)
+        val analytics = LocalAnalyticsStore(context)
         val sessions = history.loadSessions()
         latestSession = sessions.maxByOrNull { it.finishedAtMillis }
         sessionSummaries = sessions.map { summary -> "${summary.mode.name.lowercase().replaceFirstChar { it.uppercase() }} • ${summary.elapsedSeconds / 60} min • ${summary.bitrateKbps} kbps" }
         markerCount = history.loadMarkers().size
         healthSamples = history.loadHealthSamples()
         timeline = StreamingDiagnostics.snapshot().takeLast(24)
+        analyticsSessions = withContext(Dispatchers.IO) { analytics.loadRecent() }
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -212,6 +220,22 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
                     ReadinessRow("Completed sessions", sessionSummaries.size.toString(), sessionSummaries.isNotEmpty())
                     ReadinessRow("Marked moments", markerCount.toString(), markerCount > 0)
                     ReadinessRow("Latest session", sessionSummaries.lastOrNull() ?: "No completed sessions", sessionSummaries.isNotEmpty())
+                }
+            }
+        }
+        if (analyticsSessions.isNotEmpty()) {
+            item {
+                val comparison = LocalAnalyticsComparison.from(analyticsSessions)
+                SectionHeader("Performance comparison", "SQLite analytics • this device only")
+                Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(18.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        Text("Recent-session baseline", fontWeight = FontWeight.Bold)
+                        AnalyticsMetricRow("Sessions compared", comparison.sessionCount.toString())
+                        AnalyticsMetricRow("Average duration", formatDuration(comparison.averageDurationSeconds))
+                        AnalyticsMetricRow("Average bitrate", "${comparison.averageBitrateKbps} kbps")
+                        AnalyticsMetricRow("Average dropped frames", comparison.averageDroppedFrames.toString())
+                        AnalyticsMetricRow("Sessions with reconnects", comparison.reconnectingSessions.toString())
+                    }
                 }
             }
         }
@@ -348,7 +372,17 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
     }
 }
 
-private fun formatDuration(seconds: Long): String = "%02d:%02d".format(seconds / 60, seconds % 60)
+@Composable
+private fun AnalyticsMetricRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+        Text(value, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+private fun formatDuration(seconds: Long): String {
+    return "%02d:%02d".format(seconds / 60, seconds % 60)
+}
 
 @Composable
 private fun RowScope.RecapMetric(label: String, value: String) {
