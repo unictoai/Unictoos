@@ -95,6 +95,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -137,7 +138,7 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
     val recordingsDirectory = java.io.File(context.filesDir, "recordings")
     var recordings by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var sessionSummaries by rememberSaveable { mutableStateOf(emptyList<String>()) }
-    var markerCount by rememberSaveable { mutableStateOf(0) }
+    var markerCount by rememberSaveable { mutableIntStateOf(0) }
     var healthSamples by remember { mutableStateOf(emptyList<StreamHealthSample>()) }
     var timeline by remember { mutableStateOf(emptyList<StreamingDiagnostic>()) }
     var renameTarget by rememberSaveable { mutableStateOf<String?>(null) }

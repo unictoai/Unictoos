@@ -95,6 +95,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -343,8 +345,8 @@ private fun StreamQualitySettingsCard(
     onCustomChanged: (Int, Int) -> Unit,
     enabled: Boolean,
 ) {
-    var customBitrate by rememberSaveable(quality.bitrate) { mutableStateOf(quality.bitrate / 1_000_000f) }
-    var customFps by rememberSaveable(quality.fps) { mutableStateOf(quality.fps) }
+    var customBitrate by rememberSaveable(quality.bitrate) { mutableFloatStateOf(quality.bitrate / 1_000_000f) }
+    var customFps by rememberSaveable(quality.fps) { mutableIntStateOf(quality.fps) }
 
     Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
         SectionHeader("Stream quality", "Choose the picture profile used when the next session is prepared")

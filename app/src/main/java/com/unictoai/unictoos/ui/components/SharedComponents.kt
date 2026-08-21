@@ -96,6 +96,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -282,7 +283,7 @@ internal fun SourceToggleRow(
         }
         if (type.startsWith("Text")) {
             var draftText by rememberSaveable(title, textContent) { mutableStateOf(textContent) }
-            var draftSize by rememberSaveable(title, textSizeSp) { mutableStateOf(textSizeSp) }
+            var draftSize by rememberSaveable(title, textSizeSp) { mutableFloatStateOf(textSizeSp) }
             OutlinedTextField(
                 value = draftText,
                 onValueChange = {
