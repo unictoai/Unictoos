@@ -1,2 +1,2 @@
-b2878008cf499815d403f1c3a6968f8b7192eb8c6356abb0b5f2f975dd90d304  unictoos-v0.3.3-debug.apk
-e42e7dacb4835ae16e4edcb8351f4c423e3a9221e777dbc3266c23eae66daf77  unictoos-v0.3.3-release-unsigned.apk
+17fd92c4fa5e28d1cd238c24a9d27909dab5cb63ce3200ee32a3a1db507a06ad  unictoos-v0.3.3-debug.apk
+5f1e89bd8944d23cc03a2757ea74f23289313b4b83dc06abb9e1d73b5480e1a5  unictoos-v0.3.3-release-unsigned.apk

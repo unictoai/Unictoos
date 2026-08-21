@@ -663,9 +663,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val textSources = scene.sources.filter { it.enabled && it.type == SourceType.TEXT && it.textContent.isNotBlank() }.sortedBy { it.zIndex }
         val unsupported = plan.unsupportedLayerCount
         genericStream.getGlInterface().clearFilters()
+        val scaledDensity = resources.displayMetrics.density * resources.configuration.fontScale
         textSources.forEachIndexed { index, source ->
             val filter = TextObjectFilterRender().apply {
-                setText(source.textContent, source.textSizeSp * resources.displayMetrics.scaledDensity, source.textColor.toInt(), source.fillColor.toInt())
+                setText(source.textContent, source.textSizeSp * scaledDensity, source.textColor.toInt(), source.fillColor.toInt())
                 setAlpha(source.opacity.coerceIn(0f, 1f))
                 setScale((source.width * 100f).coerceIn(5f, 100f), (source.height * 100f).coerceIn(5f, 100f))
                 setPosition((source.x * 100f).coerceIn(0f, 100f), (source.y * 100f).coerceIn(0f, 100f))
@@ -985,9 +986,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val batteryPercent = if (level >= 0 && scale > 0) (level * 100 / scale).coerceIn(0, 100) else -1
         val chargingStatus = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
         val charging = chargingStatus == BatteryManager.BATTERY_STATUS_CHARGING || chargingStatus == BatteryManager.BATTERY_STATUS_FULL
-        val thermalStatus = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            getSystemService(PowerManager::class.java)?.currentThermalStatus ?: PowerManager.THERMAL_STATUS_NONE
-        } else PowerManager.THERMAL_STATUS_NONE
+        val thermalStatus = getSystemService(PowerManager::class.java)?.currentThermalStatus
+            ?: PowerManager.THERMAL_STATUS_NONE
         val connectivity = getSystemService(ConnectivityManager::class.java)
         val capabilities = connectivity?.getNetworkCapabilities(connectivity.activeNetwork)
         val networkAvailable = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
@@ -1050,7 +1050,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
                 (if (includeProjection) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION else 0) or
                 (if (includeCamera) ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA else 0)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && includeProjection) {
+        } else if (includeProjection) {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
         } else {
             0
@@ -1102,11 +1102,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
         val batteryPercent = if (level >= 0 && scale > 0) (level * 100 / scale).coerceIn(0, 100) else -1
-        val thermalStatus = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            getSystemService(PowerManager::class.java)?.currentThermalStatus ?: PowerManager.THERMAL_STATUS_NONE
-        } else {
-            PowerManager.THERMAL_STATUS_NONE
-        }
+        val thermalStatus = getSystemService(PowerManager::class.java)?.currentThermalStatus
+            ?: PowerManager.THERMAL_STATUS_NONE
         val nowElapsed = SystemClock.elapsedRealtime()
         if (thermalStatus >= PowerManager.THERMAL_STATUS_MODERATE) {
             if (highThermalSinceElapsed == 0L) highThermalSinceElapsed = nowElapsed
@@ -1191,12 +1188,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
             .build()
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(CHANNEL_ID, "Broadcasting", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Keeps Unictoos capture and broadcast controls available"
-            }
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val channel = NotificationChannel(CHANNEL_ID, "Broadcasting", NotificationManager.IMPORTANCE_LOW).apply {
+            description = "Keeps Unictoos capture and broadcast controls available"
         }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
     override fun onDestroy() {

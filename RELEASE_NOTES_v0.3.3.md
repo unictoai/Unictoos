@@ -37,3 +37,11 @@ The sandbox has no connected Android device or GPU-accelerated emulator. Physica
 ## Installation guidance
 
 Use the installable debug APK from the GitHub release for device testing. The R8 artifact is unsigned and is provided for build verification, not direct installation.
+
+## Build stack upgrades
+
+This rebuild updates the project to the current API 37-compatible toolchain: AGP 9.3.0, Gradle 9.5.0, Kotlin 2.4.0, Compose BOM 2026.08.00, AndroidX Activity 1.13.0, Lifecycle 2.11.0, Navigation 2.9.8, DataStore 1.2.1, Core SplashScreen 1.2.0, Coroutines Test 1.11.0, Turbine 1.2.1, AndroidX Test JUnit 1.3.0, and Espresso 3.7.0. The project now uses AGP 9’s built-in Kotlin support and targets Android 16/API 36 while compiling against API 37.
+
+The upgraded build completed unit tests, lint, debug APK assembly, Android-test APK compilation, R8 release assembly, and the standalone R8 configuration analysis. The R8 analyzer requires a larger heap than the sandbox default; the final successful run used a 1024 MiB Gradle heap.
+
+The APK remains an unsigned development artifact for direct GitHub testing. Use the debug APK for installation on a physical Android device.
