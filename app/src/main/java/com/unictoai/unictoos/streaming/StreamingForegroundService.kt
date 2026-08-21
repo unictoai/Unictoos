@@ -168,6 +168,41 @@ class StreamingForegroundService : Service(), ConnectChecker {
             }
         }
     }
+    private var connectionWatchdogGeneration = 0L
+    private var connectionAttemptStartedElapsed = 0L
+    private val connectionWatchdog = Runnable {
+        val generation = connectionWatchdogGeneration
+        val elapsed = if (connectionAttemptStartedElapsed > 0L) {
+            SystemClock.elapsedRealtime() - connectionAttemptStartedElapsed
+        } else {
+            0L
+        }
+        val state = StreamingStatusBus.state.value
+        if (StreamStartupPolicy.shouldTimeout(
+                status = state.status,
+                hasEndpoint = currentEndpoint.isNotBlank(),
+                generationMatches = generation > 0L && generation == sessionGeneration.get(),
+                elapsedMs = elapsed,
+            )
+        ) {
+            StreamingDiagnostics.record(currentSessionId, generation, "connection_start_timeout")
+            onConnectionFailedForGeneration("Connection timed out while waiting for the destination", generation)
+        }
+    }
+
+    private fun scheduleConnectionWatchdog(generation: Long) {
+        connectionWatchdogGeneration = generation
+        connectionAttemptStartedElapsed = SystemClock.elapsedRealtime()
+        handler.removeCallbacks(connectionWatchdog)
+        handler.postDelayed(connectionWatchdog, StreamStartupPolicy.CONNECTION_TIMEOUT_MS)
+    }
+
+    private fun cancelConnectionWatchdog() {
+        handler.removeCallbacks(connectionWatchdog)
+        connectionWatchdogGeneration = 0L
+        connectionAttemptStartedElapsed = 0L
+    }
+
     private val captureTimeout = Runnable {
         val state = StreamingStatusBus.state.value
         if (state.status == StreamStatus.PREPARING && pendingStart != null && !captureReady) {
@@ -716,12 +751,18 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val report = applySceneOverlays(sceneJson)
         val sceneMessage = if (report.unsupportedLayers > 0) "Connecting to your destination • ${report.textOverlays} text overlay(s) rendered; some scene layers are not yet composited" else "Connecting to your destination • ${report.textOverlays} text overlay(s) rendered"
         publish(StreamStatus.CONNECTING, sceneMessage)
-        runCatching { genericStream.startStream(endpoint) }
-            .onFailure { publish(StreamStatus.ERROR, "Unable to start the stream: ${it.message.orEmpty()}") }
+        runCatching {
+            genericStream.startStream(endpoint)
+            scheduleConnectionWatchdog(sessionGeneration.get())
+        }.onFailure {
+            cancelConnectionWatchdog()
+            publish(StreamStatus.ERROR, "Unable to start the stream: ${it.message.orEmpty()}")
+        }
     }
 
     private fun stopStreaming(reason: String = "Broadcast stopped") {
         manualStop = true
+        cancelConnectionWatchdog()
         val current = StreamingStatusBus.state.value
         val hadPendingStart = pendingStart != null
         pendingStart = null
@@ -1040,8 +1081,13 @@ class StreamingForegroundService : Service(), ConnectChecker {
             reconnectScheduled = false
             if (!isCurrentGeneration(generation) || manualStop || currentEndpoint.isBlank()) return@Runnable
             publish(StreamStatus.CONNECTING, "Reconnecting securely")
-            runCatching { genericStream.startStream(currentEndpoint) }
-                .onFailure { scheduleReconnect(it.message ?: "Reconnect failed") }
+            runCatching {
+                genericStream.startStream(currentEndpoint)
+                scheduleConnectionWatchdog(generation)
+            }.onFailure {
+                cancelConnectionWatchdog()
+                scheduleReconnect(it.message ?: "Reconnect failed")
+            }
         }.also { runnable -> handler.postDelayed(runnable, delay) }
     }
 
@@ -1258,6 +1304,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private fun onConnectionSuccessForGeneration(generation: Long) {
         if (!isCurrentGeneration(generation)) return
+        cancelConnectionWatchdog()
         reconnectAttempt = 0
         reconnectScheduled = false
         val previewWasIsolated = isolateLivePreviewForDevice && runCatching {
@@ -1325,18 +1372,21 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private fun onConnectionFailedForGeneration(reason: String, generation: Long) {
         if (!isCurrentGeneration(generation)) return
+        cancelConnectionWatchdog()
         StreamingDiagnostics.record(currentSessionId, generation, "connection_failed", reason)
         scheduleReconnect(reason.ifBlank { "Connection failed" })
     }
 
     private fun onDisconnectForGeneration(generation: Long) {
         if (!isCurrentGeneration(generation)) return
+        cancelConnectionWatchdog()
         StreamingDiagnostics.record(currentSessionId, generation, "disconnected")
         scheduleReconnect("Connection lost")
     }
 
     private fun onAuthErrorForGeneration(generation: Long) {
         if (!isCurrentGeneration(generation)) return
+        cancelConnectionWatchdog()
         StreamingDiagnostics.record(currentSessionId, generation, "auth_error")
         manualStop = true
         reconnectScheduled = false

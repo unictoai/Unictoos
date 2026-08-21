@@ -3,6 +3,7 @@ package com.unictoai.unictoos.streaming
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import com.unictoai.unictoos.domain.StreamStatus
 import org.junit.Test
 
 class StreamFailurePolicyTest {
@@ -20,6 +21,42 @@ class StreamFailurePolicyTest {
         assertEquals(StreamFailureKind.NETWORK, StreamFailurePolicy.classify("socket disconnected").kind)
         assertTrue(StreamFailurePolicy.classify("connection timeout").retryable)
         assertEquals(StreamFailureKind.TIMEOUT, StreamFailurePolicy.classify("connection timeout").kind)
+    }
+
+    @Test
+    fun silentConnectingStartTimesOutOnlyForCurrentGeneration() {
+        assertTrue(
+            StreamStartupPolicy.shouldTimeout(
+                status = StreamStatus.CONNECTING,
+                hasEndpoint = true,
+                generationMatches = true,
+                elapsedMs = StreamStartupPolicy.CONNECTION_TIMEOUT_MS,
+            ),
+        )
+        assertFalse(
+            StreamStartupPolicy.shouldTimeout(
+                status = StreamStatus.LIVE,
+                hasEndpoint = true,
+                generationMatches = true,
+                elapsedMs = StreamStartupPolicy.CONNECTION_TIMEOUT_MS + 1L,
+            ),
+        )
+        assertFalse(
+            StreamStartupPolicy.shouldTimeout(
+                status = StreamStatus.CONNECTING,
+                hasEndpoint = true,
+                generationMatches = false,
+                elapsedMs = StreamStartupPolicy.CONNECTION_TIMEOUT_MS + 1L,
+            ),
+        )
+        assertFalse(
+            StreamStartupPolicy.shouldTimeout(
+                status = StreamStatus.CONNECTING,
+                hasEndpoint = false,
+                generationMatches = true,
+                elapsedMs = StreamStartupPolicy.CONNECTION_TIMEOUT_MS + 1L,
+            ),
+        )
     }
 
     @Test

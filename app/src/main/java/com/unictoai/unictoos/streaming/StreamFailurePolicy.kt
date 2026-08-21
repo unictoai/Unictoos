@@ -17,6 +17,21 @@ data class StreamFailureDecision(
     val userMessage: String,
 )
 
+object StreamStartupPolicy {
+    const val CONNECTION_TIMEOUT_MS = 45_000L
+
+    fun shouldTimeout(
+        status: com.unictoai.unictoos.domain.StreamStatus,
+        hasEndpoint: Boolean,
+        generationMatches: Boolean,
+        elapsedMs: Long,
+    ): Boolean =
+        status == com.unictoai.unictoos.domain.StreamStatus.CONNECTING &&
+            hasEndpoint &&
+            generationMatches &&
+            elapsedMs >= CONNECTION_TIMEOUT_MS
+}
+
 object StreamFailurePolicy {
     fun classify(reason: String): StreamFailureDecision {
         val value = reason.lowercase()
