@@ -30,11 +30,20 @@ class SingleDestinationMultiStreamAdapter(
     connectChecker: ConnectChecker,
 ) {
     private val closed = AtomicBoolean(false)
+    private val trackerLock = Any()
+    private val activeSlots = linkedSetOf<Int>()
+    private val successfulSlots = mutableSetOf<Int>()
+    private val authenticatedSlots = mutableSetOf<Int>()
+    private val failureReported = AtomicBoolean(false)
+    private val disconnectReported = AtomicBoolean(false)
+    private val authErrorReported = AtomicBoolean(false)
+    private val rtmpCheckers: Array<ConnectChecker> = Array(MAX_DESTINATIONS) { index -> SlotConnectChecker(index, connectChecker) }
+    private val srtCheckers: Array<ConnectChecker> = Array(MAX_DESTINATIONS) { index -> SlotConnectChecker(index, connectChecker) }
     private val multiStream = MultiStream(
         context,
-        Array(MAX_DESTINATIONS) { connectChecker },
+        rtmpCheckers,
         emptyArray(),
-        Array(MAX_DESTINATIONS) { connectChecker },
+        srtCheckers,
         emptyArray(),
         NoVideoSource(),
         NoAudioSource(),
@@ -106,6 +115,16 @@ class SingleDestinationMultiStreamAdapter(
         checkOpen()
         require(endpoints.isNotEmpty()) { "At least one endpoint is required" }
         require(endpoints.size <= MAX_DESTINATIONS) { "At most $MAX_DESTINATIONS endpoints are supported" }
+        if (isStreaming || synchronized(trackerLock) { activeSlots.isNotEmpty() }) stopStream()
+        synchronized(trackerLock) {
+            activeSlots.clear()
+            successfulSlots.clear()
+            authenticatedSlots.clear()
+            endpoints.indices.forEach(activeSlots::add)
+            failureReported.set(false)
+            disconnectReported.set(false)
+            authErrorReported.set(false)
+        }
         endpoints.forEachIndexed { index, endpoint ->
             require(endpoint.isNotBlank()) { "Endpoint cannot be blank" }
             multiStream.startStream(transportFor(endpoint), index, endpoint)
@@ -114,6 +133,11 @@ class SingleDestinationMultiStreamAdapter(
 
     fun stopStream() {
         if (closed.get()) return
+        synchronized(trackerLock) {
+            activeSlots.clear()
+            successfulSlots.clear()
+            authenticatedSlots.clear()
+        }
         repeat(MAX_DESTINATIONS) { index ->
             runCatching { multiStream.stopStream(MultiType.RTMP, index) }
             runCatching { multiStream.stopStream(MultiType.SRT, index) }
@@ -137,6 +161,11 @@ class SingleDestinationMultiStreamAdapter(
 
     fun release() {
         if (!closed.compareAndSet(false, true)) return
+        synchronized(trackerLock) {
+            activeSlots.clear()
+            successfulSlots.clear()
+            authenticatedSlots.clear()
+        }
         var firstFailure: Throwable? = null
         fun attempt(block: () -> Unit) {
             runCatching(block).onFailure { if (firstFailure == null) firstFailure = it }
@@ -159,6 +188,59 @@ class SingleDestinationMultiStreamAdapter(
 
     private fun checkOpen() {
         check(!closed.get()) { "MultiStream adapter is closed" }
+    }
+
+    private inner class SlotConnectChecker(
+        private val slotIndex: Int,
+        private val delegate: ConnectChecker,
+    ) : ConnectChecker {
+        override fun onConnectionStarted(url: String) {
+            if (isPrimarySlot()) delegate.onConnectionStarted(url)
+        }
+
+        override fun onConnectionSuccess() {
+            val shouldPublish = synchronized(trackerLock) {
+                successfulSlots += slotIndex
+                successfulSlots.containsAll(activeSlots) && activeSlots.isNotEmpty()
+            }
+            if (shouldPublish) delegate.onConnectionSuccess()
+        }
+
+        override fun onNewBitrate(bitrate: Long) {
+            // The service’s adaptive target is per encoded output. Use slot zero as the
+            // authoritative signal so a second destination cannot double the bitrate.
+            if (isPrimarySlot()) delegate.onNewBitrate(bitrate)
+        }
+
+        override fun onConnectionFailed(reason: String) {
+            if (!isActiveSlot()) return
+            if (failureReported.compareAndSet(false, true)) {
+                delegate.onConnectionFailed("Destination ${slotIndex + 1}: ${reason.ifBlank { "connection failed" }}")
+            }
+        }
+
+        override fun onDisconnect() {
+            if (!isActiveSlot()) return
+            if (disconnectReported.compareAndSet(false, true)) delegate.onDisconnect()
+        }
+
+        override fun onAuthError() {
+            if (isActiveSlot() && authErrorReported.compareAndSet(false, true)) delegate.onAuthError()
+        }
+
+        override fun onAuthSuccess() {
+            val shouldPublish = synchronized(trackerLock) {
+                authenticatedSlots += slotIndex
+                authenticatedSlots.containsAll(activeSlots) && activeSlots.isNotEmpty()
+            }
+            if (shouldPublish) delegate.onAuthSuccess()
+        }
+
+        private fun isActiveSlot(): Boolean = synchronized(trackerLock) { slotIndex in activeSlots }
+
+        private fun isPrimarySlot(): Boolean = synchronized(trackerLock) {
+            activeSlots.firstOrNull() == slotIndex
+        }
     }
 
     private fun transportFor(endpoint: String): MultiType = when {

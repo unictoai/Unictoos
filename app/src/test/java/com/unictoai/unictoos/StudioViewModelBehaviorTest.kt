@@ -17,6 +17,7 @@ import com.unictoai.unictoos.data.ThermalProtectionRepository
 import com.unictoai.unictoos.data.AudioSettingsRepository
 import com.unictoai.unictoos.data.AutoStopRepository
 import com.unictoai.unictoos.data.LatencyModeRepository
+import com.unictoai.unictoos.data.MultistreamSelectionRepository
 import com.unictoai.unictoos.domain.AutoStopDuration
 import com.unictoai.unictoos.domain.AudioQuality
 import com.unictoai.unictoos.domain.LatencyMode
@@ -47,6 +48,7 @@ class StudioViewModelBehaviorTest {
     private lateinit var audio: FakeAudioSettingsRepository
     private lateinit var autoStop: FakeAutoStopRepository
     private lateinit var latency: FakeLatencyModeRepository
+    private lateinit var multistream: FakeMultistreamSelectionRepository
     private lateinit var viewModel: StudioViewModel
 
     @Before
@@ -60,7 +62,8 @@ class StudioViewModelBehaviorTest {
         audio = FakeAudioSettingsRepository()
         autoStop = FakeAutoStopRepository()
         latency = FakeLatencyModeRepository()
-        viewModel = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal, audio, autoStop, latency)
+        multistream = FakeMultistreamSelectionRepository()
+        viewModel = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal, audio, autoStop, latency, multistream)
     }
 
     @After
@@ -141,7 +144,7 @@ class StudioViewModelBehaviorTest {
     fun startupHydratesConfiguredDestinationsFromSecureRepository() {
         credentials.values[PlatformPreset.TWITCH] = "rtmps://twitch.example/app" to "saved-key"
 
-        val hydrated = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal, audio, autoStop, latency)
+        val hydrated = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal, audio, autoStop, latency, multistream)
         val twitch = hydrated.destinations.value.first { it.platform == PlatformPreset.TWITCH }
 
         assertTrue(twitch.isConfigured)
@@ -167,6 +170,20 @@ class StudioViewModelBehaviorTest {
         viewModel.clearDestination()
         assertEquals(PlatformPreset.TWITCH, credentials.cleared.last())
         assertFalse(viewModel.destination.value.isConfigured)
+    }
+
+    @Test
+    fun broadcastEndpointsIncludesConfiguredSecondaryWithoutDuplicatingPrimary() {
+        credentials.values[PlatformPreset.YOUTUBE] = "rtmps://youtube.example/live" to "youtube-key"
+        credentials.values[PlatformPreset.TWITCH] = "rtmps://twitch.example/app" to "twitch-key"
+        viewModel = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal, audio, autoStop, latency, multistream)
+        viewModel.setMultistreamPlatformEnabled(PlatformPreset.TWITCH, true)
+        viewModel.selectDestination(PlatformPreset.YOUTUBE)
+
+        assertEquals(
+            listOf("rtmps://youtube.example/live/youtube-key", "rtmps://twitch.example/app/twitch-key"),
+            viewModel.broadcastEndpoints(viewModel.destination.value),
+        )
     }
 
     @Test
@@ -278,6 +295,16 @@ private class FakeAutoStopRepository : AutoStopRepository {
 
     override fun save(duration: AutoStopDuration) {
         value = duration
+    }
+}
+
+private class FakeMultistreamSelectionRepository : MultistreamSelectionRepository {
+    var value = setOf(PlatformPreset.YOUTUBE)
+
+    override fun load(): Set<PlatformPreset> = value
+
+    override fun save(platforms: Set<PlatformPreset>) {
+        value = platforms
     }
 }
 

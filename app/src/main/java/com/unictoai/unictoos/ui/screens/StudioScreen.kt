@@ -145,15 +145,20 @@ internal fun StudioScreen(
         StreamStatus.STOPPING,
     )
     val canStart = session.status in setOf(StreamStatus.IDLE, StreamStatus.STOPPED, StreamStatus.ERROR)
-    val captureLabel = when {
-        scene.sources.any { it.enabled && it.type == SourceType.SCREEN } -> "Screen capture"
-        scene.sources.any { it.enabled && it.type == SourceType.CAMERA } -> "Camera capture"
+    val captureMode = when {
+        scene.sources.any { it.enabled && it.type == SourceType.SCREEN } -> "screen"
+        scene.sources.any { it.enabled && it.type == SourceType.CAMERA } -> "camera"
+        else -> "none"
+    }
+    val captureLabel = when (captureMode) {
+        "screen" -> "Screen capture"
+        "camera" -> "Camera capture"
         else -> "Capture source not selected"
     }
     val context = LocalContext.current
     val readiness = GoLiveReadinessPolicy.evaluate(
         destinationReady = destination.isConfigured,
-        captureMode = if (captureLabel == "Camera capture") "camera" else "screen",
+        captureMode = captureMode,
         microphonePermission = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED,
         cameraPermission = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED,
         networkAvailable = context.getSystemService(android.net.ConnectivityManager::class.java)?.activeNetwork != null,
@@ -227,7 +232,7 @@ internal fun StudioScreen(
             QuickControls(
                 session = session,
                 enabled = isActive || session.status == StreamStatus.LIVE,
-                cameraAvailable = scene.sources.any { it.enabled && it.type == SourceType.CAMERA },
+                cameraAvailable = captureMode == "camera",
                 onToggleMute = onToggleMute,
                 onSwitchCamera = onSwitchCamera,
                 onToggleRecording = onToggleRecording,
@@ -398,13 +403,15 @@ private fun QuickControls(
             enabled = enabled,
             onClick = onToggleMute,
         )
-        CompactControl(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Default.Cameraswitch,
-            label = "Flip camera",
-            enabled = enabled && cameraAvailable,
-            onClick = onSwitchCamera,
-        )
+        if (cameraAvailable) {
+            CompactControl(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.Cameraswitch,
+                label = "Flip camera",
+                enabled = enabled,
+                onClick = onSwitchCamera,
+            )
+        }
         CompactControl(
             modifier = Modifier.weight(1f),
             icon = Icons.Default.Movie,

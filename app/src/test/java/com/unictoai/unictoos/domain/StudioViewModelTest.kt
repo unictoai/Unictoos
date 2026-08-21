@@ -8,7 +8,7 @@ import org.junit.Test
 
 class StudioDomainTest {
     @Test
-    fun destinationRequiresBothServerAndKey() {
+    fun destinationRequiresKeyForRtmpButNotForCompleteSrtListener() {
         assertFalse(DestinationConfig().isConfigured)
         assertFalse(DestinationConfig(serverUrl = "rtmps://example.com/app").isConfigured)
         assertTrue(
@@ -17,6 +17,9 @@ class StudioDomainTest {
                 streamKey = "secret",
             ).isConfigured,
         )
+        val srt = DestinationConfig(serverUrl = "srt://listener.example:9000?streamid=unictoos-live")
+        assertTrue(srt.isConfigured)
+        assertEquals("srt://listener.example:9000?streamid=unictoos-live", srt.endpoint)
     }
 
     @Test

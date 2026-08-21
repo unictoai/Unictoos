@@ -337,6 +337,12 @@ class StreamingForegroundService : Service(), ConnectChecker {
         resetTelemetryForInactiveSession()
     }
 
+    private fun failCapturePreparation(message: String) {
+        pendingStart = null
+        handler.removeCallbacks(captureTimeout)
+        publish(StreamStatus.ERROR, message)
+    }
+
     private suspend fun releaseCapturePipelineForReprepare(): Boolean {
         sessionGeneration.incrementAndGet()
         releaseProjection()
@@ -345,7 +351,6 @@ class StreamingForegroundService : Service(), ConnectChecker {
             prepared = false
             captureReady = false
             previewAttached = false
-            publish(StreamStatus.ERROR, "Previous capture resources are not fully released. Tap Fix and retry")
             return false
         }
         microphoneSource = null
@@ -458,15 +463,21 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private suspend fun prepareProjectionFromIntent(intent: Intent) {
-        if (!startForegroundSafely(includeProjection = true, includeCamera = false)) return
-        if (!releaseCapturePipelineForReprepare()) return
+        if (!startForegroundSafely(includeProjection = true, includeCamera = false)) {
+            failCapturePreparation("Android rejected the screen-capture service. Check capture permission and try again")
+            return
+        }
+        if (!releaseCapturePipelineForReprepare()) {
+            failCapturePreparation("Previous capture resources are not fully released. Tap Fix and retry")
+            return
+        }
         resetCaptureStateForPreparation()
         if (!hasAudioPermission()) {
-            publish(StreamStatus.ERROR, "Microphone permission is not granted")
+            failCapturePreparation("Microphone permission is not granted")
             return
         }
         if (!checkMicrophoneInput()) {
-            publish(StreamStatus.ERROR, "Microphone is unavailable. Check Android privacy controls and other apps using the mic")
+            failCapturePreparation("Microphone is unavailable. Check Android privacy controls and other apps using the mic")
             return
         }
         val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
@@ -477,7 +488,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             intent.getParcelableExtra(EXTRA_PROJECTION_DATA)
         }
         if (projectionData == null || !prepareProjection(resultCode, projectionData)) {
-            publish(StreamStatus.ERROR, "Screen capture permission was not available")
+            failCapturePreparation("Screen capture permission was not available")
         } else {
             publish(StreamStatus.PREPARING, "Microphone ready • waiting for Studio preview")
             attachPreviewIfPossible()
@@ -507,23 +518,29 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private suspend fun prepareCamera() {
-        if (!startForegroundSafely(includeProjection = false, includeCamera = true)) return
-        if (!releaseCapturePipelineForReprepare()) return
+        if (!startForegroundSafely(includeProjection = false, includeCamera = true)) {
+            failCapturePreparation("Android rejected the camera service. Check camera permission and try again")
+            return
+        }
+        if (!releaseCapturePipelineForReprepare()) {
+            failCapturePreparation("Previous capture resources are not fully released. Tap Fix and retry")
+            return
+        }
         resetCaptureStateForPreparation()
         if (!hasAudioPermission()) {
-            publish(StreamStatus.ERROR, "Microphone permission is not granted")
+            failCapturePreparation("Microphone permission is not granted")
             return
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            publish(StreamStatus.ERROR, "Camera permission is not granted")
+            failCapturePreparation("Camera permission is not granted")
             return
         }
         if (!checkMicrophoneInput()) {
-            publish(StreamStatus.ERROR, "Microphone is unavailable. Check Android privacy controls and other apps using the mic")
+            failCapturePreparation("Microphone is unavailable. Check Android privacy controls and other apps using the mic")
             return
         }
         if (!prepared) {
-            publish(StreamStatus.ERROR, "This device cannot prepare the camera capture profile")
+            failCapturePreparation("This device cannot prepare the camera capture profile")
             return
         }
         runCatching {
@@ -537,7 +554,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             runCatching { cameraSource?.release() }
             cameraSource = null
             captureReady = false
-            publish(StreamStatus.ERROR, "Camera could not start: ${it.message.orEmpty()}")
+            failCapturePreparation("Camera could not start: ${it.message.orEmpty()}")
         }
     }
 
@@ -763,6 +780,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val sceneMessage = if (report.unsupportedLayers > 0) "Practice mode active • ${report.textOverlays} text overlay(s) rendered; some scene layers are not yet composited" else "Practice mode active • ${report.textOverlays} text overlay(s) rendered"
         StreamingStatusBus.update(previous.copy(mode = SessionMode.PRACTICE, bitrateKbps = 0, fps = 0, droppedFrames = -1, audioLevel = -1, message = "Starting local practice recording"))
         startRecording(prefix = "unictoos-practice")
+        if (StreamingStatusBus.state.value.recordingState == RecordingState.FAILED) return
         publish(StreamStatus.LIVE, sceneMessage)
     }
 
@@ -1005,22 +1023,40 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 override fun onStatusChange(status: RecordController.Status) {
                     postSerialized {
                         if (!isCurrentGeneration(generation)) return@postSerialized
-                        val recording = status == RecordController.Status.STARTED || status == RecordController.Status.RECORDING || status == RecordController.Status.RESUMED
                         val previous = StreamingStatusBus.state.value
-                        StreamingStatusBus.update(
-                            previous.copy(
-                                recording = recording,
-                                recordingState = if (recording) RecordingState.RECORDING else previous.recordingState,
-                                message = if (recording) "Recording ${output.name}" else previous.message,
-                            ),
-                        )
+                        val next = when (status) {
+                            RecordController.Status.STARTED,
+                            RecordController.Status.RECORDING,
+                            RecordController.Status.RESUMED,
+                            RecordController.Status.PAUSED,
+                            -> previous.copy(
+                                recording = true,
+                                recordingState = RecordingState.RECORDING,
+                                message = if (status == RecordController.Status.PAUSED) "Recording paused" else "Recording ${output.name}",
+                            )
+                            RecordController.Status.STOPPED -> when (previous.recordingState) {
+                                RecordingState.STOPPING -> previous
+                                RecordingState.STARTING -> previous.copy(
+                                    recording = false,
+                                    recordingState = RecordingState.FAILED,
+                                    message = "Recording stopped before it became active",
+                                )
+                                else -> previous.copy(recording = false, recordingState = RecordingState.IDLE)
+                            }
+                        }
+                        StreamingStatusBus.update(next)
                     }
                 }
             })
         }.onFailure {
             activeRecordingFile = null
-            StreamingStatusBus.update(StreamingStatusBus.state.value.copy(recording = false, recordingState = RecordingState.FAILED))
-            publish(StreamStatus.ERROR, "Recording could not start: ${it.message.orEmpty()}")
+            StreamingStatusBus.update(
+                StreamingStatusBus.state.value.copy(
+                    recording = false,
+                    recordingState = RecordingState.FAILED,
+                    message = "Recording could not start: ${it.message.orEmpty()}",
+                ),
+            )
         }
     }
 
@@ -1030,8 +1066,21 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val generation = sessionGeneration.get()
         val output = activeRecordingFile
         activeRecordingFile = null
-        runCatching { genericStream.stopRecord() }
-            .onFailure { publish(StreamStatus.ERROR, "Recording could not finalize: ${it.message.orEmpty()}") }
+        val stopAccepted = runCatching { genericStream.stopRecord() }
+            .onFailure {
+                StreamingStatusBus.update(
+                    StreamingStatusBus.state.value.copy(
+                        recording = false,
+                        recordingState = RecordingState.FAILED,
+                        message = "Recording could not finalize: ${it.message.orEmpty()}",
+                    ),
+                )
+            }
+            .getOrDefault(false)
+        if (!stopAccepted) {
+            pendingTerminalStopReason?.let { completeStop(it) }
+            return
+        }
         StreamingStatusBus.update(StreamingStatusBus.state.value.copy(recording = false, recordingState = RecordingState.STOPPING, message = "Finalizing recording…"))
         recordingFinalizationJob?.cancel()
         recordingFinalizationJob = serviceScope.launch {
@@ -1289,6 +1338,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
             flags,
         )
 
+        val recordingInProgress = state.recordingState == RecordingState.STARTING || state.recordingState == RecordingState.RECORDING
+        val recordingAction = if (recordingInProgress) ACTION_STOP_RECORDING else ACTION_START_RECORDING
+        val recordingLabel = if (recordingInProgress) "Stop record" else if (state.recordingState == RecordingState.STOPPING) "Finalizing" else "Record"
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_unictoos)
             .setContentTitle("Unictoos Studio")
@@ -1299,7 +1351,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .addAction(R.drawable.ic_unictoos, if (state.microphoneMuted) "Unmute" else "Mute", serviceAction(REQUEST_MUTE, ACTION_TOGGLE_MUTE))
-            .addAction(R.drawable.ic_unictoos, if (state.recording) "Stop record" else "Record", serviceAction(REQUEST_RECORD, if (state.recording) ACTION_STOP_RECORDING else ACTION_START_RECORDING))
+            .addAction(R.drawable.ic_unictoos, recordingLabel, serviceAction(REQUEST_RECORD, recordingAction))
             .addAction(R.drawable.ic_unictoos, "Stop", serviceAction(REQUEST_STOP, ACTION_STOP))
             .build()
     }

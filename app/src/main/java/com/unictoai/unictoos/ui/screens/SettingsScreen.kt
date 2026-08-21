@@ -223,7 +223,7 @@ internal fun SettingsScreen(
             SectionHeader("Direct multistream", "One shared encoder can fan out to two RTMP/RTMPS destinations")
             Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
                 Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Text("Select up to two configured destinations. Each platform still needs its own valid ingest URL and stream key.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                    Text("Select up to two configured destinations. RTMP and RTMPS use an ingest URL plus stream key; SRT uses one complete listener URL with its stream ID and no separate key.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                         items(PlatformPreset.values().toList()) { platform ->
                             FilterChip(
