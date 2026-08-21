@@ -116,6 +116,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.withContext
 import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.PlatformPreset
@@ -125,6 +126,9 @@ import com.unictoai.unictoos.data.CreatorHistoryStore
 import com.unictoai.unictoos.data.LocalAnalyticsComparison
 import com.unictoai.unictoos.data.LocalAnalyticsSession
 import com.unictoai.unictoos.data.LocalAnalyticsStore
+import com.unictoai.unictoos.data.Media3RecordingEditor
+import com.unictoai.unictoos.integrations.RecordingEditResult
+import com.unictoai.unictoos.integrations.RecordingTrimRequest
 import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.SessionSummary
 import com.unictoai.unictoos.domain.StreamHealthSample
@@ -152,6 +156,11 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
     var timeline by remember { mutableStateOf(emptyList<StreamingDiagnostic>()) }
     var renameTarget by rememberSaveable { mutableStateOf<String?>(null) }
     var renameValue by rememberSaveable { mutableStateOf("") }
+    var trimTarget by rememberSaveable { mutableStateOf<String?>(null) }
+    var trimStartSeconds by rememberSaveable { mutableStateOf("0") }
+    var trimEndSeconds by rememberSaveable { mutableStateOf("60") }
+    var editMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    val recordingEditor = remember(context) { Media3RecordingEditor(context) }
 
     fun refresh() {
         recordings = recordingsDirectory.listFiles()
@@ -202,6 +211,15 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
         healthSamples = history.loadHealthSamples()
         timeline = StreamingDiagnostics.snapshot().takeLast(24)
         analyticsSessions = withContext(Dispatchers.IO) { analytics.loadRecent() }
+    }
+    LaunchedEffect(recordingEditor) {
+        recordingEditor.states.collect { state ->
+            editMessage = when (state) {
+                is com.unictoai.unictoos.data.LocalRecordingEditState.Completed -> "Trim export completed and was saved locally."
+                is com.unictoai.unictoos.data.LocalRecordingEditState.Failed -> "Trim export failed: ${state.message}"
+                is com.unictoai.unictoos.data.LocalRecordingEditState.Started -> "Trim export started. The new MP4 will be saved locally when complete."
+            }
+        }
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -336,6 +354,11 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
                                 Spacer(Modifier.width(4.dp))
                                 Text("Share")
                             }
+                            OutlinedButton(onClick = { trimTarget = name }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+                                Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Trim")
+                            }
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             TextButton(onClick = { renameTarget = name; renameValue = name.removeSuffix(".mp4") }) { Text("Rename") }
@@ -368,6 +391,44 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
                 }) { Text("Save") }
             },
             dismissButton = { TextButton(onClick = { renameTarget = null }) { Text("Cancel") } },
+        )
+    }
+    if (trimTarget != null) {
+        AlertDialog(
+            onDismissRequest = { trimTarget = null },
+            title = { Text("Trim recording") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text("Create a new local MP4 without changing the original recording.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(value = trimStartSeconds, onValueChange = { trimStartSeconds = it.filter(Char::isDigit).take(8) }, label = { Text("Start seconds") }, singleLine = true)
+                    OutlinedTextField(value = trimEndSeconds, onValueChange = { trimEndSeconds = it.filter(Char::isDigit).take(8) }, label = { Text("End seconds") }, singleLine = true)
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val target = trimTarget
+                    val start = trimStartSeconds.toLongOrNull()
+                    val end = trimEndSeconds.toLongOrNull()
+                    if (target != null && start != null && end != null) {
+                        val input = java.io.File(recordingsDirectory, target)
+                        when (val result = recordingEditor.trim(RecordingTrimRequest(input.absolutePath, start * 1_000L, end * 1_000L))) {
+                            RecordingEditResult.Planned -> editMessage = "Trim export started. The new MP4 will be saved locally when complete."
+                            is RecordingEditResult.Failure -> editMessage = result.message
+                            is RecordingEditResult.Unsupported -> editMessage = result.explanation
+                        }
+                        trimTarget = null
+                    }
+                }) { Text("Export trim") }
+            },
+            dismissButton = { TextButton(onClick = { trimTarget = null }) { Text("Cancel") } },
+        )
+    }
+    if (editMessage != null) {
+        AlertDialog(
+            onDismissRequest = { editMessage = null },
+            title = { Text("Local editor") },
+            text = { Text(editMessage.orEmpty()) },
+            confirmButton = { TextButton(onClick = { editMessage = null; refresh() }) { Text("Done") } },
         )
     }
 }

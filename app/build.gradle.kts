@@ -13,8 +13,8 @@ android {
         applicationId = "com.unictoai.unictoos"
         minSdk = 29
         targetSdk = 36
-        versionCode = 44
-        versionName = "0.4.3"
+        versionCode = 45
+        versionName = "0.4.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -73,6 +73,9 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.2.1")
     implementation("androidx.core:core-splashscreen:1.2.0")
     implementation("com.github.pedroSG94.RootEncoder:library:2.8.0")
+    implementation("androidx.media3:media3-transformer:1.11.0")
+    implementation("androidx.media3:media3-effect:1.11.0")
+    implementation("androidx.media3:media3-common:1.11.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

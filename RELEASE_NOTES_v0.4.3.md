@@ -10,13 +10,13 @@ Completed sessions are now written to a bounded SQLite database outside the medi
 
 Scenes now persist source groups, per-source group membership, transition mode, and bounded transition duration. The Scenes workspace exposes compact Cut, Fade, and Slide controls, reusable source-group creation, and group enable/disable actions. Existing v0.4.2 scene JSON remains readable through defaulted fields, and the quick templates now include useful grouping and transition defaults.
 
-The release retains local MP4 recording, playback, sharing, and chapter-style stream markers. A safe recording trim policy validates local edit plans without claiming that an MP4 remuxer or multi-track exporter is bundled. Advanced audio validation covers noise-gate thresholds, compressor ratios, limiter ceilings, and equalizer bands while the active capture path remains RootEncoder’s verified microphone pipeline with echo cancellation and noise suppression.
+The release retains local MP4 recording, playback, sharing, and chapter-style stream markers. It now includes a real Media3 Transformer path for creating a new locally trimmed MP4 without changing the original recording. A safe recording trim policy validates edit ranges before export, while multi-track and chapter-aware muxing remain unbundled. Advanced audio validation covers noise-gate thresholds, compressor ratios, limiter ceilings, and equalizer bands while the active live capture path remains RootEncoder’s verified microphone pipeline with echo cancellation and noise suppression.
 
 More tools now includes a capability matrix that identifies available local features, device-validation requirements, integration-ready contracts, and external-service requirements. This prevents PiP, DSP, multi-track editing, OAuth, cloud, relay, and USB capabilities from appearing as falsely complete.
 
 ## Explicit boundaries
 
-True screen-plus-camera PiP still requires a shared-surface compositor. Multi-track recording and post-session export still require a verified media editing implementation. Advanced PCM audio effects still require ownership of the pre-encode audio buffer. OAuth chat/events/moderation/metadata, cloud backup, remote control, SRTLA/RIST bonding, and UVC/HDMI capture remain behind contracts and physical or service validation.
+True screen-plus-camera PiP still requires a shared-surface compositor. Multi-track recording, chapter-aware muxing, and advanced live PCM audio effects still require additional verified media processing. Local single-file trimming/export is implemented through Media3 Transformer, but it still requires physical testing with representative recordings. OAuth chat/events/moderation/metadata, cloud backup, remote control, SRTLA/RIST bonding, and UVC/HDMI capture remain behind contracts and physical or service validation.
 
 ## Validation
 
