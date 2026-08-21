@@ -67,6 +67,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
@@ -109,6 +110,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -169,6 +172,7 @@ internal fun SettingsScreen(
     var selectedPlatformName by rememberSaveable(destination.platform.name) { mutableStateOf(destination.platform.name) }
     var serverUrl by rememberSaveable(destination.serverUrl) { mutableStateOf(destination.serverUrl) }
     var streamKey by rememberSaveable(destination.streamKey) { mutableStateOf(destination.streamKey) }
+    var showStreamKey by rememberSaveable { mutableStateOf(false) }
     val selectedPlatform = PlatformPreset.values().firstOrNull { it.name == selectedPlatformName } ?: PlatformPreset.YOUTUBE
     val settingsLocked = sessionStatus in setOf(StreamStatus.PREPARING, StreamStatus.CONNECTING, StreamStatus.LIVE, StreamStatus.RECONNECTING, StreamStatus.STOPPING)
 
@@ -223,6 +227,15 @@ internal fun SettingsScreen(
                         label = { Text("Stream key") },
                         placeholder = { Text("Stored with Android Keystore") },
                         singleLine = true,
+                        visualTransformation = if (showStreamKey) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showStreamKey = !showStreamKey }) {
+                                Icon(
+                                    imageVector = if (showStreamKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showStreamKey) "Hide stream key" else "Show stream key",
+                                )
+                            }
+                        },
                         shape = RoundedCornerShape(14.dp),
                     )
                     Button(onClick = { onSaveDestination(selectedPlatform, serverUrl, streamKey) }, enabled = !settingsLocked, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp)) {

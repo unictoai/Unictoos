@@ -71,6 +71,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.unictoai.unictoos.DestinationConfig
 import com.unictoai.unictoos.domain.AspectRatio
@@ -85,11 +86,14 @@ import com.unictoai.unictoos.domain.StreamStatus
 import com.unictoai.unictoos.ui.PreviewSurfaceView
 import com.unictoai.unictoos.ui.components.BrandHeader
 import com.unictoai.unictoos.ui.components.MetricCard
+import com.unictoai.unictoos.ui.components.ReadinessRow
 import com.unictoai.unictoos.ui.components.SessionErrorCard
 import com.unictoai.unictoos.ui.components.StatusPill
 import com.unictoai.unictoos.ui.theme.MotionTokens
 import com.unictoai.unictoos.ui.theme.Spacing
 import com.unictoai.unictoos.ui.theme.V02Palette
+import com.unictoai.unictoos.streaming.GoLiveReadiness
+import com.unictoai.unictoos.streaming.GoLiveReadinessPolicy
 
 @Composable
 internal fun StudioScreen(
@@ -143,6 +147,15 @@ internal fun StudioScreen(
         scene.sources.any { it.enabled && it.type == SourceType.CAMERA } -> "Camera capture"
         else -> "Capture source not selected"
     }
+    val context = LocalContext.current
+    val readiness = GoLiveReadinessPolicy.evaluate(
+        destinationReady = destination.isConfigured,
+        captureMode = if (captureLabel == "Camera capture") "camera" else "screen",
+        microphonePermission = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED,
+        cameraPermission = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED,
+        networkAvailable = context.getSystemService(android.net.ConnectivityManager::class.java)?.activeNetwork != null,
+        quality = streamQuality,
+    )
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -175,6 +188,7 @@ internal fun StudioScreen(
                 encoderHeight = streamQuality.height,
             )
         }
+        item { GoLiveReadinessCard(readiness) }
         if (session.status == StreamStatus.ERROR) {
             item { SessionErrorCard(session.message.orEmpty(), onReleaseCapture) }
         }
@@ -200,6 +214,7 @@ internal fun StudioScreen(
                 onStart = onStart,
                 onStop = onStop,
                 onPractice = onPractice,
+                readiness = readiness,
             )
         }
         item {
@@ -290,6 +305,7 @@ private fun BroadcastActionCard(
     onStart: () -> Unit,
     onStop: () -> Unit,
     onPractice: () -> Unit,
+    readiness: GoLiveReadiness,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(22.dp)) {
         Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
@@ -297,6 +313,7 @@ private fun BroadcastActionCard(
             Text(
                 when {
                     session.status == StreamStatus.LIVE -> "Your destination is receiving the stream. Keep this screen open for controls."
+                    canStart && !readiness.canStart -> readiness.blockingDetail ?: "Complete the readiness checks before going live."
                     canStart -> "Check the preview, then start one destination from this workspace."
                     else -> "The capture pipeline is preparing. Keep the app in the foreground until preview is ready."
                 },
@@ -322,7 +339,14 @@ private fun BroadcastActionCard(
             ) {
                 Icon(if (session.status == StreamStatus.LIVE) Icons.Default.Stop else Icons.Default.FiberManualRecord, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text(if (session.status == StreamStatus.LIVE) "Stop broadcast" else "Go live", fontWeight = FontWeight.Bold)
+                Text(
+                    when {
+                        session.status == StreamStatus.LIVE -> "Stop broadcast"
+                        canStart && !readiness.canStart -> "Review setup"
+                        else -> "Go live"
+                    },
+                    fontWeight = FontWeight.Bold,
+                )
             }
             OutlinedButton(onClick = onPractice, enabled = !isActive, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null)
@@ -372,6 +396,35 @@ private fun CompactControl(modifier: Modifier, icon: androidx.compose.ui.graphic
         Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(5.dp))
         Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+@Composable
+private fun GoLiveReadinessCard(readiness: GoLiveReadiness) {
+    val readyCount = readiness.checks.count { it.ready }
+    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Go live check", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Confirm the essentials before you start", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                }
+                Text(
+                    "$readyCount/${readiness.checks.size} ready",
+                    color = if (readiness.canStart) V02Palette.AccentBlue else V02Palette.Caution,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            readiness.checks.forEach { check ->
+                ReadinessRow(label = check.label, value = check.value, ready = check.ready)
+            }
+            Text(
+                readiness.blockingDetail ?: readiness.cautionDetail ?: "All essential checks are ready for this profile.",
+                color = V02Palette.Neutral500,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
     }
 }
 
