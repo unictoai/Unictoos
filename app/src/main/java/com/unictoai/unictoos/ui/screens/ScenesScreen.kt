@@ -136,6 +136,7 @@ internal fun ScenesScreen(
     selectedScene: Scene,
     onSelect: (String) -> Unit,
     onAdd: () -> Unit,
+    onAddTemplate: (String) -> Unit,
     onToggleSource: (String, String) -> Unit,
     onAddSource: (String, String, SourceType) -> Unit,
     onMoveSource: (String, String, Int) -> Unit,
@@ -156,6 +157,30 @@ internal fun ScenesScreen(
         Spacer(Modifier.height(Spacing.sm))
         Text("Build a repeatable look for every kind of broadcast.", color = V02Palette.Neutral500)
         Spacer(Modifier.height(Spacing.lg))
+        SectionHeader("Quick templates", "Start with a proven layout, then customize it")
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm), contentPadding = PaddingValues(vertical = Spacing.sm)) {
+            item {
+                FilledTonalButton(onClick = { onAddTemplate("portrait-camera") }, shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.Videocam, contentDescription = null, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("Portrait live")
+                }
+            }
+            item {
+                FilledTonalButton(onClick = { onAddTemplate("gameplay") }, shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.LiveTv, contentDescription = null, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("Gameplay")
+                }
+            }
+            item {
+                FilledTonalButton(onClick = { onAddTemplate("talk-show") }, shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text("Talk show")
+                }
+            }
+        }
         LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             items(scenes, key = { it.id }) { scene ->
                 SceneCard(scene, selected = scene.id == selectedSceneId, onClick = { onSelect(scene.id) }, onOpenStudio = onOpenStudio)

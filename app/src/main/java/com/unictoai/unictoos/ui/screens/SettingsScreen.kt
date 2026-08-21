@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -148,6 +149,8 @@ internal fun SettingsScreen(
     destination: DestinationConfig,
     sessionStatus: StreamStatus,
     onSelectPlatform: (PlatformPreset) -> Unit,
+    multistreamPlatforms: Set<PlatformPreset>,
+    onMultistreamPlatformChange: (PlatformPreset, Boolean) -> Boolean,
     onSaveDestination: (PlatformPreset, String, String) -> Unit,
     onClearDestination: () -> Unit,
     adsEnabled: Boolean,
@@ -164,6 +167,7 @@ internal fun SettingsScreen(
     latencyMode: LatencyMode,
     onLatencyModeChange: (LatencyMode) -> Unit,
     onExportConfig: () -> Unit,
+    onImportConfig: (String) -> Unit,
     onExportDiagnostics: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -173,6 +177,17 @@ internal fun SettingsScreen(
     var serverUrl by rememberSaveable(destination.serverUrl) { mutableStateOf(destination.serverUrl) }
     var streamKey by rememberSaveable(destination.streamKey) { mutableStateOf(destination.streamKey) }
     var showStreamKey by rememberSaveable { mutableStateOf(false) }
+    val importConfigLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val imported = runCatching {
+            context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+        }.getOrNull()
+        if (imported.isNullOrBlank()) {
+            Toast.makeText(context, "The selected configuration could not be read", Toast.LENGTH_LONG).show()
+        } else {
+            onImportConfig(imported)
+        }
+    }
     val selectedPlatform = PlatformPreset.values().firstOrNull { it.name == selectedPlatformName } ?: PlatformPreset.YOUTUBE
     val settingsLocked = sessionStatus in setOf(StreamStatus.PREPARING, StreamStatus.CONNECTING, StreamStatus.LIVE, StreamStatus.RECONNECTING, StreamStatus.STOPPING)
 
@@ -205,10 +220,33 @@ internal fun SettingsScreen(
             }
         }
         item {
+            SectionHeader("Direct multistream", "One shared encoder can fan out to two RTMP/RTMPS destinations")
+            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
+                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Text("Select up to two configured destinations. Each platform still needs its own valid ingest URL and stream key.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        items(PlatformPreset.values().toList()) { platform ->
+                            FilterChip(
+                                selected = platform in multistreamPlatforms,
+                                onClick = {
+                                    if (!onMultistreamPlatformChange(platform, platform !in multistreamPlatforms)) {
+                                        Toast.makeText(context, "Direct multistream is limited to two destinations", Toast.LENGTH_LONG).show()
+                                    }
+                                },
+                                enabled = !settingsLocked,
+                                label = { Text(platform.label) },
+                            )
+                        }
+                    }
+                    Text("This is direct device fan-out, not cloud relay multistream. SRTLA/RIST bonding and platform OAuth are separate integrations.", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+        item {
             Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
                 Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
                     Text(selectedPlatform.helper, fontWeight = FontWeight.SemiBold)
-                    Text("Use the current ingest URL shown in your platform dashboard. Never share your stream key in screenshots or logs.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                    Text(if (selectedPlatform == PlatformPreset.CUSTOM) "For SRT, enter the complete srt:// listener URL above and leave Stream key blank. For RTMP or RTMPS, use the server URL plus stream key. Never share keys in screenshots or logs." else "Use the current ingest URL shown in your platform dashboard. Never share your stream key in screenshots or logs.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                     OutlinedTextField(
                         value = serverUrl,
                         onValueChange = { serverUrl = it },
@@ -306,6 +344,17 @@ internal fun SettingsScreen(
                         Spacer(Modifier.width(7.dp))
                         Text("Export safe configuration")
                     }
+                    OutlinedButton(
+                        onClick = { importConfigLauncher.launch(arrayOf("application/json", "text/*")) },
+                        enabled = !settingsLocked,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(Modifier.width(7.dp))
+                        Text("Import scenes only")
+                    }
+                    Text("Import never changes saved stream keys or destination credentials.", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
                 }
             }
         }

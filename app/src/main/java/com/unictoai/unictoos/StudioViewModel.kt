@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.unictoai.unictoos.data.ConfigExporter
+import com.unictoai.unictoos.data.ConfigImportResult
+import com.unictoai.unictoos.data.ConfigImporter
 import com.unictoai.unictoos.data.CredentialRepository
 import com.unictoai.unictoos.data.CredentialStore
 import com.unictoai.unictoos.data.SceneRepository
@@ -12,6 +14,8 @@ import com.unictoai.unictoos.data.StreamQualityRepository
 import com.unictoai.unictoos.data.StreamQualityStore
 import com.unictoai.unictoos.data.ThermalProtectionRepository
 import com.unictoai.unictoos.data.ThermalProtectionStore
+import com.unictoai.unictoos.data.MultistreamSelectionRepository
+import com.unictoai.unictoos.data.MultistreamSelectionStore
 import com.unictoai.unictoos.data.AudioSettingsRepository
 import com.unictoai.unictoos.data.AudioSettingsStore
 import com.unictoai.unictoos.data.AutoStopRepository
@@ -48,6 +52,7 @@ import kotlinx.coroutines.launch
 import com.unictoai.unictoos.streaming.PreflightResult
 import com.unictoai.unictoos.streaming.StreamPreflight
 import com.unictoai.unictoos.streaming.StreamingStatusBus
+import com.unictoai.unictoos.streaming.StreamEndpointPolicy
 
 private object UnavailableCredentialRepository : CredentialRepository {
     override fun save(platform: PlatformPreset, serverUrl: String, streamKey: String) = Unit
@@ -70,15 +75,28 @@ private fun safeAutoStop(repository: AutoStopRepository): AutoStopDuration =
 private fun safeLatencyMode(repository: LatencyModeRepository): LatencyMode =
     runCatching { repository.load() }.getOrDefault(LatencyMode.STABLE)
 
+private object UnavailableMultistreamSelectionRepository : MultistreamSelectionRepository {
+    override fun load(): Set<PlatformPreset> = setOf(PlatformPreset.YOUTUBE)
+    override fun save(platforms: Set<PlatformPreset>) = Unit
+}
+
+private fun safeMultistreamSelectionRepository(application: Application): MultistreamSelectionRepository =
+    runCatching { MultistreamSelectionStore(application.applicationContext) }.getOrElse { UnavailableMultistreamSelectionRepository }
+
+private fun safeMultistreamPlatforms(repository: MultistreamSelectionRepository): Set<PlatformPreset> =
+    runCatching { repository.load() }.getOrDefault(setOf(PlatformPreset.YOUTUBE))
+
 data class DestinationConfig(
     val platform: PlatformPreset = PlatformPreset.YOUTUBE,
     val serverUrl: String = "",
     val streamKey: String = "",
 ) {
     val isConfigured: Boolean
-        get() = serverUrl.isNotBlank() && streamKey.isNotBlank() &&
-            (serverUrl.trim().startsWith("rtmp://", ignoreCase = true) || serverUrl.trim().startsWith("rtmps://", ignoreCase = true))
-    val endpoint: String get() = if (isConfigured) serverUrl.trimEnd('/') + "/" + streamKey else ""
+        get() = serverUrl.isNotBlank() && StreamEndpointPolicy.isSupported(serverUrl) &&
+            (serverUrl.trim().startsWith("srt://", ignoreCase = true) || streamKey.isNotBlank())
+    val endpoint: String get() = if (isConfigured) {
+        if (serverUrl.trim().startsWith("srt://", ignoreCase = true)) serverUrl.trim() else serverUrl.trimEnd('/') + "/" + streamKey.trim()
+    } else ""
 }
 
 class StudioViewModel @JvmOverloads constructor(
@@ -91,6 +109,7 @@ class StudioViewModel @JvmOverloads constructor(
     private val audioSettingsStore: AudioSettingsRepository = AudioSettingsStore(application.applicationContext),
     private val autoStopStore: AutoStopRepository = AutoStopStore(application.applicationContext),
     private val latencyModeStore: LatencyModeRepository = LatencyModeStore(application.applicationContext),
+    private val multistreamSelectionStore: MultistreamSelectionRepository = safeMultistreamSelectionRepository(application),
 ) : AndroidViewModel(application) {
     private val _scenes = MutableStateFlow(
         listOf(
@@ -160,6 +179,9 @@ class StudioViewModel @JvmOverloads constructor(
     private val _activePlatform = MutableStateFlow(PlatformPreset.YOUTUBE)
     val activePlatform: StateFlow<PlatformPreset> = _activePlatform.asStateFlow()
 
+    private val _multistreamPlatforms = MutableStateFlow(safeMultistreamPlatforms(multistreamSelectionStore).take(2).toSet())
+    val multistreamPlatforms: StateFlow<Set<PlatformPreset>> = _multistreamPlatforms.asStateFlow()
+
     init {
         _scenes.value = runCatching { sceneStore.loadOrDefault(_scenes.value) }.getOrDefault(_scenes.value)
         hydrateSavedDestinations()
@@ -171,6 +193,17 @@ class StudioViewModel @JvmOverloads constructor(
     }
 
     fun exportConfigJson(): String = ConfigExporter.export(_scenes.value, _destinations.value)
+
+    fun importConfigJson(raw: String): ConfigImportResult {
+        return when (val result = ConfigImporter.importScenes(raw)) {
+            is ConfigImportResult.Success -> {
+                _scenes.value = result.scenes
+                sceneStore.save(result.scenes)
+                result
+            }
+            is ConfigImportResult.Rejected -> result
+        }
+    }
 
     fun setAdsEnabled(enabled: Boolean) {
         adsPreferences.setEnabled(enabled)
@@ -229,6 +262,26 @@ class StudioViewModel @JvmOverloads constructor(
         streamQualityStore.save(quality)
     }
 
+    fun setMultistreamPlatformEnabled(platform: PlatformPreset, enabled: Boolean): Boolean {
+        val current = _multistreamPlatforms.value
+        val updated = if (enabled) {
+            if (platform in current) current else if (current.size >= 2) return false else current + platform
+        } else {
+            current - platform
+        }
+        val safe = updated.ifEmpty { setOf(platform) }
+        _multistreamPlatforms.value = safe
+        multistreamSelectionStore.save(safe)
+        return true
+    }
+
+    fun broadcastEndpoints(primary: DestinationConfig): List<String> {
+        val selected = _destinations.value
+            .filter { it.platform in _multistreamPlatforms.value && it.isConfigured }
+            .map { if (it.serverUrl.trim().startsWith("srt://", ignoreCase = true)) it.serverUrl.trim() else it.serverUrl.trimEnd('/') + "/" + it.streamKey }
+        return (listOf(primary.endpoint) + selected).filter { it.isNotBlank() }.distinct().take(2)
+    }
+
     fun selectDestination(platform: PlatformPreset) {
         _activePlatform.value = platform
         val saved = loadCredentials(platform)
@@ -277,8 +330,8 @@ class StudioViewModel @JvmOverloads constructor(
         runCatching { credentialStore.load(platform) }.getOrDefault("" to "")
 
     private fun isUsableDestination(serverUrl: String, streamKey: String): Boolean =
-        serverUrl.isNotBlank() && streamKey.isNotBlank() &&
-            StreamPreflight.validateEndpoint(serverUrl, practice = false) is PreflightResult.Ready
+        DestinationConfig(platform = PlatformPreset.CUSTOM, serverUrl = serverUrl, streamKey = streamKey).isConfigured &&
+            StreamPreflight.validateEndpoint(DestinationConfig(platform = PlatformPreset.CUSTOM, serverUrl = serverUrl, streamKey = streamKey).endpoint, practice = false) is PreflightResult.Ready
 
     private fun hydrateSavedDestinations() {
         _destinations.value = _destinations.value.map { destination ->
@@ -318,6 +371,41 @@ class StudioViewModel @JvmOverloads constructor(
                 sources = listOf(Source("color-${current.size + 1}", "Background", SourceType.COLOR)),
             )).also(sceneStore::save)
         }
+    }
+
+    fun addSceneTemplate(templateId: String) {
+        val suffix = System.currentTimeMillis().toString()
+        val template = when (templateId) {
+            "portrait-camera" -> Scene(
+                id = "template-portrait-$suffix",
+                name = "Portrait Live",
+                aspectRatio = AspectRatio.PORTRAIT,
+                sources = listOf(
+                    Source("camera-$suffix", "Camera", SourceType.CAMERA),
+                    Source("text-$suffix", "Live title", SourceType.TEXT, textContent = "Live now"),
+                ),
+            )
+            "gameplay" -> Scene(
+                id = "template-gameplay-$suffix",
+                name = "Gameplay + Camera",
+                aspectRatio = AspectRatio.LANDSCAPE,
+                sources = listOf(
+                    Source("screen-$suffix", "Gameplay", SourceType.SCREEN),
+                    Source("camera-$suffix", "Face cam", SourceType.CAMERA, x = 0.70f, y = 0.06f, width = 0.25f, height = 0.25f),
+                    Source("text-$suffix", "Stream title", SourceType.TEXT, textContent = "Gameplay"),
+                ),
+            )
+            else -> Scene(
+                id = "template-talk-$suffix",
+                name = "Talk Show",
+                aspectRatio = AspectRatio.LANDSCAPE,
+                sources = listOf(
+                    Source("camera-$suffix", "Camera", SourceType.CAMERA),
+                    Source("text-$suffix", "Lower third", SourceType.TEXT, textContent = "Unictoos live", y = 0.78f, height = 0.14f),
+                ),
+            )
+        }
+        _scenes.update { (it + template).also(sceneStore::save) }
     }
 
     fun toggleSource(sceneId: String, sourceId: String) {

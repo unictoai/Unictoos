@@ -2,6 +2,7 @@ package com.unictoai.unictoos.streaming
 
 import android.Manifest
 import android.app.Notification
+import android.app.PendingIntent
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
@@ -35,6 +36,7 @@ import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.encoder.input.sources.video.ScreenSource
 import com.unictoai.unictoos.R
+import com.unictoai.unictoos.ui.MainActivity
 import com.unictoai.unictoos.data.CreatorHistoryStore
 import com.unictoai.unictoos.data.StreamQualityStore
 import com.unictoai.unictoos.data.ThermalProtectionStore
@@ -90,6 +92,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var networkCallbackRegistered = false
     private var manualStop = false
     private var currentEndpoint: String = ""
+    private var currentEndpoints: List<String> = emptyList()
     private var reconnectAttempt = 0
     private var startedAtElapsed = 0L
     private var adaptiveTargetBitrate = 0
@@ -434,11 +437,12 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 intent.getLongExtra(EXTRA_PREVIEW_TOKEN, 0L),
             )
             ACTION_DETACH_PREVIEW -> detachPreview(intent.getLongExtra(EXTRA_PREVIEW_TOKEN, 0L))
-            ACTION_START -> queueStart(PendingStart(intent.getStringExtra(EXTRA_ENDPOINT).orEmpty(), intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty(), practice = false))
-            ACTION_START_PRACTICE -> queueStart(PendingStart(endpoint = "", sceneJson = intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty(), practice = true))
+            ACTION_START -> queueStart(PendingStart(decodeEndpoints(intent.getStringExtra(EXTRA_ENDPOINT).orEmpty()), intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty(), practice = false))
+            ACTION_START_PRACTICE -> queueStart(PendingStart(endpoints = emptyList(), sceneJson = intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty(), practice = true))
             ACTION_CREATE_MARKER -> createMarker(intent.getStringExtra(EXTRA_MARKER_LABEL).orEmpty())
             ACTION_STOP -> stopStreaming()
             ACTION_TOGGLE_MUTE -> toggleMute()
+            ACTION_SWITCH_CAMERA -> switchCamera()
             ACTION_START_RECORDING -> startRecording()
             ACTION_STOP_RECORDING -> stopRecording()
             ACTION_DISMISS_STATUS -> dismissStatusMessage()
@@ -531,6 +535,25 @@ class StreamingForegroundService : Service(), ConnectChecker {
             cameraSource = null
             captureReady = false
             publish(StreamStatus.ERROR, "Camera could not start: ${it.message.orEmpty()}")
+        }
+    }
+
+    private fun switchCamera() {
+        postSerialized {
+            val source = cameraSource
+            if (source == null || !captureReady) {
+                publish(StreamStatus.ERROR, "Camera switching is available while camera capture is prepared")
+                return@postSerialized
+            }
+            runCatching {
+                source.switchCamera()
+            }.onSuccess {
+                StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "camera_switched")
+                publish(StreamingStatusBus.state.value.status, "Camera switched")
+            }.onFailure {
+                StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "camera_switch_failed", it.message.orEmpty())
+                publish(StreamStatus.ERROR, "Camera could not switch: ${it.message.orEmpty()}")
+            }
         }
     }
 
@@ -665,6 +688,13 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
     }
 
+    private fun decodeEndpoints(encoded: String): List<String> = encoded
+        .split(ENDPOINT_SEPARATOR)
+        .map(String::trim)
+        .filter(String::isNotBlank)
+        .distinct()
+        .take(MAX_DIRECT_DESTINATIONS)
+
     private fun tryStartPending() {
         val request = pendingStart ?: return
         val previewRequired = !isolateLivePreviewForDevice
@@ -679,7 +709,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
         pendingStart = null
         handler.removeCallbacks(captureTimeout)
-        if (request.practice) startPractice(request.sceneJson) else startStream(request.endpoint, request.sceneJson)
+        if (request.practice) startPractice(request.sceneJson) else startStream(request.endpoints, request.sceneJson)
     }
 
     private fun readPreviewSurface(intent: Intent): Surface? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -689,7 +719,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         intent.getParcelableExtra(EXTRA_PREVIEW_SURFACE)
     }
 
-    private data class PendingStart(val endpoint: String, val sceneJson: String, val practice: Boolean)
+    private data class PendingStart(val endpoints: List<String>, val sceneJson: String, val practice: Boolean)
     private data class SceneRenderReport(val textOverlays: Int, val unsupportedLayers: Int)
 
     private fun applySceneOverlays(sceneJson: String): SceneRenderReport {
@@ -719,6 +749,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         if (!runEnvironmentPreflight(practice = true)) return
         manualStop = false
         currentEndpoint = ""
+        currentEndpoints = emptyList()
         reconnectAttempt = 0
         autoStopSeconds = AutoStopStore(applicationContext).load().seconds
         currentSessionId = "session-${System.currentTimeMillis()}"
@@ -732,7 +763,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         publish(StreamStatus.LIVE, sceneMessage)
     }
 
-    private fun startStream(endpoint: String, sceneJson: String) {
+    private fun startStream(endpoints: List<String>, sceneJson: String) {
         StreamingStatusBus.clearHealth()
         val previous = StreamingStatusBus.state.value
         StreamingStatusBus.update(previous.copy(mode = SessionMode.BROADCAST, bitrateKbps = 0, fps = 0, droppedFrames = -1, audioLevel = -1))
@@ -740,19 +771,24 @@ class StreamingForegroundService : Service(), ConnectChecker {
             publish(StreamStatus.ERROR, "Capture is not ready. Approve capture and wait for the capture pipeline")
             return
         }
-        if (!runEndpointPreflight(endpoint)) return
+        if (endpoints.isEmpty()) {
+            publish(StreamStatus.ERROR, "Configure at least one streaming destination before going live")
+            return
+        }
+        if (!endpoints.all(::runEndpointPreflight)) return
         if (!runEnvironmentPreflight(practice = false)) return
         if (genericStream.isStreaming) return
         manualStop = false
         autoStopSeconds = AutoStopStore(applicationContext).load().seconds
         currentSessionId = "session-${System.currentTimeMillis()}"
         sessionHealthSamples.clear()
-        currentEndpoint = endpoint
+        currentEndpoints = endpoints
+        currentEndpoint = endpoints.firstOrNull().orEmpty()
         val report = applySceneOverlays(sceneJson)
         val sceneMessage = if (report.unsupportedLayers > 0) "Connecting to your destination • ${report.textOverlays} text overlay(s) rendered; some scene layers are not yet composited" else "Connecting to your destination • ${report.textOverlays} text overlay(s) rendered"
         publish(StreamStatus.CONNECTING, sceneMessage)
         runCatching {
-            genericStream.startStream(endpoint)
+            genericStream.startStream(endpoints)
             scheduleConnectionWatchdog(sessionGeneration.get())
         }.onFailure {
             cancelConnectionWatchdog()
@@ -812,6 +848,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         bitrateHistory.clear()
         reconnectAttempt = 0
         currentEndpoint = ""
+        currentEndpoints = emptyList()
         autoStopSeconds = 0L
         currentSessionId = ""
         sessionHealthSamples.clear()
@@ -872,6 +909,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         previewHeight = 0
         activeRecordingFile = null
         currentEndpoint = ""
+        currentEndpoints = emptyList()
         startedAtElapsed = 0L
         highThermalSinceElapsed = 0L
         thermalCapApplied = false
@@ -1082,7 +1120,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             if (!isCurrentGeneration(generation) || manualStop || currentEndpoint.isBlank()) return@Runnable
             publish(StreamStatus.CONNECTING, "Reconnecting securely")
             runCatching {
-                genericStream.startStream(currentEndpoint)
+                genericStream.startStream(currentEndpoints.ifEmpty { listOf(currentEndpoint) })
                 scheduleConnectionWatchdog(generation)
             }.onFailure {
                 cancelConnectionWatchdog()
@@ -1223,15 +1261,36 @@ class StreamingForegroundService : Service(), ConnectChecker {
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification(text))
     }
 
-    private fun buildNotification(text: String = "Broadcast controls are active"): Notification =
-        NotificationCompat.Builder(this, CHANNEL_ID)
+    private fun buildNotification(text: String = "Broadcast controls are active"): Notification {
+        val state = StreamingStatusBus.state.value
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        val openIntent = PendingIntent.getActivity(
+            this,
+            REQUEST_OPEN,
+            Intent(this, MainActivity::class.java),
+            flags,
+        )
+        fun serviceAction(requestCode: Int, action: String): PendingIntent = PendingIntent.getService(
+            this,
+            requestCode,
+            Intent(this, StreamingForegroundService::class.java).setAction(action),
+            flags,
+        )
+
+        return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_unictoos)
             .setContentTitle("Unictoos Studio")
             .setContentText(text)
+            .setContentIntent(openIntent)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addAction(R.drawable.ic_unictoos, if (state.microphoneMuted) "Unmute" else "Mute", serviceAction(REQUEST_MUTE, ACTION_TOGGLE_MUTE))
+            .addAction(R.drawable.ic_unictoos, if (state.recording) "Stop record" else "Record", serviceAction(REQUEST_RECORD, if (state.recording) ACTION_STOP_RECORDING else ACTION_START_RECORDING))
+            .addAction(R.drawable.ic_unictoos, "Stop", serviceAction(REQUEST_STOP, ACTION_STOP))
             .build()
+    }
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(CHANNEL_ID, "Broadcasting", NotificationManager.IMPORTANCE_LOW).apply {
@@ -1393,6 +1452,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         reconnectRunnable?.let(handler::removeCallbacks)
         reconnectRunnable = null
         currentEndpoint = ""
+        currentEndpoints = emptyList()
         runCatching { if (::genericStream.isInitialized && genericStream.isStreaming) genericStream.stopStream() }
         releasePreviewForCaptureChange()
         resetTelemetryForInactiveSession()
@@ -1443,6 +1503,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         const val ACTION_CREATE_MARKER = "com.unictoai.unictoos.action.CREATE_MARKER"
         const val ACTION_STOP = "com.unictoai.unictoos.action.STOP_STREAMING"
         const val ACTION_TOGGLE_MUTE = "com.unictoai.unictoos.action.TOGGLE_MUTE"
+        const val ACTION_SWITCH_CAMERA = "com.unictoai.unictoos.action.SWITCH_CAMERA"
         const val ACTION_START_RECORDING = "com.unictoai.unictoos.action.START_RECORDING"
         const val ACTION_STOP_RECORDING = "com.unictoai.unictoos.action.STOP_RECORDING"
         const val ACTION_DISMISS_STATUS = "com.unictoai.unictoos.action.DISMISS_STATUS"
@@ -1458,8 +1519,14 @@ class StreamingForegroundService : Service(), ConnectChecker {
         const val EXTRA_PREVIEW_TOKEN = "preview_token"
         const val EXTRA_PIPELINE_GENERATION = "pipeline_generation"
         const val EXTRA_MARKER_LABEL = "extra_marker_label"
+        private const val ENDPOINT_SEPARATOR = "\u001F"
+        private const val MAX_DIRECT_DESTINATIONS = 2
         private const val CHANNEL_ID = "unictoos-broadcasting"
         private const val NOTIFICATION_ID = 4101
+        private const val REQUEST_OPEN = 4102
+        private const val REQUEST_MUTE = 4103
+        private const val REQUEST_RECORD = 4104
+        private const val REQUEST_STOP = 4105
         private const val MAX_RECONNECT_ATTEMPTS = 3
         private const val CAPTURE_TIMEOUT_MS = 30_000L
         private const val RECONNECT_JITTER_MAX_MS = 500L

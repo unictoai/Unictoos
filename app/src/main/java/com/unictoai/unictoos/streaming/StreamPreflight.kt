@@ -18,8 +18,8 @@ object StreamPreflight {
         if (practice) return PreflightResult.Ready
         val value = endpoint.trim()
         if (value.isBlank()) return PreflightResult.Blocked("Configure a streaming destination first")
-        if (!value.startsWith("rtmp://", ignoreCase = true) && !value.startsWith("rtmps://", ignoreCase = true)) {
-            return PreflightResult.Blocked("The destination must use an RTMP or RTMPS server URL")
+        if (!StreamEndpointPolicy.isSupported(value)) {
+            return PreflightResult.Blocked(StreamEndpointPolicy.validationMessage(value))
         }
         return PreflightResult.Ready
     }

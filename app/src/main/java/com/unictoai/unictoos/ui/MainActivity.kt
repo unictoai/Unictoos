@@ -77,6 +77,7 @@ class MainActivity : ComponentActivity() {
                     onStopStream = ::stopStream,
                     onReleaseCapture = ::releaseCapture,
                     onToggleMute = ::toggleMute,
+                    onSwitchCamera = ::switchCamera,
                     onToggleRecording = ::toggleRecording,
                     onCreateMarker = ::createMarker,
                     onDismissStatusMessage = ::dismissStatusMessage,
@@ -187,6 +188,12 @@ class MainActivity : ComponentActivity() {
     internal fun toggleMute() {
         startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_TOGGLE_MUTE
+        })
+    }
+
+    internal fun switchCamera() {
+        startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
+            action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_SWITCH_CAMERA
         })
     }
 

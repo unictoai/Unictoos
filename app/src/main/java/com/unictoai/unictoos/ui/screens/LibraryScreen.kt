@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -120,6 +121,7 @@ import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.data.CreatorHistoryStore
 import com.unictoai.unictoos.domain.StreamDestination
+import com.unictoai.unictoos.domain.SessionSummary
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
@@ -138,6 +140,7 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
     val recordingsDirectory = java.io.File(context.filesDir, "recordings")
     var recordings by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var sessionSummaries by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    var latestSession by remember { mutableStateOf<SessionSummary?>(null) }
     var markerCount by rememberSaveable { mutableIntStateOf(0) }
     var healthSamples by remember { mutableStateOf(emptyList<StreamHealthSample>()) }
     var timeline by remember { mutableStateOf(emptyList<StreamingDiagnostic>()) }
@@ -186,6 +189,7 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
         refresh()
         val history = CreatorHistoryStore(context)
         val sessions = history.loadSessions()
+        latestSession = sessions.maxByOrNull { it.finishedAtMillis }
         sessionSummaries = sessions.map { summary -> "${summary.mode.name.lowercase().replaceFirstChar { it.uppercase() }} • ${summary.elapsedSeconds / 60} min • ${summary.bitrateKbps} kbps" }
         markerCount = history.loadMarkers().size
         healthSamples = history.loadHealthSamples()
@@ -208,6 +212,23 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
                     ReadinessRow("Completed sessions", sessionSummaries.size.toString(), sessionSummaries.isNotEmpty())
                     ReadinessRow("Marked moments", markerCount.toString(), markerCount > 0)
                     ReadinessRow("Latest session", sessionSummaries.lastOrNull() ?: "No completed sessions", sessionSummaries.isNotEmpty())
+                }
+            }
+        }
+        latestSession?.let { summary ->
+            item {
+                SectionHeader("Last session recap", "A private summary retained on this device")
+                Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(18.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                        Text(if (summary.mode.name == "PRACTICE") "Practice session" else "Broadcast session", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Finished ${java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(summary.finishedAtMillis))}", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                            RecapMetric("Duration", formatDuration(summary.elapsedSeconds))
+                            RecapMetric("Bitrate", "${summary.bitrateKbps} kbps")
+                            RecapMetric("FPS", summary.fps.toString())
+                        }
+                        Text(if (summary.droppedFrames >= 0) "Dropped frames: ${summary.droppedFrames}" else "Dropped-frame count was not reported by the encoder", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
@@ -324,5 +345,15 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
             },
             dismissButton = { TextButton(onClick = { renameTarget = null }) { Text("Cancel") } },
         )
+    }
+}
+
+private fun formatDuration(seconds: Long): String = "%02d:%02d".format(seconds / 60, seconds % 60)
+
+@Composable
+private fun RowScope.RecapMetric(label: String, value: String) {
+    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
+        Text(value, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

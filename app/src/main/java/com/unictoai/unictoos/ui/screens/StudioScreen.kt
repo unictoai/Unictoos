@@ -24,12 +24,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.GraphicEq
@@ -110,6 +112,7 @@ internal fun StudioScreen(
     onPractice: () -> Unit,
     onStop: () -> Unit,
     onToggleMute: () -> Unit,
+    onSwitchCamera: () -> Unit,
     onToggleRecording: () -> Unit,
     onCreateMarker: () -> Unit,
     onDismissStatusMessage: () -> Unit,
@@ -188,6 +191,9 @@ internal fun StudioScreen(
                 encoderHeight = streamQuality.height,
             )
         }
+        if (isActive || session.status == StreamStatus.LIVE) {
+            item { LiveTelemetryCard(session = session, latestHealth = healthHistory.lastOrNull()) }
+        }
         item { GoLiveReadinessCard(readiness) }
         if (session.status == StreamStatus.ERROR) {
             item { SessionErrorCard(session.message.orEmpty(), onReleaseCapture) }
@@ -221,7 +227,9 @@ internal fun StudioScreen(
             QuickControls(
                 session = session,
                 enabled = isActive || session.status == StreamStatus.LIVE,
+                cameraAvailable = scene.sources.any { it.enabled && it.type == SourceType.CAMERA },
                 onToggleMute = onToggleMute,
+                onSwitchCamera = onSwitchCamera,
                 onToggleRecording = onToggleRecording,
                 onCreateMarker = onCreateMarker,
             )
@@ -277,6 +285,21 @@ private fun PreviewCard(
                             LinearProgressIndicator(Modifier.fillMaxWidth(0.72f), color = V02Palette.AccentBlue, trackColor = V02Palette.Neutral700)
                         }
                     }
+                }
+            }
+            if (session.status == StreamStatus.LIVE && (session.bitrateKbps > 0 || session.fps > 0)) {
+                Surface(
+                    Modifier.align(Alignment.TopEnd).padding(14.dp),
+                    color = Color.Black.copy(alpha = 0.62f),
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(50),
+                ) {
+                    Text(
+                        "${if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—"} • ${if (session.fps > 0) "${session.fps} fps" else "—"}",
+                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
                 }
             }
             Surface(
@@ -361,7 +384,9 @@ private fun BroadcastActionCard(
 private fun QuickControls(
     session: StreamSessionState,
     enabled: Boolean,
+    cameraAvailable: Boolean,
     onToggleMute: () -> Unit,
+    onSwitchCamera: () -> Unit,
     onToggleRecording: () -> Unit,
     onCreateMarker: () -> Unit,
 ) {
@@ -372,6 +397,13 @@ private fun QuickControls(
             label = if (session.microphoneMuted) "Unmute" else "Mute",
             enabled = enabled,
             onClick = onToggleMute,
+        )
+        CompactControl(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Default.Cameraswitch,
+            label = "Flip camera",
+            enabled = enabled && cameraAvailable,
+            onClick = onSwitchCamera,
         )
         CompactControl(
             modifier = Modifier.weight(1f),
@@ -387,6 +419,38 @@ private fun QuickControls(
             enabled = session.status == StreamStatus.LIVE,
             onClick = onCreateMarker,
         )
+    }
+}
+
+@Composable
+private fun LiveTelemetryCard(session: StreamSessionState, latestHealth: StreamHealthSample?) {
+    val transport = latestHealth?.networkLabel?.takeIf { it.isNotBlank() } ?: "Detecting"
+    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Live signal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Measured by the active encoder", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                }
+                Icon(Icons.Default.Wifi, contentDescription = null, tint = if (transport == "Offline") V02Palette.Caution else V02Palette.AccentBlue)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                TelemetryMetric("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—")
+                TelemetryMetric("FPS", if (session.fps > 0) session.fps.toString() else "—")
+                TelemetryMetric("Transport", transport)
+            }
+            if (session.droppedFrames >= 0) {
+                Text("Dropped frames: ${session.droppedFrames}", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.TelemetryMetric(label: String, value: String) {
+    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

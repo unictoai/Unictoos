@@ -21,8 +21,9 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * It preserves the service's existing lifecycle vocabulary while replacing the
  * GenericStream transport owner with RootEncoder MultiStream at slot zero. This
- * deliberately enables only one RTMP destination; independent destination
- * sessions are a later step after the Infinix X6853 pipeline is stable.
+ * keeps the same capture and encoded-media pipeline while allowing a bounded
+ * two-endpoint RTMP/RTMPS/SRT fan-out. The service remains responsible for
+ * endpoint validation and aggregate lifecycle policy.
  */
 class SingleDestinationMultiStreamAdapter(
     context: Context,
@@ -31,9 +32,9 @@ class SingleDestinationMultiStreamAdapter(
     private val closed = AtomicBoolean(false)
     private val multiStream = MultiStream(
         context,
-        arrayOf(connectChecker),
+        Array(MAX_DESTINATIONS) { connectChecker },
         emptyArray(),
-        emptyArray(),
+        Array(MAX_DESTINATIONS) { connectChecker },
         emptyArray(),
         NoVideoSource(),
         NoAudioSource(),
@@ -99,15 +100,24 @@ class SingleDestinationMultiStreamAdapter(
         multiStream.stopPreview()
     }
 
-    fun startStream(endpoint: String) {
+    fun startStream(endpoint: String) = startStream(listOf(endpoint))
+
+    fun startStream(endpoints: List<String>) {
         checkOpen()
-        require(endpoint.isNotBlank()) { "Endpoint cannot be blank" }
-        multiStream.startStream(MultiType.RTMP, RTMP_SLOT, endpoint)
+        require(endpoints.isNotEmpty()) { "At least one endpoint is required" }
+        require(endpoints.size <= MAX_DESTINATIONS) { "At most $MAX_DESTINATIONS endpoints are supported" }
+        endpoints.forEachIndexed { index, endpoint ->
+            require(endpoint.isNotBlank()) { "Endpoint cannot be blank" }
+            multiStream.startStream(transportFor(endpoint), index, endpoint)
+        }
     }
 
     fun stopStream() {
         if (closed.get()) return
-        multiStream.stopStream(MultiType.RTMP, RTMP_SLOT)
+        repeat(MAX_DESTINATIONS) { index ->
+            runCatching { multiStream.stopStream(MultiType.RTMP, index) }
+            runCatching { multiStream.stopStream(MultiType.SRT, index) }
+        }
     }
 
     fun startRecord(path: String, listener: RecordController.Listener) {
@@ -131,7 +141,10 @@ class SingleDestinationMultiStreamAdapter(
         fun attempt(block: () -> Unit) {
             runCatching(block).onFailure { if (firstFailure == null) firstFailure = it }
         }
-        attempt { multiStream.stopStream(MultiType.RTMP, RTMP_SLOT) }
+        repeat(MAX_DESTINATIONS) { index ->
+            attempt { multiStream.stopStream(MultiType.RTMP, index) }
+            attempt { multiStream.stopStream(MultiType.SRT, index) }
+        }
         attempt { multiStream.stopPreview() }
         attempt { multiStream.getGlInterface().stop() }
         attempt { multiStream.release() }
@@ -148,7 +161,14 @@ class SingleDestinationMultiStreamAdapter(
         check(!closed.get()) { "MultiStream adapter is closed" }
     }
 
+    private fun transportFor(endpoint: String): MultiType = when {
+        endpoint.startsWith("srt://", ignoreCase = true) -> MultiType.SRT
+        endpoint.startsWith("rtmp://", ignoreCase = true) || endpoint.startsWith("rtmps://", ignoreCase = true) -> MultiType.RTMP
+        else -> error("Unsupported endpoint scheme")
+    }
+
     private companion object {
         const val RTMP_SLOT = 0
+        const val MAX_DESTINATIONS = 2
     }
 }

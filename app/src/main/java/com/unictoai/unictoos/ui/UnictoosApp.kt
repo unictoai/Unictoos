@@ -66,6 +66,7 @@ import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.domain.StreamStatus
 import com.unictoai.unictoos.DestinationConfig
+import com.unictoai.unictoos.data.ConfigImportResult
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.AutoStopDuration
 import com.unictoai.unictoos.domain.StreamDestination
@@ -115,6 +116,7 @@ internal fun UnictoosApp(
     onStopStream: () -> Unit,
     onReleaseCapture: () -> Unit,
     onToggleMute: () -> Unit,
+    onSwitchCamera: () -> Unit,
     onToggleRecording: (Boolean) -> Unit,
     onCreateMarker: () -> Unit,
     onDismissStatusMessage: () -> Unit,
@@ -193,6 +195,7 @@ internal fun UnictoosApp(
                     selectedScene = selectedScene,
                     onSelect = { selectedSceneId = it },
                     onAdd = { showAddScene = true },
+                    onAddTemplate = vm::addSceneTemplate,
                     onToggleSource = vm::toggleSource,
                     onAddSource = vm::addSource,
                     onMoveSource = vm::moveSource,
@@ -210,6 +213,7 @@ internal fun UnictoosApp(
                     onStopStream = onStopStream,
                     onReleaseCapture = onReleaseCapture,
                     onToggleMute = onToggleMute,
+                    onSwitchCamera = onSwitchCamera,
                     onToggleRecording = onToggleRecording,
                     onCreateMarker = onCreateMarker,
                     onDismissStatusMessage = onDismissStatusMessage,
@@ -283,6 +287,7 @@ private fun StudioRoute(
     onStopStream: () -> Unit,
     onReleaseCapture: () -> Unit,
     onToggleMute: () -> Unit,
+    onSwitchCamera: () -> Unit,
     onToggleRecording: (Boolean) -> Unit,
     onCreateMarker: () -> Unit,
     onDismissStatusMessage: () -> Unit,
@@ -314,10 +319,11 @@ private fun StudioRoute(
         autoStopDuration = autoStopDuration,
         onAutoStopDurationChange = vm::setAutoStopDuration,
         onAspectRatioChange = onAspectRatioChange,
-        onStart = { onRequestStreamStart(destination.endpoint, captureMode, com.unictoai.unictoos.streaming.ScenePayloadCodec.encode(scene)) },
+        onStart = { onRequestStreamStart(vm.broadcastEndpoints(destination).joinToString(ENDPOINT_SEPARATOR), captureMode, com.unictoai.unictoos.streaming.ScenePayloadCodec.encode(scene)) },
         onPractice = { onRequestPracticeStart(captureMode, com.unictoai.unictoos.streaming.ScenePayloadCodec.encode(scene)) },
         onStop = onStopStream,
         onToggleMute = onToggleMute,
+        onSwitchCamera = onSwitchCamera,
         onToggleRecording = { onToggleRecording(session.recording) },
         onCreateMarker = onCreateMarker,
         onDismissStatusMessage = onDismissStatusMessage,
@@ -338,6 +344,7 @@ private fun SettingsRoute(
 ) {
     val destination by vm.destination.collectAsStateWithLifecycle()
     val destinations by vm.destinations.collectAsStateWithLifecycle()
+    val multistreamPlatforms by vm.multistreamPlatforms.collectAsStateWithLifecycle()
     val session by vm.session.collectAsStateWithLifecycle()
     val adsPolicy by vm.adsPolicy.collectAsStateWithLifecycle()
     val streamQuality by vm.streamQuality.collectAsStateWithLifecycle()
@@ -348,6 +355,8 @@ private fun SettingsRoute(
         destination = destination,
         sessionStatus = session.status,
         onSelectPlatform = vm::selectDestination,
+        multistreamPlatforms = multistreamPlatforms,
+        onMultistreamPlatformChange = vm::setMultistreamPlatformEnabled,
         onSaveDestination = vm::updateDestination,
         onClearDestination = vm::clearDestination,
         adsEnabled = adsPolicy.enabled,
@@ -364,6 +373,12 @@ private fun SettingsRoute(
         latencyMode = latencyMode,
         onLatencyModeChange = vm::setLatencyMode,
         onExportConfig = { onShareConfig(vm.exportConfigJson()) },
+        onImportConfig = { raw ->
+            when (val result = vm.importConfigJson(raw)) {
+                is ConfigImportResult.Success -> android.widget.Toast.makeText(context, "Imported ${result.scenes.size} scene(s); destinations were unchanged", android.widget.Toast.LENGTH_LONG).show()
+                is ConfigImportResult.Rejected -> android.widget.Toast.makeText(context, result.reason, android.widget.Toast.LENGTH_LONG).show()
+            }
+        },
         onExportDiagnostics = {
             val report = DeviceCompatibilityReportFactory.current(context, streamQuality)
             onShareDiagnostics(
@@ -380,6 +395,7 @@ private fun SettingsRoute(
     )
 }
 
+private const val ENDPOINT_SEPARATOR = "\u001F"
 private const val ONBOARDING_PREFERENCES = "unictoos_onboarding"
 private const val ONBOARDING_COMPLETE = "complete"
 

@@ -56,7 +56,7 @@ enum class PlatformPreset(val label: String, val helper: String, val serverHint:
     YOUTUBE("YouTube", "Paste your YouTube stream key", "rtmps://a.rtmp.youtube.com/live2"),
     TWITCH("Twitch", "Paste your Twitch stream key", "rtmps://live.twitch.tv/app"),
     KICK("Kick", "Paste your Kick stream key", "Copy the current ingest URL from Kick dashboard"),
-    CUSTOM("Custom RTMP", "Use any RTMP or RTMPS destination", "rtmp(s)://your-ingest-server/app"),
+    CUSTOM("Custom transport", "Use RTMP, RTMPS, or a full SRT listener URL", "rtmp(s)://your-ingest-server/app or srt://host:port?streamid=..."),
 }
 
 enum class StreamStatus {

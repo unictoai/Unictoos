@@ -9,7 +9,7 @@ class StreamPreflightTest {
     @Test
     fun rejectsInvalidEndpointBeforeNetworkStart() {
         val result = StreamPreflight.validateEndpoint("https://example.com", practice = false)
-        assertEquals(PreflightResult.Blocked("The destination must use an RTMP or RTMPS server URL"), result)
+        assertEquals(PreflightResult.Blocked("The destination must use an RTMP, RTMPS, or SRT server URL"), result)
     }
 
     @Test
