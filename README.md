@@ -12,7 +12,7 @@ The current build remains an **alpha engineering milestone**. It compiles and pa
 
 ## Latest test build
 
-The latest supportability build is **Unictoos v0.4.9** with Android `versionCode 50`. It adds an atomic camera/screen-capture-to-start handoff, staged startup diagnostics, visible capture-preparation failures, RootEncoder-owned microphone lifecycle, and a reduced navigation surface centered on broadcasting. True screen-plus-camera PiP, multi-track media export, live DSP processing, and provider OAuth remain explicitly gated until separately verified implementations and physical-device validation are available. Review `RELEASE_NOTES_v0.4.9.md` for the current evidence boundary.
+The latest supportability build is **Unictoos v0.4.11** with Android `versionCode 52`. It retains the atomic camera/screen-capture-to-start handoff and staged startup diagnostics, and replaces the four large onboarding PNGs with WebP assets. The unsigned release APK is approximately **8.5 MB**, down from approximately 21.3 MB in v0.4.10, while the live-streaming code path is unchanged. True screen-plus-camera PiP, multi-track media export, live DSP processing, and provider OAuth remain explicitly gated until separately verified implementations and physical-device validation are available. Review `RELEASE_NOTES_v0.4.11.md` for the current evidence boundary.
 
 ## Build locally
 
