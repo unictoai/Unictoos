@@ -115,18 +115,19 @@ class SingleDestinationMultiStreamAdapter(
         checkOpen()
         require(endpoints.isNotEmpty()) { "At least one endpoint is required" }
         require(endpoints.size <= MAX_DESTINATIONS) { "At most $MAX_DESTINATIONS endpoints are supported" }
+        val normalizedEndpoints = endpoints.map(String::trim)
+        require(normalizedEndpoints.all(StreamEndpointPolicy::isSupported)) { "Every endpoint must be a complete RTMP, RTMPS, or SRT URL" }
         if (isStreaming || synchronized(trackerLock) { activeSlots.isNotEmpty() }) stopStream()
         synchronized(trackerLock) {
             activeSlots.clear()
             successfulSlots.clear()
             authenticatedSlots.clear()
-            endpoints.indices.forEach(activeSlots::add)
+            normalizedEndpoints.indices.forEach(activeSlots::add)
             failureReported.set(false)
             disconnectReported.set(false)
             authErrorReported.set(false)
         }
-        endpoints.forEachIndexed { index, endpoint ->
-            require(endpoint.isNotBlank()) { "Endpoint cannot be blank" }
+        normalizedEndpoints.forEachIndexed { index, endpoint ->
             multiStream.startStream(transportFor(endpoint), index, endpoint)
         }
     }

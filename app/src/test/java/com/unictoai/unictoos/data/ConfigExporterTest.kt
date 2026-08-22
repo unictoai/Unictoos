@@ -6,11 +6,30 @@ import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.Source
 import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.domain.StreamDestination
+import org.json.JSONObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConfigExporterTest {
+    @Test
+    fun exportEscapesControlCharactersAsValidJson() {
+        val original = "Line one\u0001\nLine two\u000C"
+        val json = ConfigExporter.export(
+            scenes = listOf(Scene("scene", "Show", listOf(Source("text", "Title", SourceType.TEXT, textContent = original)), AspectRatio.PORTRAIT)),
+            destinations = emptyList(),
+        )
+        val restored = JSONObject(json)
+            .getJSONArray("scenes")
+            .getJSONObject(0)
+            .getJSONArray("sources")
+            .getJSONObject(0)
+            .getString("textContent")
+
+        assertEquals(original, restored)
+    }
+
     @Test
     fun exportContainsMetadataAndOmitsSecretValue() {
         val json = ConfigExporter.export(

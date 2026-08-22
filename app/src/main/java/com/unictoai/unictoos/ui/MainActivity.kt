@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
 
     private val projectionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != RESULT_OK || result.data == null) {
-            pendingPractice = false
+            clearPendingCaptureRequest()
             return@registerForActivityResult
         }
         if (pendingCaptureMode == CAPTURE_CAMERA) {
@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_PREPARE_PROJECTION
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_RESULT_CODE, result.resultCode)
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PROJECTION_DATA, result.data)
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_SCENE_JSON, pendingSceneJson)
         }
         androidx.core.content.ContextCompat.startForegroundService(this, prepareIntent)
         startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
@@ -58,7 +59,13 @@ class MainActivity : ComponentActivity() {
         if (audioGranted && cameraGranted) {
             if (pendingCaptureMode == CAPTURE_CAMERA) startCameraCapture() else launchProjection()
         } else {
-            Toast.makeText(this, "Microphone access is required to go live with audio", Toast.LENGTH_LONG).show()
+            val message = when {
+                !audioGranted -> "Microphone access is required to go live with audio"
+                pendingCaptureMode == CAPTURE_CAMERA && !cameraGranted -> "Camera access is required for camera capture"
+                else -> "Required capture permissions were not granted"
+            }
+            clearPendingCaptureRequest()
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -130,6 +137,7 @@ class MainActivity : ComponentActivity() {
     internal fun startCameraCapture() {
         androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_PREPARE_CAMERA
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_SCENE_JSON, pendingSceneJson)
         })
         startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
             action = if (pendingPractice) {
@@ -246,6 +254,13 @@ class MainActivity : ComponentActivity() {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_DETACH_PREVIEW
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PREVIEW_TOKEN, token)
         })
+    }
+
+    private fun clearPendingCaptureRequest() {
+        pendingEndpoint = ""
+        pendingSceneJson = ""
+        pendingCaptureMode = CAPTURE_SCREEN
+        pendingPractice = false
     }
 
     internal fun shareConfig(json: String) {

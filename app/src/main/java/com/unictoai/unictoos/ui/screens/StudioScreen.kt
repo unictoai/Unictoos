@@ -156,13 +156,16 @@ internal fun StudioScreen(
         else -> "Capture source not selected"
     }
     val context = LocalContext.current
+    val effectiveQuality = remember(streamQuality, scene.aspectRatio) { streamQuality.forAspectRatio(scene.aspectRatio) }
+    val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
+    val networkCapabilities = connectivity?.getNetworkCapabilities(connectivity.activeNetwork)
     val readiness = GoLiveReadinessPolicy.evaluate(
         destinationReady = destination.isConfigured,
         captureMode = captureMode,
         microphonePermission = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED,
         cameraPermission = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED,
-        networkAvailable = context.getSystemService(android.net.ConnectivityManager::class.java)?.activeNetwork != null,
-        quality = streamQuality,
+        networkAvailable = networkCapabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true,
+        quality = effectiveQuality,
     )
 
     LazyColumn(
@@ -184,7 +187,7 @@ internal fun StudioScreen(
                     Text("$captureLabel  •  ${scene.aspectRatio.label}", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                 }
                 Surface(color = V02Palette.Neutral800, shape = RoundedCornerShape(50)) {
-                    Text(streamQuality.displayName, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = V02Palette.Neutral300, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    Text(effectiveQuality.displayName, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = V02Palette.Neutral300, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -192,8 +195,8 @@ internal fun StudioScreen(
             PreviewCard(
                 session = session,
                 previewListener = previewListener,
-                encoderWidth = streamQuality.width,
-                encoderHeight = streamQuality.height,
+                encoderWidth = effectiveQuality.width,
+                encoderHeight = effectiveQuality.height,
             )
         }
         if (isActive || session.status == StreamStatus.LIVE) {

@@ -12,11 +12,11 @@ The current build remains an **alpha engineering milestone**. It compiles and pa
 
 ## Latest test build
 
-The latest supportability build is **Unictoos v0.4.4** with Android `versionCode 45`. It adds SQLite-backed local analytics, session comparison, persisted source groups, scene transition preferences, capability-matrix guidance, Media3-powered local MP4 trim/export, recording trim validation, and advanced-audio validation contracts on top of the v0.4.2 creator workflows. True screen-plus-camera PiP, multi-track media export, and live DSP processing remain explicitly gated until verified implementations and physical-device validation are available. Review `RELEASE_NOTES_v0.4.4.md` and `docs/V0.4.3_ENHANCEMENT_IMPLEMENTATION.md` for the current evidence boundary.
+The latest supportability build is **Unictoos v0.4.6** with Android `versionCode 47`. It adds repository-wide lifecycle hardening, strict destination URL validation, orientation-aware 16:9/9:16 encoder preparation, preview-detachment cleanup, terminal reconnect failure handling, practice-recording state correctness, bounded scene persistence, safe JSON escaping, adaptive launcher resources, and a clean security-source audit, while retaining the v0.4.5 streaming reliability work and local analytics/Media3 workflows. True screen-plus-camera PiP, multi-track media export, live DSP processing, and provider OAuth remain explicitly gated until separately verified implementations and physical-device validation are available. Review `RELEASE_NOTES_v0.4.6.md` for the current evidence boundary.
 
 ## Build locally
 
-Requirements are Android SDK API 35 with build tools 35.0.0, JDK 21, and a physical Android device running Android 10 or later for capture and encoder testing.
+Requirements are Android SDK Platform 37, build tools 35.0.0, JDK 21, and a physical Android device running Android 10 or later for capture and encoder testing.
 
 ```bash
 ./gradlew test assembleDebug
@@ -57,7 +57,7 @@ Platform OAuth, unified chat, alerts, scheduling, thumbnails, metadata publishin
 
 The application is organized around a Compose UI layer, shared domain models, a ViewModel state layer, a Keystore-backed credential store, local SQLite analytics, a Media3 recording editor, an app-only ads policy, and a foreground media service. The service owns MediaProjection, microphone capture, hardware encoding, RootEncoder transport, recording, reconnect scheduling, notifications, and cleanup. The UI observes a process-local status bus for connection, bitrate, live, error, recording, mute, and disconnect states. Settings can export a redacted support bundle containing compatibility checks, the selected profile, session status, and bounded lifecycle diagnostics; Library exposes the recent session event timeline and local trim/export workflow.
 
-The project uses [RootEncoder](https://github.com/pedroSG94/RootEncoder) under its Apache-2.0 license for the open-source RTMP/RTMPS/SRT/media pipeline integration. v0.4.3 keeps the bounded two-slot shared-encoder adapter around RootEncoder’s `MultiStream` API and adds local analytics outside the media path. The service treats multi-output callbacks as one aggregate session until per-destination callback identity and retry policy are added. See `RELEASE_NOTES_v0.4.3.md`, `docs/V0.4.3_ENHANCEMENT_IMPLEMENTATION.md`, and `THIRD_PARTY_NOTICES.md` for the current migration boundary and dependency attribution.
+The project uses [RootEncoder](https://github.com/pedroSG94/RootEncoder) under its Apache-2.0 license for the open-source RTMP/RTMPS/SRT/media pipeline integration. v0.4.6 keeps the bounded two-slot shared-encoder adapter around RootEncoder’s `MultiStream` API, aggregates callbacks across configured destinations, and clears partial slots before a complete reconnect attempt. The service deliberately exposes aggregate session state; independent per-destination dashboards and retry policy remain future work. See `RELEASE_NOTES_v0.4.6.md`, `docs/V0.4.4_OPEN_SOURCE_EXPANSION.md`, and `THIRD_PARTY_NOTICES.md` for the current migration boundary and dependency attribution.
 
 ## Advertising policy
 

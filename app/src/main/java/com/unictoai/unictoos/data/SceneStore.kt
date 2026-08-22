@@ -35,7 +35,7 @@ class SceneStore(context: Context) : SceneRepository {
 
     override fun save(scenes: List<Scene>) {
         val json = JSONArray()
-        scenes.forEach { scene ->
+        scenes.take(MAX_SCENES).forEach { scene ->
             json.put(JSONObject().apply {
                 put("id", scene.id)
                 put("name", scene.name)
@@ -43,7 +43,7 @@ class SceneStore(context: Context) : SceneRepository {
                 put("transitionMode", scene.transition.mode.name)
                 put("transitionDurationMs", scene.transition.safeDurationMs)
                 put("sourceGroups", JSONArray().apply {
-                    scene.sourceGroups.forEach { group ->
+                    scene.sourceGroups.take(MAX_GROUPS).forEach { group ->
                         put(JSONObject().apply {
                             put("id", group.id)
                             put("name", group.name)
@@ -53,7 +53,7 @@ class SceneStore(context: Context) : SceneRepository {
                     }
                 })
                 put("sources", JSONArray().apply {
-                    scene.sources.forEach { source ->
+                    scene.sources.take(MAX_SOURCES_PER_SCENE).forEach { source ->
                         put(JSONObject().apply {
                             put("id", source.id)
                             put("name", source.name)
@@ -80,46 +80,46 @@ class SceneStore(context: Context) : SceneRepository {
     }
 
     private fun JSONArray.toSceneList(): List<Scene> = buildList {
-        for (index in 0 until length()) {
+        for (index in 0 until minOf(length(), MAX_SCENES)) {
             val sceneJson = optJSONObject(index) ?: continue
-            val sources = sceneJson.optJSONArray("sources")?.toSourceList().orEmpty()
+            val sources = sceneJson.optJSONArray("sources")?.toSourceList(MAX_SOURCES_PER_SCENE).orEmpty()
             val ratio = runCatching { AspectRatio.valueOf(sceneJson.optString("aspectRatio")) }.getOrDefault(AspectRatio.PORTRAIT)
             val transition = SceneTransition(
                 mode = runCatching { SceneTransitionMode.valueOf(sceneJson.optString("transitionMode")) }.getOrDefault(SceneTransitionMode.CUT),
                 durationMs = sceneJson.optLong("transitionDurationMs", SceneTransition.DEFAULT_DURATION_MS),
             )
             val groups = sceneJson.optJSONArray("sourceGroups")?.toSourceGroupList().orEmpty()
-            val id = sceneJson.optString("id").ifBlank { "scene-$index" }
-            val name = sceneJson.optString("name").ifBlank { "Scene" }
+            val id = sceneJson.optString("id").take(MAX_ID_CHARS).ifBlank { "scene-$index" }
+            val name = sceneJson.optString("name").take(MAX_NAME_CHARS).ifBlank { "Scene" }
             add(Scene(id = id, name = name, aspectRatio = ratio, sources = sources, sourceGroups = groups, transition = transition))
         }
     }
 
     private fun JSONArray.toSourceGroupList(): List<SourceGroup> = buildList {
-        for (index in 0 until length()) {
+        for (index in 0 until minOf(length(), MAX_GROUPS)) {
             val groupJson = optJSONObject(index) ?: continue
             val sourceIds = groupJson.optJSONArray("sourceIds")?.let { ids ->
-                buildList { for (idIndex in 0 until ids.length()) ids.optString(idIndex).takeIf(String::isNotBlank)?.let(::add) }
+                buildList { for (idIndex in 0 until minOf(ids.length(), MAX_SOURCES_PER_SCENE)) ids.optString(idIndex).take(MAX_ID_CHARS).takeIf(String::isNotBlank)?.let(::add) }
             }.orEmpty()
-            val id = groupJson.optString("id").ifBlank { "group-$index" }
-            val name = groupJson.optString("name").ifBlank { "Group ${index + 1}" }
+            val id = groupJson.optString("id").take(MAX_ID_CHARS).ifBlank { "group-$index" }
+            val name = groupJson.optString("name").take(MAX_NAME_CHARS).ifBlank { "Group ${index + 1}" }
             add(SourceGroup(id = id, name = name, sourceIds = sourceIds, enabled = groupJson.optBoolean("enabled", true)))
         }
     }
 
-    private fun JSONArray.toSourceList(): List<Source> = buildList {
-        for (index in 0 until length()) {
+    private fun JSONArray.toSourceList(maxSources: Int = MAX_SOURCES_PER_SCENE): List<Source> = buildList {
+        for (index in 0 until minOf(length(), maxSources)) {
             val sourceJson = optJSONObject(index) ?: continue
             val type = runCatching { SourceType.valueOf(sourceJson.optString("type")) }.getOrDefault(SourceType.COLOR)
             add(
                 Source(
-                    id = sourceJson.optString("id").ifBlank { "source-$index" },
-                    name = sourceJson.optString("name").ifBlank { type.label },
+                    id = sourceJson.optString("id").take(MAX_ID_CHARS).ifBlank { "source-$index" },
+                    name = sourceJson.optString("name").take(MAX_NAME_CHARS).ifBlank { type.label },
                     type = type,
                     enabled = sourceJson.optBoolean("enabled", true),
                     zIndex = sourceJson.optInt("zIndex", index),
                     opacity = sourceJson.optDouble("opacity", 1.0).toFloat().coerceIn(0f, 1f),
-                    textContent = sourceJson.optString("textContent", ""),
+                    textContent = sourceJson.optString("textContent", "").take(MAX_TEXT_CHARS),
                     textColor = sourceJson.optLong("textColor", 0xFFFFFFFF),
                     textSizeSp = sourceJson.optDouble("textSizeSp", 22.0).toFloat().coerceIn(10f, 72f),
                     x = sourceJson.optDouble("x", 0.05).toFloat().coerceIn(0f, 1f),
@@ -127,8 +127,8 @@ class SceneStore(context: Context) : SceneRepository {
                     width = sourceJson.optDouble("width", 0.90).toFloat().coerceIn(0.05f, 1f),
                     height = sourceJson.optDouble("height", 0.24).toFloat().coerceIn(0.05f, 1f),
                     fillColor = sourceJson.optLong("fillColor", 0xFF101216),
-                    imageUri = sourceJson.optString("imageUri", ""),
-                    groupId = sourceJson.optString("groupId", "").ifBlank { null },
+                    imageUri = sourceJson.optString("imageUri", "").take(MAX_URI_CHARS),
+                    groupId = sourceJson.optString("groupId", "").take(MAX_ID_CHARS).ifBlank { null },
                 ),
             )
         }
@@ -138,5 +138,12 @@ class SceneStore(context: Context) : SceneRepository {
         const val KEY_SCENES = "scenes_json_v1"
         const val KEY_CORRUPT_BACKUP = "scenes_corrupt_backup_v1"
         const val MAX_CORRUPT_BACKUP_CHARS = 512_000
+        const val MAX_SCENES = 64
+        const val MAX_GROUPS = 16
+        const val MAX_SOURCES_PER_SCENE = 32
+        const val MAX_ID_CHARS = 96
+        const val MAX_NAME_CHARS = 128
+        const val MAX_TEXT_CHARS = 2_000
+        const val MAX_URI_CHARS = 2_000
     }
 }

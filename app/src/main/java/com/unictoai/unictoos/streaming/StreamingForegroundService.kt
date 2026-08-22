@@ -45,6 +45,7 @@ import com.unictoai.unictoos.data.AudioSettingsStore
 import com.unictoai.unictoos.data.AutoStopStore
 import com.unictoai.unictoos.data.LatencyModeStore
 import com.unictoai.unictoos.domain.LatencyMode
+import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.RecordingReadinessPolicy
 import com.unictoai.unictoos.domain.RecordingState
@@ -106,11 +107,13 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private lateinit var historyStore: CreatorHistoryStore
     private lateinit var analyticsStore: LocalAnalyticsStore
     private lateinit var streamQuality: StreamQuality
+    private lateinit var activeStreamQuality: StreamQuality
     private lateinit var audioSettings: AudioSettings
     private var autoStopSeconds = 0L
     private lateinit var latencyMode: LatencyMode
     private var currentSessionId = ""
     private var activeRecordingFile: File? = null
+    private var pendingPracticeLiveMessage: String? = null
     private var recordingFinalizationJob: Job? = null
     private var pendingTerminalStopReason: String? = null
     private val sessionHealthSamples = mutableListOf<StreamHealthSample>()
@@ -210,9 +213,15 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private val captureTimeout = Runnable {
         val state = StreamingStatusBus.state.value
-        if (state.status == StreamStatus.PREPARING && pendingStart != null && !captureReady) {
+        val previewRequired = !isolateLivePreviewForDevice
+        if (state.status == StreamStatus.PREPARING && pendingStart != null && (!captureReady || (previewRequired && !previewAttached))) {
             pendingStart = null
-            publish(StreamStatus.ERROR, "Capture did not become ready within 30 seconds. Check capture permission and try again")
+            val message = if (!captureReady) {
+                "Capture did not become ready within 30 seconds. Check capture permission and try again"
+            } else {
+                "Studio preview did not become available within 30 seconds. Reopen Studio and try again"
+            }
+            publish(StreamStatus.ERROR, message)
         }
     }
 
@@ -294,7 +303,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun prepareGenericStream(): Boolean = runCatching {
-        genericStream.prepareVideo(streamQuality.width, streamQuality.height, streamQuality.bitrate, rotation = 0) &&
+        genericStream.prepareVideo(activeStreamQuality.width, activeStreamQuality.height, activeStreamQuality.bitrate, rotation = 0) &&
             genericStream.prepareAudio(
                 audioSettings.sampleRate,
                 false,
@@ -343,7 +352,11 @@ class StreamingForegroundService : Service(), ConnectChecker {
         publish(StreamStatus.ERROR, message)
     }
 
-    private suspend fun releaseCapturePipelineForReprepare(): Boolean {
+    private fun qualityForScene(sceneJson: String): StreamQuality =
+        streamQuality.forAspectRatio(ScenePayloadCodec.decode(sceneJson)?.aspectRatio ?: AspectRatio.PORTRAIT)
+
+    private suspend fun releaseCapturePipelineForReprepare(quality: StreamQuality = streamQuality): Boolean {
+        activeStreamQuality = quality.validated()
         sessionGeneration.incrementAndGet()
         releaseProjection()
         val released = releaseGenericStream("reprepare")
@@ -415,6 +428,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         historyStore = CreatorHistoryStore(applicationContext)
         analyticsStore = LocalAnalyticsStore(applicationContext)
         streamQuality = StreamQualityStore(applicationContext).load()
+        activeStreamQuality = streamQuality.validated()
         audioSettings = AudioSettingsStore(applicationContext).load()
         latencyMode = LatencyModeStore(applicationContext).load()
         createNotificationChannel()
@@ -434,7 +448,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             }
             ACTION_PREPARE_CAMERA -> serviceScope.launch {
                 capturePreparationMutex.withLock {
-                    prepareCamera()
+                    prepareCamera(intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty())
                     tryStartPending()
                 }
             }
@@ -448,13 +462,17 @@ class StreamingForegroundService : Service(), ConnectChecker {
             ACTION_START -> queueStart(PendingStart(decodeEndpoints(intent.getStringExtra(EXTRA_ENDPOINT).orEmpty()), intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty(), practice = false))
             ACTION_START_PRACTICE -> queueStart(PendingStart(endpoints = emptyList(), sceneJson = intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty(), practice = true))
             ACTION_CREATE_MARKER -> createMarker(intent.getStringExtra(EXTRA_MARKER_LABEL).orEmpty())
-            ACTION_STOP -> stopStreaming()
+            ACTION_STOP -> serviceScope.launch {
+                capturePreparationMutex.withLock { stopStreaming() }
+            }
             ACTION_TOGGLE_MUTE -> toggleMute()
             ACTION_SWITCH_CAMERA -> switchCamera()
             ACTION_START_RECORDING -> startRecording()
             ACTION_STOP_RECORDING -> stopRecording()
             ACTION_DISMISS_STATUS -> dismissStatusMessage()
-            ACTION_RELEASE_CAPTURE -> releaseCaptureAfterFailure()
+            ACTION_RELEASE_CAPTURE -> serviceScope.launch {
+                capturePreparationMutex.withLock { releaseCaptureAfterFailure() }
+            }
             ACTION_ENCODER_GRAPHICS_FAILURE -> handleEncoderGraphicsFailure(
                 intent.getLongExtra(EXTRA_PIPELINE_GENERATION, 0L).takeIf { it > 0L },
             )
@@ -467,7 +485,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             failCapturePreparation("Android rejected the screen-capture service. Check capture permission and try again")
             return
         }
-        if (!releaseCapturePipelineForReprepare()) {
+        if (!releaseCapturePipelineForReprepare(qualityForScene(intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty()))) {
             failCapturePreparation("Previous capture resources are not fully released. Tap Fix and retry")
             return
         }
@@ -517,12 +535,12 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
     }
 
-    private suspend fun prepareCamera() {
+    private suspend fun prepareCamera(sceneJson: String) {
         if (!startForegroundSafely(includeProjection = false, includeCamera = true)) {
             failCapturePreparation("Android rejected the camera service. Check camera permission and try again")
             return
         }
-        if (!releaseCapturePipelineForReprepare()) {
+        if (!releaseCapturePipelineForReprepare(qualityForScene(sceneJson))) {
             failCapturePreparation("Previous capture resources are not fully released. Tap Fix and retry")
             return
         }
@@ -611,7 +629,11 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
         pendingStart = request
         manualStop = false
-        if (startForegroundSafely(includeProjection = mediaProjection != null, includeCamera = cameraSource != null)) tryStartPending()
+        if (startForegroundSafely(includeProjection = mediaProjection != null, includeCamera = cameraSource != null)) {
+            tryStartPending()
+        } else {
+            failCapturePreparation("Android could not keep the capture service in the foreground. Try again")
+        }
     }
 
     private fun attachPreview(surface: Surface?, width: Int, height: Int, token: Long) {
@@ -778,10 +800,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val previous = StreamingStatusBus.state.value
         val report = applySceneOverlays(sceneJson)
         val sceneMessage = if (report.unsupportedLayers > 0) "Practice mode active • ${report.textOverlays} text overlay(s) rendered; some scene layers are not yet composited" else "Practice mode active • ${report.textOverlays} text overlay(s) rendered"
+        pendingPracticeLiveMessage = sceneMessage
         StreamingStatusBus.update(previous.copy(mode = SessionMode.PRACTICE, bitrateKbps = 0, fps = 0, droppedFrames = -1, audioLevel = -1, message = "Starting local practice recording"))
         startRecording(prefix = "unictoos-practice")
-        if (StreamingStatusBus.state.value.recordingState == RecordingState.FAILED) return
-        publish(StreamStatus.LIVE, sceneMessage)
+        if (StreamingStatusBus.state.value.recordingState == RecordingState.FAILED) pendingPracticeLiveMessage = null
     }
 
     private fun startStream(endpoints: List<String>, sceneJson: String) {
@@ -823,6 +845,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val current = StreamingStatusBus.state.value
         val hadPendingStart = pendingStart != null
         pendingStart = null
+        pendingPracticeLiveMessage = null
         reconnectScheduled = false
         reconnectRunnable?.let(handler::removeCallbacks)
         reconnectRunnable = null
@@ -953,6 +976,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         StreamingDiagnostics.record(currentSessionId, failedGeneration, "graphics_failure_handling")
         manualStop = true
         pendingStart = null
+        pendingPracticeLiveMessage = null
         reconnectScheduled = false
         reconnectRunnable?.let(handler::removeCallbacks)
         reconnectRunnable = null
@@ -1045,6 +1069,15 @@ class StreamingForegroundService : Service(), ConnectChecker {
                             }
                         }
                         StreamingStatusBus.update(next)
+                        if (next.recordingState == RecordingState.RECORDING && status != RecordController.Status.PAUSED) {
+                            pendingPracticeLiveMessage?.let { practiceMessage ->
+                                pendingPracticeLiveMessage = null
+                                publish(StreamStatus.LIVE, practiceMessage)
+                            }
+                        } else if (status == RecordController.Status.STOPPED && previous.recordingState == RecordingState.STARTING) {
+                            pendingPracticeLiveMessage = null
+                            publish(StreamStatus.ERROR, "Practice recording could not start")
+                        }
                     }
                 }
             })
@@ -1099,7 +1132,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
 
     private fun estimateRecordingBytes(): Long {
         val expectedSeconds = AutoStopStore(applicationContext).load().seconds.takeIf { it > 0L } ?: 600L
-        val bitsPerSecond = (streamQuality.bitrate + audioSettings.bitrate).toLong()
+        val bitsPerSecond = (activeStreamQuality.bitrate + audioSettings.bitrate).toLong()
         return (bitsPerSecond * expectedSeconds / 8L * 1.20f).toLong().coerceAtLeast(MIN_RECORDING_BYTES)
     }
 
@@ -1133,7 +1166,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val networkAvailable = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
         val storage = StatFs(filesDir.absolutePath)
         val availableBytes = storage.availableBlocksLong * storage.blockSizeLong
-        val profileResult = StreamPreflight.validateProfile(streamQuality)
+        val profileResult = StreamPreflight.validateProfile(activeStreamQuality)
         val environmentResult = StreamPreflight.validateEnvironment(
             networkAvailable = practice || networkAvailable,
             availableStorageBytes = availableBytes,
@@ -1161,12 +1194,11 @@ class StreamingForegroundService : Service(), ConnectChecker {
         if (manualStop || reconnectScheduled) return
         val decision = StreamFailurePolicy.classify(reason)
         if (!decision.retryable) {
-            manualStop = true
-            publish(StreamStatus.ERROR, decision.userMessage)
+            terminateStreamingFailure(decision.userMessage)
             return
         }
         if (currentEndpoint.isBlank() || reconnectAttempt >= MAX_RECONNECT_ATTEMPTS) {
-            publish(StreamStatus.ERROR, "${decision.userMessage}. Reconnect limit reached; check the destination and network")
+            terminateStreamingFailure("${decision.userMessage}. Reconnect limit reached; check the destination and network")
             return
         }
         reconnectAttempt += 1
@@ -1190,6 +1222,24 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }.also { runnable -> handler.postDelayed(runnable, delay) }
     }
 
+    private fun terminateStreamingFailure(message: String) {
+        manualStop = true
+        pendingPracticeLiveMessage = null
+        cancelConnectionWatchdog()
+        reconnectScheduled = false
+        reconnectRunnable?.let(handler::removeCallbacks)
+        reconnectRunnable = null
+        if (::genericStream.isInitialized) {
+            runCatching { genericStream.stopStream() }
+                .onFailure { error -> StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "terminal_stream_stop_failed", error.message.orEmpty()) }
+        }
+        releasePreviewForCaptureChange()
+        resetTelemetryForInactiveSession()
+        publish(StreamStatus.ERROR, message)
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
     private fun startForegroundSafely(includeProjection: Boolean, includeCamera: Boolean): Boolean {
         val serviceTypes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
@@ -1211,6 +1261,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
             publish(StreamStatus.ERROR, "Capture service configuration is invalid: ${error.message.orEmpty()}")
             stopSelf()
             false
+        } catch (error: IllegalStateException) {
+            publish(StreamStatus.ERROR, "Android did not allow the capture service to start: ${error.message.orEmpty()}")
+            stopSelf()
+            false
         }
     }
 
@@ -1221,7 +1275,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         if (status == StreamStatus.LIVE && startedAtElapsed == 0L) {
             startedAtElapsed = SystemClock.elapsedRealtime()
             elapsedTickerGeneration = sessionGeneration.get()
-            adaptiveTargetBitrate = streamQuality.bitrate
+            adaptiveTargetBitrate = activeStreamQuality.bitrate
             degradedSinceElapsed = 0L
             recoveredSinceElapsed = 0L
             handler.removeCallbacks(elapsedTicker)
@@ -1269,11 +1323,13 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
         val connectivity = getSystemService(ConnectivityManager::class.java)
         val capabilities = connectivity?.getNetworkCapabilities(connectivity.activeNetwork)
+        val networkOnline = capabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
         val networkLabel = when {
-            capabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) == true -> "Wi-Fi"
-            capabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) == true -> "Cellular"
-            capabilities?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) == true -> "Ethernet"
-            else -> "Offline"
+            !networkOnline -> "Offline"
+            capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+            capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "Cellular"
+            capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
+            else -> "Online"
         }
         val sample = StreamHealthSample(
                 elapsedSeconds = elapsed,
@@ -1292,7 +1348,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun applyThermalProtection(thermalStatus: Int) {
-        val currentTarget = adaptiveTargetBitrate.takeIf { it > 0 } ?: streamQuality.bitrate
+        val currentTarget = adaptiveTargetBitrate.takeIf { it > 0 } ?: activeStreamQuality.bitrate
         val reducedTarget = (currentTarget * 0.75f).toInt().coerceAtLeast(1_000_000)
         if (reducedTarget >= currentTarget) {
             thermalCapApplied = true
@@ -1342,7 +1398,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val recordingAction = if (recordingInProgress) ACTION_STOP_RECORDING else ACTION_START_RECORDING
         val recordingLabel = if (recordingInProgress) "Stop record" else if (state.recordingState == RecordingState.STOPPING) "Finalizing" else "Record"
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_unictoos)
+            .setSmallIcon(R.drawable.ic_stat_unictoos)
             .setContentTitle("Unictoos Studio")
             .setContentText(text)
             .setContentIntent(openIntent)
@@ -1350,9 +1406,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
             .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .addAction(R.drawable.ic_unictoos, if (state.microphoneMuted) "Unmute" else "Mute", serviceAction(REQUEST_MUTE, ACTION_TOGGLE_MUTE))
-            .addAction(R.drawable.ic_unictoos, recordingLabel, serviceAction(REQUEST_RECORD, recordingAction))
-            .addAction(R.drawable.ic_unictoos, "Stop", serviceAction(REQUEST_STOP, ACTION_STOP))
+            .addAction(R.drawable.ic_stat_unictoos, if (state.microphoneMuted) "Unmute" else "Mute", serviceAction(REQUEST_MUTE, ACTION_TOGGLE_MUTE))
+            .addAction(R.drawable.ic_stat_unictoos, recordingLabel, serviceAction(REQUEST_RECORD, recordingAction))
+            .addAction(R.drawable.ic_stat_unictoos, "Stop", serviceAction(REQUEST_STOP, ACTION_STOP))
             .build()
     }
 
@@ -1372,6 +1428,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         recordingFinalizationJob?.cancel()
         recordingFinalizationJob = null
         pendingTerminalStopReason = null
+        pendingPracticeLiveMessage = null
         serviceScope.cancel()
         handler.removeCallbacksAndMessages(null)
         if (::genericStream.isInitialized && !genericStreamReleased) {
@@ -1391,6 +1448,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         previewAttached = false
         previewSurface = null
         pendingStart = null
+        pendingPracticeLiveMessage = null
         mediaProjection = null
         startedAtElapsed = 0L
         super.onDestroy()
@@ -1456,7 +1514,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         bitrateHistory.addLast(reported)
         if (bitrateHistory.size > 5) bitrateHistory.removeFirst()
         val average = if (bitrateHistory.isEmpty()) 0 else bitrateHistory.sum() / bitrateHistory.size
-        val target = adaptiveTargetBitrate.takeIf { it > 0 } ?: streamQuality.bitrate
+        val target = adaptiveTargetBitrate.takeIf { it > 0 } ?: activeStreamQuality.bitrate
         val degraded = average < (target * 0.60f).toInt()
         val recovered = average >= (target * 0.85f).toInt()
         if (degraded) {
@@ -1473,7 +1531,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val recoveredSeconds = if (recoveredSinceElapsed > 0L) ((SystemClock.elapsedRealtime() - recoveredSinceElapsed) / 1_000L).toInt() else 0
         val decision = decideAdaptiveBitrate(
             currentTargetBitrate = target,
-            baselineTargetBitrate = streamQuality.bitrate,
+            baselineTargetBitrate = activeStreamQuality.bitrate,
             rollingAverageBitrate = average,
             degradedSeconds = degradedSeconds,
             recoveredSeconds = recoveredSeconds,

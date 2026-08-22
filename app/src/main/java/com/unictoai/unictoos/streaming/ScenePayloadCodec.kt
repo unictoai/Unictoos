@@ -19,15 +19,15 @@ object ScenePayloadCodec {
         put("name", scene.name.take(MAX_NAME_LENGTH))
         put("aspectRatio", scene.aspectRatio.name)
         put("sources", JSONArray().apply {
-            scene.sources.forEach { source ->
+            scene.sources.take(MAX_SOURCES).forEach { source ->
                 put(JSONObject().apply {
-                    put("id", source.id)
-                    put("name", source.name)
+                    put("id", source.id.take(MAX_ID_LENGTH))
+                    put("name", source.name.take(MAX_NAME_LENGTH))
                     put("type", source.type.name)
                     put("enabled", source.enabled)
                     put("zIndex", source.zIndex)
                     put("opacity", source.opacity.toDouble())
-                    put("textContent", source.textContent)
+                    put("textContent", source.textContent.take(2_000))
                     put("textColor", source.textColor)
                     put("textSizeSp", source.textSizeSp.toDouble())
                     put("x", source.x.toDouble())
@@ -35,7 +35,7 @@ object ScenePayloadCodec {
                     put("width", source.width.toDouble())
                     put("height", source.height.toDouble())
                     put("fillColor", source.fillColor)
-                    put("imageUri", source.imageUri)
+                    put("imageUri", source.imageUri.take(2_000))
                 })
             }
         })

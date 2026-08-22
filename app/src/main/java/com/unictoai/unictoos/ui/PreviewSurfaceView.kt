@@ -100,6 +100,8 @@ class PreviewSurfaceView @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
+        val detachedSurface = lastSurface
+        if (detachedSurface != null) listener?.onSurfaceDestroyed(detachedSurface)
         releasePreviewListener()
         unregisterHolderCallback()
         super.onDetachedFromWindow()

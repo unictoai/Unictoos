@@ -5,14 +5,16 @@ import subprocess
 root = Path(__file__).resolve().parents[1]
 tracked = subprocess.check_output(["git", "-C", str(root), "ls-files", "app/src/main"], text=True).splitlines()
 files = [root / path for path in tracked if path.endswith((".kt", ".java", ".xml", ".kts"))]
-credential_literal = re.compile(r"(?i)(stream[-_ ]?key|client_secret|refresh_token|access_token|Bearer )\s*[:=]\s*['\"]?[A-Za-z0-9._~+/=-]{8,}")
+credential_literal = re.compile(
+    r"(?i)(?:stream[-_ ]?key|client_secret|refresh_token|access_token)\s*[:=]\s*['\"][A-Za-z0-9._~+/=-]{8,}['\"]"
+)
+bearer_literal = re.compile(r"(?i)['\"]Bearer\s+[A-Za-z0-9._~+/=-]{12,}['\"]")
 log_call = re.compile(r"\b(?:Log\.(?:v|d|i|w|e)|println)\s*\(")
-ignored = re.compile(r"REDACTED|redact|Example|example|field\(|helper|remember|label|secret-key|stream-key")
 credential_hits = []
 log_hits = []
 for path in files:
     for line_number, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
-        if credential_literal.search(line) and not ignored.search(line):
+        if (credential_literal.search(line) or bearer_literal.search(line)) and "LEGACY_STREAM_KEY" not in line:
             credential_hits.append(f"{path.relative_to(root)}:{line_number}:{line.strip()}")
         if log_call.search(line):
             log_hits.append(f"{path.relative_to(root)}:{line_number}:{line.strip()}")

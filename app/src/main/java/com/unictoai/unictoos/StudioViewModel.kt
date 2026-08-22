@@ -531,8 +531,9 @@ class StudioViewModel @JvmOverloads constructor(
         _scenes.update { scenes ->
             scenes.map { scene ->
                 if (scene.id != sceneId) scene else scene.copy(sources = scene.sources.map { source -> if (source.id == sourceId) source.copy(opacity = opacity.coerceIn(0f, 1f)) else source })
-            }.also(sceneStore::save)
+            }
         }
+        scheduleScenePersistence()
     }
 
     fun startPreparing() {

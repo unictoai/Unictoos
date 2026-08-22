@@ -19,4 +19,12 @@ class StreamEndpointPolicyTest {
         assertFalse(StreamEndpointPolicy.isSupported("https://example.com/live"))
         assertFalse(StreamEndpointPolicy.isSupported("udp://host:9000"))
     }
+
+    @Test
+    fun rejectsIncompleteOrUnsafeDestinationUrls() {
+        assertFalse(StreamEndpointPolicy.isSupported("srt://"))
+        assertFalse(StreamEndpointPolicy.isSupported("rtmps:///app"))
+        assertFalse(StreamEndpointPolicy.isSupported("rtmp://host/app with-space"))
+        assertTrue(StreamEndpointPolicy.isSupported("rtmp://host"))
+    }
 }

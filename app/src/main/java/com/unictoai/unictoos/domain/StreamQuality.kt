@@ -23,6 +23,12 @@ data class StreamQuality(
         keyframeIntervalSeconds = keyframeIntervalSeconds.coerceIn(1, 4),
     )
 
+    fun forAspectRatio(aspectRatio: AspectRatio): StreamQuality = when {
+        aspectRatio == AspectRatio.LANDSCAPE && width < height -> copy(width = height, height = width)
+        aspectRatio == AspectRatio.PORTRAIT && width > height -> copy(width = height, height = width)
+        else -> this
+    }.validated()
+
     companion object {
         const val MIN_BITRATE = 1_000_000
         const val MAX_BITRATE = 8_000_000

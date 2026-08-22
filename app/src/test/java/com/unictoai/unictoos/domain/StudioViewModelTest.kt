@@ -23,6 +23,12 @@ class StudioDomainTest {
     }
 
     @Test
+    fun malformedSrtDestinationIsNotConfigured() {
+        assertFalse(DestinationConfig(serverUrl = "srt://").isConfigured)
+        assertFalse(DestinationConfig(serverUrl = "srt://?streamid=missing-host").isConfigured)
+    }
+
+    @Test
     fun destinationBuildsEndpointWithoutDuplicateSlash() {
         val config = DestinationConfig(
             serverUrl = "rtmps://example.com/app/",
