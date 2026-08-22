@@ -130,7 +130,7 @@ class StudioViewModel @JvmOverloads constructor(
                 name = "Main Camera",
                 aspectRatio = AspectRatio.LANDSCAPE,
                 sources = listOf(
-                    Source("screen", "Gameplay", SourceType.SCREEN),
+                    Source("screen", "Gameplay", SourceType.SCREEN, enabled = false),
                     Source("camera", "Face Cam", SourceType.CAMERA),
                 ),
             ),

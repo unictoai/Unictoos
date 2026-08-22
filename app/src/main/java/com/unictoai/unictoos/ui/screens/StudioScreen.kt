@@ -95,6 +95,7 @@ import com.unictoai.unictoos.ui.theme.MotionTokens
 import com.unictoai.unictoos.ui.theme.Spacing
 import com.unictoai.unictoos.ui.theme.V02Palette
 import com.unictoai.unictoos.streaming.GoLiveReadiness
+import com.unictoai.unictoos.streaming.CaptureModePolicy
 import com.unictoai.unictoos.streaming.GoLiveReadinessPolicy
 
 @Composable
@@ -145,11 +146,7 @@ internal fun StudioScreen(
         StreamStatus.STOPPING,
     )
     val canStart = session.status in setOf(StreamStatus.IDLE, StreamStatus.STOPPED, StreamStatus.ERROR)
-    val captureMode = when {
-        scene.sources.any { it.enabled && it.type == SourceType.SCREEN } -> "screen"
-        scene.sources.any { it.enabled && it.type == SourceType.CAMERA } -> "camera"
-        else -> "none"
-    }
+    val captureMode = CaptureModePolicy.forScene(scene)
     val captureLabel = when (captureMode) {
         "screen" -> "Screen capture"
         "camera" -> "Camera capture"

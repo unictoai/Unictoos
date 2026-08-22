@@ -72,6 +72,7 @@ import com.unictoai.unictoos.domain.AutoStopDuration
 import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.monetization.AdsPolicy
+import com.unictoai.unictoos.streaming.CaptureModePolicy
 import com.unictoai.unictoos.streaming.DeviceCompatibilityReportFactory
 import com.unictoai.unictoos.streaming.StreamingDiagnostics
 import com.unictoai.unictoos.streaming.SupportabilityExport
@@ -308,13 +309,7 @@ private fun StudioRoute(
     val autoStopDuration by vm.autoStopDuration.collectAsStateWithLifecycle()
     val session by vm.session.collectAsStateWithLifecycle()
     val healthHistory by vm.healthHistory.collectAsStateWithLifecycle()
-    val captureMode = remember(scene) {
-        when {
-            scene.sources.any { it.type == SourceType.SCREEN && it.enabled } -> "screen"
-            scene.sources.any { it.type == SourceType.CAMERA && it.enabled } -> "camera"
-            else -> "none"
-        }
-    }
+    val captureMode = remember(scene) { CaptureModePolicy.forScene(scene) }
     StudioScreen(
         scene = scene,
         session = session,
