@@ -22,9 +22,6 @@ import com.unictoai.unictoos.data.AutoStopRepository
 import com.unictoai.unictoos.data.AutoStopStore
 import com.unictoai.unictoos.data.LatencyModeRepository
 import com.unictoai.unictoos.data.LatencyModeStore
-import com.unictoai.unictoos.monetization.AdsPolicy
-import com.unictoai.unictoos.monetization.AdsPreferences
-import com.unictoai.unictoos.monetization.AdsPreferencesRepository
 import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.AutoStopDuration
 import com.unictoai.unictoos.domain.LatencyMode
@@ -106,7 +103,6 @@ class StudioViewModel @JvmOverloads constructor(
     application: Application,
     private val credentialStore: CredentialRepository = safeCredentialRepository(application),
     private val sceneStore: SceneRepository = SceneStore(application.applicationContext),
-    private val adsPreferences: AdsPreferencesRepository = AdsPreferences(application.applicationContext),
     private val streamQualityStore: StreamQualityRepository = StreamQualityStore(application.applicationContext),
     private val thermalProtectionStore: ThermalProtectionRepository = ThermalProtectionStore(application.applicationContext),
     private val audioSettingsStore: AudioSettingsRepository = AudioSettingsStore(application.applicationContext),
@@ -159,8 +155,6 @@ class StudioViewModel @JvmOverloads constructor(
     }
     val session: StateFlow<StreamSessionState> = _session.asStateFlow()
     val healthHistory: StateFlow<List<StreamHealthSample>> = StreamingStatusBus.healthHistory
-    val adsPolicy: StateFlow<AdsPolicy> = adsPreferences.policy
-
     private val _streamQuality = MutableStateFlow(safeStreamQuality(streamQualityStore))
     val streamQuality: StateFlow<StreamQuality> = _streamQuality.asStateFlow()
 
@@ -206,10 +200,6 @@ class StudioViewModel @JvmOverloads constructor(
             }
             is ConfigImportResult.Rejected -> result
         }
-    }
-
-    fun setAdsEnabled(enabled: Boolean) {
-        adsPreferences.setEnabled(enabled)
     }
 
     fun setThermalProtectionEnabled(enabled: Boolean) {

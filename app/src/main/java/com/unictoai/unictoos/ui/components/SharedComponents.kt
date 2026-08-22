@@ -54,7 +54,6 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FiberManualRecord
-import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Lock
@@ -213,23 +212,6 @@ internal fun SessionErrorCard(message: String, onAction: () -> Unit) {
                 Text(message.ifBlank { "Unictoos could not prepare the broadcast" }, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
             }
             TextButton(onClick = onAction) { Text("Fix") }
-        }
-    }
-}
-
-@Composable
-internal fun SponsorBanner() {
-    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
-        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(color = V02Palette.AccentBlue.copy(alpha = 0.22f), shape = RoundedCornerShape(12.dp)) {
-                Icon(Icons.Default.GraphicEq, null, tint = V02Palette.AccentBlue, modifier = Modifier.padding(9.dp).size(20.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Optional sponsor space", fontWeight = FontWeight.SemiBold)
-                Text("This banner is app-only and never sent to your stream.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-            }
-            Text("OFFLINE", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
         }
     }
 }

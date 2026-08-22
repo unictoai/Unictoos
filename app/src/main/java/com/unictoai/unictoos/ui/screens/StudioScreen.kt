@@ -343,7 +343,8 @@ private fun BroadcastActionCard(
                     session.status == StreamStatus.LIVE -> "Your destination is receiving the stream. Keep this screen open for controls."
                     canStart && !readiness.canStart -> readiness.blockingDetail ?: "Complete the readiness checks before going live."
                     canStart -> "Check the preview, then start one destination from this workspace."
-                    else -> "The capture pipeline is preparing. Keep the app in the foreground until preview is ready."
+                    else -> session.message?.takeIf { it.isNotBlank() }
+                        ?: "The capture pipeline is preparing. Keep the app in the foreground until preview is ready."
                 },
                 color = V02Palette.Neutral500,
                 style = MaterialTheme.typography.bodySmall,

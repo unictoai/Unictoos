@@ -4,7 +4,7 @@ import subprocess
 
 root = Path(__file__).resolve().parents[1]
 tracked = subprocess.check_output(["git", "-C", str(root), "ls-files", "app/src/main"], text=True).splitlines()
-files = [root / path for path in tracked if path.endswith((".kt", ".java", ".xml", ".kts"))]
+files = [root / path for path in tracked if path.endswith((".kt", ".java", ".xml", ".kts")) and (root / path).is_file()]
 credential_literal = re.compile(
     r"(?i)(?:stream[-_ ]?key|client_secret|refresh_token|access_token)\s*[:=]\s*['\"][A-Za-z0-9._~+/=-]{8,}['\"]"
 )

@@ -124,7 +124,6 @@ import com.unictoai.unictoos.ui.components.PreflightCard
 import com.unictoai.unictoos.ui.components.SceneCard
 import com.unictoai.unictoos.ui.components.SectionHeader
 import com.unictoai.unictoos.ui.components.SessionErrorCard
-import com.unictoai.unictoos.ui.components.SponsorBanner
 import com.unictoai.unictoos.ui.components.StatusPill
 import com.unictoai.unictoos.ui.components.LivePulseDot
 
@@ -138,7 +137,6 @@ internal fun HomeScreen(
     onOpenLibrary: () -> Unit,
     onOpenSettings: () -> Unit,
     streamQuality: StreamQuality,
-    showAdSlot: Boolean = false,
 ) {
     val context = LocalContext.current
     val microphoneReady = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -154,7 +152,6 @@ internal fun HomeScreen(
     ) {
         item { BrandHeader("Creator workspace", "Your broadcast desk") { StatusPill(session.status) } }
         if (session.status == StreamStatus.ERROR) item { SessionErrorCard(session.message.orEmpty(), onGoStudio) }
-        if (showAdSlot) item { SponsorBanner() }
         item { ExecutiveHero(session = session, setupReady = setupReady, onOpenStudio = onGoStudio) }
         item { PreflightCard(destinationReady = destinations.any { it.isConfigured }, quality = streamQuality) }
         item {

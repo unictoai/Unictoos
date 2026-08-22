@@ -28,6 +28,7 @@ class MainActivity : ComponentActivity() {
     private val projectionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != RESULT_OK || result.data == null) {
             clearPendingCaptureRequest()
+            Toast.makeText(this, "Screen capture permission was cancelled. Tap Go Live and approve it to continue", Toast.LENGTH_LONG).show()
             return@registerForActivityResult
         }
         if (pendingCaptureMode == CAPTURE_CAMERA) {
@@ -44,7 +45,7 @@ class MainActivity : ComponentActivity() {
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PRACTICE, pendingPractice)
         }
         androidx.core.content.ContextCompat.startForegroundService(this, prepareIntent)
-        pendingPractice = false
+        clearPendingCaptureRequest()
     }
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -144,10 +145,10 @@ class MainActivity : ComponentActivity() {
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_START_AFTER_PREPARE, true)
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PRACTICE, pendingPractice)
         })
-        pendingPractice = false
+        clearPendingCaptureRequest()
     }
-
     internal fun launchProjection() {
+
         val manager = getSystemService(MediaProjectionManager::class.java)
         projectionLauncher.launch(manager.createScreenCaptureIntent())
     }

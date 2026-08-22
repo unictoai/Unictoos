@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
@@ -71,16 +70,13 @@ import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.AutoStopDuration
 import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.StreamQuality
-import com.unictoai.unictoos.monetization.AdsPolicy
 import com.unictoai.unictoos.streaming.CaptureModePolicy
 import com.unictoai.unictoos.streaming.DeviceCompatibilityReportFactory
 import com.unictoai.unictoos.streaming.StreamingDiagnostics
 import com.unictoai.unictoos.streaming.SupportabilityExport
 import com.unictoai.unictoos.ui.components.AddSceneDialog
-import com.unictoai.unictoos.ui.screens.EngagementScreen
 import com.unictoai.unictoos.ui.screens.HomeScreen
 import com.unictoai.unictoos.ui.screens.LibraryScreen
-import com.unictoai.unictoos.ui.screens.MoreScreen
 import com.unictoai.unictoos.ui.screens.ScenesScreen
 import com.unictoai.unictoos.ui.screens.SettingsScreen
 import com.unictoai.unictoos.ui.screens.StudioScreen
@@ -92,9 +88,7 @@ internal enum class AppTab(val label: String) {
     HOME("Home"),
     SCENES("Scenes"),
     STUDIO("Go Live"),
-    ENGAGEMENT("Engage"),
     LIBRARY("Library"),
-    MORE("More"),
     SETTINGS("Settings"),
 }
 
@@ -102,9 +96,7 @@ internal fun AppTab.icon() = when (this) {
     AppTab.HOME -> Icons.Default.Home
     AppTab.SCENES -> Icons.Default.Dashboard
     AppTab.STUDIO -> Icons.Default.LiveTv
-    AppTab.ENGAGEMENT -> Icons.AutoMirrored.Filled.Chat
     AppTab.LIBRARY -> Icons.Default.Movie
-    AppTab.MORE -> Icons.Default.Tune
     AppTab.SETTINGS -> Icons.Default.Settings
 }
 
@@ -229,13 +221,7 @@ internal fun UnictoosApp(
                     onPreviewSurfaceAvailable = onPreviewSurfaceAvailable,
                     onPreviewSurfaceDestroyed = onPreviewSurfaceDestroyed,
                 )
-                AppTab.ENGAGEMENT -> EngagementScreen(onOpenSettings = { selectedTab = AppTab.SETTINGS })
                 AppTab.LIBRARY -> LibraryScreen(onOpenStudio = { selectedTab = AppTab.STUDIO })
-                AppTab.MORE -> MoreScreen(
-                    onOpenEngage = { selectedTab = AppTab.ENGAGEMENT },
-                    onOpenSettings = { selectedTab = AppTab.SETTINGS },
-                    onReplayOnboarding = { showOnboarding = true },
-                )
                 AppTab.SETTINGS -> SettingsRoute(
                     vm = vm,
                     context = context,
@@ -268,7 +254,6 @@ private fun HomeRoute(
     onOpenSettings: () -> Unit,
 ) {
     val destinations by vm.destinations.collectAsStateWithLifecycle()
-    val adsPolicy by vm.adsPolicy.collectAsStateWithLifecycle()
     val streamQuality by vm.streamQuality.collectAsStateWithLifecycle()
     val session by vm.session.collectAsStateWithLifecycle()
     HomeScreen(
@@ -280,7 +265,6 @@ private fun HomeRoute(
         onOpenScenes = onOpenScenes,
         onOpenLibrary = onOpenLibrary,
         onOpenSettings = onOpenSettings,
-        showAdSlot = adsPolicy.enabled && adsPolicy.consentGranted && session.status != StreamStatus.LIVE,
     )
 }
 
@@ -347,7 +331,6 @@ private fun SettingsRoute(
     val destinations by vm.destinations.collectAsStateWithLifecycle()
     val multistreamPlatforms by vm.multistreamPlatforms.collectAsStateWithLifecycle()
     val session by vm.session.collectAsStateWithLifecycle()
-    val adsPolicy by vm.adsPolicy.collectAsStateWithLifecycle()
     val streamQuality by vm.streamQuality.collectAsStateWithLifecycle()
     val thermalProtectionEnabled by vm.thermalProtectionEnabled.collectAsStateWithLifecycle()
     val audioSettings by vm.audioSettings.collectAsStateWithLifecycle()
@@ -360,8 +343,6 @@ private fun SettingsRoute(
         onMultistreamPlatformChange = vm::setMultistreamPlatformEnabled,
         onSaveDestination = vm::updateDestination,
         onClearDestination = vm::clearDestination,
-        adsEnabled = adsPolicy.enabled,
-        onAdsEnabledChange = vm::setAdsEnabled,
         streamQuality = streamQuality,
         onStreamQualityPreset = vm::setStreamQualityPreset,
         onCustomStreamQualityChange = vm::updateCustomStreamQuality,
@@ -440,16 +421,6 @@ private fun GlassyTopBar(
                             text = { Text("Scenes") },
                             leadingIcon = { Icon(Icons.Default.Dashboard, contentDescription = null) },
                             onClick = { onSelectTab(AppTab.SCENES) },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Engage") },
-                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null) },
-                            onClick = { onSelectTab(AppTab.ENGAGEMENT) },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("More tools") },
-                            leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null) },
-                            onClick = { onSelectTab(AppTab.MORE) },
                         )
                     }
                 }

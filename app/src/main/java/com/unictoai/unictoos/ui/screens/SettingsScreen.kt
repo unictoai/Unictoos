@@ -153,8 +153,6 @@ internal fun SettingsScreen(
     onMultistreamPlatformChange: (PlatformPreset, Boolean) -> Boolean,
     onSaveDestination: (PlatformPreset, String, String) -> Unit,
     onClearDestination: () -> Unit,
-    adsEnabled: Boolean,
-    onAdsEnabledChange: (Boolean) -> Unit,
     streamQuality: StreamQuality,
     onStreamQualityPreset: (StreamQualityPreset) -> Unit,
     onCustomStreamQualityChange: (Int, Int) -> Unit,
@@ -378,15 +376,6 @@ internal fun SettingsScreen(
                         Spacer(Modifier.width(7.dp))
                         Text("Export redacted diagnostics")
                     }
-                }
-            }
-        }
-        item {
-            SectionHeader("Support Unictoos", "Optional app-only sponsor space")
-            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    SettingToggle("Show sponsor banners", "Ads may appear in Home or Library only; never inside a live broadcast", adsEnabled, onAdsEnabledChange)
-                    Text("No advertising provider is enabled in this alpha build. Your choice only controls the future app-only slot.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

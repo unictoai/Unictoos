@@ -4,7 +4,6 @@ import android.app.Application
 import app.cash.turbine.test
 import com.unictoai.unictoos.data.CredentialRepository
 import com.unictoai.unictoos.data.SceneRepository
-import com.unictoai.unictoos.monetization.AdsPolicy
 import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
@@ -22,7 +21,6 @@ import com.unictoai.unictoos.domain.AutoStopDuration
 import com.unictoai.unictoos.domain.AudioQuality
 import com.unictoai.unictoos.domain.LatencyMode
 import com.unictoai.unictoos.domain.AudioSettings
-import com.unictoai.unictoos.monetization.AdsPreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -42,7 +40,6 @@ class StudioViewModelBehaviorTest {
     private val dispatcher = UnconfinedTestDispatcher()
     private lateinit var credentials: FakeCredentialRepository
     private lateinit var scenes: FakeSceneRepository
-    private lateinit var ads: FakeAdsPreferences
     private lateinit var quality: FakeStreamQualityRepository
     private lateinit var thermal: FakeThermalProtectionRepository
     private lateinit var audio: FakeAudioSettingsRepository
@@ -56,14 +53,13 @@ class StudioViewModelBehaviorTest {
         Dispatchers.setMain(dispatcher)
         credentials = FakeCredentialRepository()
         scenes = FakeSceneRepository()
-        ads = FakeAdsPreferences()
         quality = FakeStreamQualityRepository()
         thermal = FakeThermalProtectionRepository()
         audio = FakeAudioSettingsRepository()
         autoStop = FakeAutoStopRepository()
         latency = FakeLatencyModeRepository()
         multistream = FakeMultistreamSelectionRepository()
-        viewModel = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal, audio, autoStop, latency, multistream)
+        viewModel = StudioViewModel(Application(), credentials, scenes, quality, thermal, audio, autoStop, latency, multistream)
     }
 
     @After
@@ -144,7 +140,7 @@ class StudioViewModelBehaviorTest {
     fun startupHydratesConfiguredDestinationsFromSecureRepository() {
         credentials.values[PlatformPreset.TWITCH] = "rtmps://twitch.example/app" to "saved-key"
 
-        val hydrated = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal, audio, autoStop, latency, multistream)
+        val hydrated = StudioViewModel(Application(), credentials, scenes, quality, thermal, audio, autoStop, latency, multistream)
         val twitch = hydrated.destinations.value.first { it.platform == PlatformPreset.TWITCH }
 
         assertTrue(twitch.isConfigured)
@@ -176,7 +172,7 @@ class StudioViewModelBehaviorTest {
     fun broadcastEndpointsIncludesConfiguredSecondaryWithoutDuplicatingPrimary() {
         credentials.values[PlatformPreset.YOUTUBE] = "rtmps://youtube.example/live" to "youtube-key"
         credentials.values[PlatformPreset.TWITCH] = "rtmps://twitch.example/app" to "twitch-key"
-        viewModel = StudioViewModel(Application(), credentials, scenes, ads, quality, thermal, audio, autoStop, latency, multistream)
+        viewModel = StudioViewModel(Application(), credentials, scenes, quality, thermal, audio, autoStop, latency, multistream)
         viewModel.setMultistreamPlatformEnabled(PlatformPreset.TWITCH, true)
         viewModel.selectDestination(PlatformPreset.YOUTUBE)
 
@@ -211,7 +207,6 @@ class StudioViewModelBehaviorTest {
             Application(),
             ThrowingCredentialRepository(),
             ThrowingSceneRepository(),
-            FakeAdsPreferences(),
             ThrowingStreamQualityRepository(),
             ThrowingThermalProtectionRepository(),
             ThrowingAudioSettingsRepository(),
@@ -352,13 +347,4 @@ private class ThrowingAutoStopRepository : AutoStopRepository {
 private class ThrowingLatencyModeRepository : LatencyModeRepository {
     override fun load(): LatencyMode = error("simulated latency storage failure")
     override fun save(mode: LatencyMode) = Unit
-}
-
-private class FakeAdsPreferences : AdsPreferencesRepository {
-    private val state = kotlinx.coroutines.flow.MutableStateFlow(AdsPolicy())
-    override val policy = state
-
-    override fun setEnabled(enabled: Boolean) {
-        state.value = state.value.copy(enabled = enabled, consentGranted = enabled)
-    }
 }
