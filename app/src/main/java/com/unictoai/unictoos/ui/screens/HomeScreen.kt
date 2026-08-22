@@ -11,16 +11,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -121,7 +116,6 @@ import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
 import com.unictoai.unictoos.domain.StreamQuality
-import com.unictoai.unictoos.ui.theme.MotionTokens
 import com.unictoai.unictoos.ui.theme.Spacing
 import com.unictoai.unictoos.ui.theme.V02Palette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
@@ -146,6 +140,13 @@ internal fun HomeScreen(
     streamQuality: StreamQuality,
     showAdSlot: Boolean = false,
 ) {
+    val context = LocalContext.current
+    val microphoneReady = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
+    val networkCapabilities = connectivity?.getNetworkCapabilities(connectivity.activeNetwork)
+    val networkReady = networkCapabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    val setupReady = scenes.any { scene -> scene.sources.any { it.enabled && (it.type == SourceType.SCREEN || it.type == SourceType.CAMERA) } } &&
+        destinations.any { it.isConfigured } && microphoneReady && networkReady
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = Spacing.xl, top = Spacing.lg, end = Spacing.xl, bottom = Spacing.xl),
@@ -154,53 +155,39 @@ internal fun HomeScreen(
         item { BrandHeader("Creator workspace", "Your broadcast desk") { StatusPill(session.status) } }
         if (session.status == StreamStatus.ERROR) item { SessionErrorCard(session.message.orEmpty(), onGoStudio) }
         if (showAdSlot) item { SponsorBanner() }
-        item { ExecutiveHero(session = session, onOpenStudio = onGoStudio) }
+        item { ExecutiveHero(session = session, setupReady = setupReady, onOpenStudio = onGoStudio) }
         item { PreflightCard(destinationReady = destinations.any { it.isConfigured }, quality = streamQuality) }
         item {
-            AnimatedVisibility(
-                visible = true,
-                enter = fadeIn(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)) + slideInVertically(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)) { it / 5 },
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SectionHeader("Broadcast readiness", "A quick check before you go live")
-                    ReadinessGrid(
-                        scenesReady = scenes.isNotEmpty(),
-                        sceneValue = "${scenes.size} ready",
-                        destinationReady = destinations.any { it.isConfigured },
-                        destinationValue = configuredDestinationLabel(destinations),
-                        microphoneReady = session.status != StreamStatus.ERROR,
-                        microphoneValue = if (session.message?.contains("Microphone", true) == true) "Ready to test" else "Checked before live",
-                    )
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SectionHeader("Broadcast readiness", "A quick check before you go live")
+                ReadinessGrid(
+                    scenesReady = scenes.isNotEmpty(),
+                    sceneValue = "${scenes.size} ready",
+                    destinationReady = destinations.any { it.isConfigured },
+                    destinationValue = configuredDestinationLabel(destinations),
+                    networkReady = networkReady,
+                    microphoneReady = microphoneReady,
+                    microphoneValue = if (microphoneReady) "Permission ready" else "Tap Go Live to allow",
+                )
             }
         }
         item {
-            AnimatedVisibility(
-                visible = true,
-                enter = fadeIn(tween(MotionTokens.standard, delayMillis = 40, easing = MotionTokens.gentleEasing)) + slideInVertically(tween(MotionTokens.standard, delayMillis = 40, easing = MotionTokens.gentleEasing)) { it / 6 },
-            ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SectionHeader("Quick actions", "Keep your setup within one tap")
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            QuickAction(Icons.Default.Dashboard, "Scenes", "Build a layout", onOpenScenes, Modifier.weight(1f))
-                            QuickAction(Icons.Default.Tune, "Destinations", "Manage keys", onOpenSettings, Modifier.weight(1f))
-                        }
-                        QuickAction(Icons.Default.Movie, "Library", "View recordings and session history", onOpenLibrary, Modifier.fillMaxWidth())
-                    }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SectionHeader("Quick actions", "Keep your setup within one tap")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    QuickAction(Icons.Default.Dashboard, "Scenes", "Build a layout", onOpenScenes, Modifier.weight(1f))
+                    QuickAction(Icons.Default.Tune, "Destinations", "Manage keys", onOpenSettings, Modifier.weight(1f))
+                }
+                QuickAction(Icons.Default.Movie, "Library", "View recordings and session history", onOpenLibrary, Modifier.fillMaxWidth())
             }
         }
-        item {
-            AnimatedVisibility(
-                visible = scenes.isNotEmpty(),
-                enter = fadeIn(tween(MotionTokens.standard, delayMillis = 80, easing = MotionTokens.gentleEasing)) + slideInVertically(tween(MotionTokens.standard, delayMillis = 80, easing = MotionTokens.gentleEasing)) { it / 7 },
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        SectionHeader("Your scenes", "Layouts ready to launch")
-                        TextButton(onClick = onOpenScenes) { Text("View all") }
-                    }
-                    scenes.take(2).forEach { scene -> SceneCard(scene) }
+        if (scenes.isNotEmpty()) item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    SectionHeader("Your scenes", "Layouts ready to launch")
+                    TextButton(onClick = onOpenScenes) { Text("View all") }
                 }
+                scenes.take(2).forEach { scene -> SceneCard(scene) }
             }
         }
         item {
@@ -222,10 +209,10 @@ internal fun HomeScreen(
 internal fun configuredDestinationLabel(destinations: List<StreamDestination>): String =
     destinations.firstOrNull { it.isConfigured }?.name ?: "Add a destination"
 @Composable
-internal fun ExecutiveHero(session: StreamSessionState, onOpenStudio: () -> Unit) {
+internal fun ExecutiveHero(session: StreamSessionState, setupReady: Boolean, onOpenStudio: () -> Unit) {
     val isLive = session.status == StreamStatus.LIVE
     Card(
-        modifier = Modifier.fillMaxWidth().animateContentSize(tween(MotionTokens.emphasis, easing = MotionTokens.gentleEasing)),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900),
         border = BorderStroke(1.dp, V02Palette.Neutral700.copy(alpha = 0.65f)),
@@ -245,7 +232,7 @@ internal fun ExecutiveHero(session: StreamSessionState, onOpenStudio: () -> Unit
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (isLive) LivePulseDot() else Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(V02Palette.AccentBlue))
                 Spacer(Modifier.width(9.dp))
-                Text(if (isLive) "Session is active" else "All essential checks are ready", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodyMedium)
+                Text(if (isLive) "Session is active" else if (setupReady) "All essential checks are ready" else "Open Go Live to finish setup", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodyMedium)
             }
             Button(
                 onClick = onOpenStudio,
@@ -255,7 +242,7 @@ internal fun ExecutiveHero(session: StreamSessionState, onOpenStudio: () -> Unit
             ) {
                 Icon(if (isLive) Icons.Default.LiveTv else Icons.Default.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(9.dp))
-                Text(if (isLive) "Open live studio" else "Open broadcast studio", style = MaterialTheme.typography.labelLarge)
+                Text(if (isLive) "Open live studio" else "Go Live", style = MaterialTheme.typography.labelLarge)
             }
         }
     }
@@ -266,13 +253,14 @@ internal fun ReadinessGrid(
     sceneValue: String,
     destinationReady: Boolean,
     destinationValue: String,
+    networkReady: Boolean,
     microphoneReady: Boolean,
     microphoneValue: String,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ReadinessCard(Icons.Default.Dashboard, "Scenes", sceneValue, scenesReady, Modifier.weight(1f))
-            ReadinessCard(Icons.Default.Wifi, "Network", "Checked before live", true, Modifier.weight(1f))
+            ReadinessCard(Icons.Default.Wifi, "Network", if (networkReady) "Internet ready" else "No Internet", networkReady, Modifier.weight(1f))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ReadinessCard(Icons.Default.Tune, "Destination", destinationValue, destinationReady, Modifier.weight(1f))
@@ -283,7 +271,7 @@ internal fun ReadinessGrid(
 @Composable
 internal fun ReadinessCard(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, ready: Boolean, modifier: Modifier) {
     Card(
-        modifier = modifier.animateContentSize(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)),
+        modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850),
         shape = RoundedCornerShape(18.dp),
     ) {
@@ -307,7 +295,7 @@ internal fun QuickAction(
 ) {
     Card(
         onClick = onClick,
-        modifier = modifier.animateContentSize(tween(MotionTokens.standard, easing = MotionTokens.gentleEasing)),
+        modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850),
         shape = RoundedCornerShape(20.dp),
     ) {

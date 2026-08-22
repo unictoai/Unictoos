@@ -175,7 +175,9 @@ internal fun PreflightCard(
     val context = LocalContext.current
     val audioReady = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
     val cameraReady = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED
-    val networkReady = context.getSystemService(android.net.ConnectivityManager::class.java)?.activeNetwork != null
+    val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
+    val networkCapabilities = connectivity?.getNetworkCapabilities(connectivity.activeNetwork)
+    val networkReady = networkCapabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
     val outcomes = PreflightOutcomeEvaluator.evaluate(audioReady, cameraReady, networkReady, destinationReady, quality)
     val blocking = outcomes.firstOrNull { it.state == PreflightOutcomeState.ACTION_REQUIRED }
     val caution = outcomes.firstOrNull { it.state == PreflightOutcomeState.CAUTION }

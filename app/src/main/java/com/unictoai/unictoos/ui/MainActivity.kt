@@ -57,7 +57,16 @@ class MainActivity : ComponentActivity() {
         val audioGranted = androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         val cameraGranted = pendingCaptureMode != CAPTURE_CAMERA || androidx.core.content.ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         if (audioGranted && cameraGranted) {
-            if (pendingCaptureMode == CAPTURE_CAMERA) startCameraCapture() else launchProjection()
+            if (pendingPractice) {
+                if (pendingCaptureMode == CAPTURE_CAMERA) startCameraCapture() else launchProjection()
+            } else if (pendingEndpoint.isBlank()) {
+                clearPendingCaptureRequest()
+                Toast.makeText(this, "Permissions ready. Add a streaming destination in Settings before going live", Toast.LENGTH_LONG).show()
+            } else if (pendingCaptureMode == CAPTURE_CAMERA) {
+                startCameraCapture()
+            } else {
+                launchProjection()
+            }
         } else {
             val message = when {
                 !audioGranted -> "Microphone access is required to go live with audio"
@@ -110,10 +119,6 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Enable a camera or screen source in the selected scene", Toast.LENGTH_LONG).show()
             return
         }
-        if (endpoint.isBlank()) {
-            Toast.makeText(this, "Add a streaming destination before going live", Toast.LENGTH_LONG).show()
-            return
-        }
         pendingEndpoint = endpoint
         pendingSceneJson = sceneJson
         pendingCaptureMode = captureMode
@@ -127,6 +132,9 @@ class MainActivity : ComponentActivity() {
                 if (needsCamera) add(Manifest.permission.CAMERA)
             }
             permissionLauncher.launch(permissions.toTypedArray())
+        } else if (pendingEndpoint.isBlank()) {
+            clearPendingCaptureRequest()
+            Toast.makeText(this, "Add a streaming destination in Settings before going live", Toast.LENGTH_LONG).show()
         } else if (captureMode == CAPTURE_CAMERA) {
             startCameraCapture()
         } else {

@@ -371,11 +371,7 @@ private fun BroadcastActionCard(
                 Icon(if (session.status == StreamStatus.LIVE) Icons.Default.Stop else Icons.Default.FiberManualRecord, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    when {
-                        session.status == StreamStatus.LIVE -> "Stop broadcast"
-                        canStart && !readiness.canStart -> "Review setup"
-                        else -> "Go live"
-                    },
+                    if (session.status == StreamStatus.LIVE) "Stop broadcast" else "Go Live",
                     fontWeight = FontWeight.Bold,
                 )
             }

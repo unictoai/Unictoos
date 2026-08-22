@@ -90,7 +90,7 @@ import com.unictoai.unictoos.ui.theme.V02Palette
 internal enum class AppTab(val label: String) {
     HOME("Home"),
     SCENES("Scenes"),
-    STUDIO("Studio"),
+    STUDIO("Go Live"),
     ENGAGEMENT("Engage"),
     LIBRARY("Library"),
     MORE("More"),
@@ -127,12 +127,14 @@ internal fun UnictoosApp(
     vm: StudioViewModel = viewModel(factory = studioViewModelFactory),
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.HOME) }
-    var selectedSceneId by rememberSaveable { mutableStateOf("starting-soon") }
+    var selectedSceneId by rememberSaveable { mutableStateOf("main-camera") }
     var showAddScene by rememberSaveable { mutableStateOf(false) }
     var secondaryMenuExpanded by rememberSaveable { mutableStateOf(false) }
     val scenes by vm.scenes.collectAsStateWithLifecycle()
     val selectedScene = remember(scenes, selectedSceneId) {
-        scenes.firstOrNull { it.id == selectedSceneId } ?: scenes.firstOrNull() ?: Scene(
+        scenes.firstOrNull { it.id == selectedSceneId }
+            ?: scenes.firstOrNull { scene -> scene.sources.any { it.enabled && (it.type == SourceType.SCREEN || it.type == SourceType.CAMERA) } }
+            ?: scenes.firstOrNull() ?: Scene(
         id = "fallback",
         name = "Quick Start",
         aspectRatio = AspectRatio.PORTRAIT,
@@ -151,6 +153,7 @@ internal fun UnictoosApp(
                     .putBoolean(ONBOARDING_COMPLETE, true)
                     .apply()
                 showOnboarding = false
+                selectedTab = AppTab.STUDIO
             },
         )
         return
