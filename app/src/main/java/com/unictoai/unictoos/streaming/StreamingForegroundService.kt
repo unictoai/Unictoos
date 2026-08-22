@@ -9,9 +9,6 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
-import android.media.AudioFormat
-import android.media.AudioRecord
-import android.media.MediaRecorder
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.net.ConnectivityManager
@@ -88,7 +85,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var previewWidth = 0
     private var previewHeight = 0
     private var previewAttached = false
-    private var pendingStart: PendingStart? = null
+    private var pendingStart: CaptureStartPolicy.Request? = null
     private var reconnectScheduled = false
     private var reconnectRunnable: Runnable? = null
     private var networkCallbackRegistered = false
@@ -442,14 +439,26 @@ class StreamingForegroundService : Service(), ConnectChecker {
         when (intent?.action) {
             ACTION_PREPARE_PROJECTION -> serviceScope.launch {
                 capturePreparationMutex.withLock {
-                    prepareProjectionFromIntent(intent)
-                    tryStartPending()
+                    runCatching {
+                        queueCaptureStartIfRequested(intent)
+                        prepareProjectionFromIntent(intent)
+                        tryStartPending()
+                    }.onFailure { error ->
+                        StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "projection_prepare_exception", error.message.orEmpty())
+                        failCapturePreparation("Screen capture preparation failed. Approve capture again and retry")
+                    }
                 }
             }
             ACTION_PREPARE_CAMERA -> serviceScope.launch {
                 capturePreparationMutex.withLock {
-                    prepareCamera(intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty())
-                    tryStartPending()
+                    runCatching {
+                        queueCaptureStartIfRequested(intent)
+                        prepareCamera(intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty())
+                        tryStartPending()
+                    }.onFailure { error ->
+                        StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "camera_prepare_exception", error.message.orEmpty())
+                        failCapturePreparation("Camera preparation failed. Check camera permission and retry")
+                    }
                 }
             }
             ACTION_ATTACH_PREVIEW -> attachPreview(
@@ -459,8 +468,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 intent.getLongExtra(EXTRA_PREVIEW_TOKEN, 0L),
             )
             ACTION_DETACH_PREVIEW -> detachPreview(intent.getLongExtra(EXTRA_PREVIEW_TOKEN, 0L))
-            ACTION_START -> queueStart(PendingStart(decodeEndpoints(intent.getStringExtra(EXTRA_ENDPOINT).orEmpty()), intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty(), practice = false))
-            ACTION_START_PRACTICE -> queueStart(PendingStart(endpoints = emptyList(), sceneJson = intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty(), practice = true))
+            ACTION_START -> queueStart(CaptureStartPolicy.Request(decodeEndpoints(intent.getStringExtra(EXTRA_ENDPOINT).orEmpty()), intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty(), practice = false))
+            ACTION_START_PRACTICE -> queueStart(CaptureStartPolicy.Request(endpoints = emptyList(), sceneJson = intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty(), practice = true))
             ACTION_CREATE_MARKER -> createMarker(intent.getStringExtra(EXTRA_MARKER_LABEL).orEmpty())
             ACTION_STOP -> serviceScope.launch {
                 capturePreparationMutex.withLock { stopStreaming() }
@@ -481,15 +490,18 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private suspend fun prepareProjectionFromIntent(intent: Intent) {
+        publishPreparationPhase("projection_prepare", "Starting screen-capture preparation")
         if (!startForegroundSafely(includeProjection = true, includeCamera = false)) {
             failCapturePreparation("Android rejected the screen-capture service. Check capture permission and try again")
             return
         }
+        publishPreparationPhase("release_previous", "Releasing the previous capture pipeline")
         if (!releaseCapturePipelineForReprepare(qualityForScene(intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty()))) {
             failCapturePreparation("Previous capture resources are not fully released. Tap Fix and retry")
             return
         }
         resetCaptureStateForPreparation()
+        publishPreparationPhase("microphone_prepare", "Preparing microphone input")
         if (!hasAudioPermission()) {
             failCapturePreparation("Microphone permission is not granted")
             return
@@ -498,6 +510,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             failCapturePreparation("Microphone is unavailable. Check Android privacy controls and other apps using the mic")
             return
         }
+        publishPreparationPhase("microphone_ready", "Microphone permission is ready")
         val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, 0)
         val projectionData = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getParcelableExtra(EXTRA_PROJECTION_DATA, Intent::class.java)
@@ -505,6 +518,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             @Suppress("DEPRECATION")
             intent.getParcelableExtra(EXTRA_PROJECTION_DATA)
         }
+        publishPreparationPhase("screen_source", "Opening Android screen capture")
         if (projectionData == null || !prepareProjection(resultCode, projectionData)) {
             failCapturePreparation("Screen capture permission was not available")
         } else {
@@ -536,10 +550,12 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private suspend fun prepareCamera(sceneJson: String) {
+        publishPreparationPhase("camera_prepare", "Starting camera preparation")
         if (!startForegroundSafely(includeProjection = false, includeCamera = true)) {
             failCapturePreparation("Android rejected the camera service. Check camera permission and try again")
             return
         }
+        publishPreparationPhase("release_previous", "Releasing the previous capture pipeline")
         if (!releaseCapturePipelineForReprepare(qualityForScene(sceneJson))) {
             failCapturePreparation("Previous capture resources are not fully released. Tap Fix and retry")
             return
@@ -557,6 +573,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
             failCapturePreparation("Microphone is unavailable. Check Android privacy controls and other apps using the mic")
             return
         }
+        publishPreparationPhase("microphone_ready", "Microphone permission is ready")
+        publishPreparationPhase("camera_source", "Opening camera capture")
         if (!prepared) {
             failCapturePreparation("This device cannot prepare the camera capture profile")
             return
@@ -598,37 +616,31 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private fun hasAudioPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
+    /**
+     * RootEncoder owns the real microphone session and opens it when the
+     * encoder starts. Starting and reading a throwaway AudioRecord immediately
+     * before that can contend with OEM audio-focus/privacy implementations and
+     * can block the pre-connection path. Permission is checked above; the
+     * RootEncoder start path is the authoritative microphone-availability check.
+     */
     private suspend fun checkMicrophoneInput(): Boolean = withContext(Dispatchers.IO) {
-        val bufferSize = AudioRecord.getMinBufferSize(audioSettings.sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-        if (bufferSize <= 0) return@withContext false
-        val recorder = try {
-            AudioRecord(MediaRecorder.AudioSource.MIC, audioSettings.sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize * 2)
-        } catch (_: SecurityException) {
-            return@withContext false
-        } catch (_: IllegalArgumentException) {
-            return@withContext false
-        }
-        if (recorder.state != AudioRecord.STATE_INITIALIZED) {
-            recorder.release()
-            return@withContext false
-        }
-        runCatching {
-            recorder.startRecording()
-            val samples = ShortArray((bufferSize / 2).coerceAtLeast(256))
-            recorder.read(samples, 0, samples.size) > 0
-        }.getOrDefault(false).also {
-            runCatching { recorder.stop() }
-            recorder.release()
-        }
+        hasAudioPermission()
     }
 
-    private fun queueStart(request: PendingStart) {
+    private fun queueStart(request: CaptureStartPolicy.Request, replacePending: Boolean = false) {
+        if (replacePending && pendingStart != null) {
+            pendingStart = null
+            handler.removeCallbacks(captureTimeout)
+        }
         val current = StreamingStatusBus.state.value
-        if (pendingStart != null || !StreamStateMachine.acceptsQueuedStart(current.status)) {
+        if (!CaptureStartPolicy.canQueue(current.status, pendingStart != null, replacePending)) {
+            publish(current.status, "A capture request is already in progress")
             return
         }
         pendingStart = request
         manualStop = false
+        publishPreparationPhase("queued", "Go Live request queued")
+        publishPreparationPhase("foreground_service", "Starting foreground capture service")
         if (startForegroundSafely(includeProjection = mediaProjection != null, includeCamera = cameraSource != null)) {
             tryStartPending()
         } else {
@@ -730,6 +742,18 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
     }
 
+    private fun queueCaptureStartIfRequested(intent: Intent) {
+        if (!intent.getBooleanExtra(EXTRA_START_AFTER_PREPARE, false)) return
+        queueStart(
+            CaptureStartPolicy.Request(
+                endpoints = decodeEndpoints(intent.getStringExtra(EXTRA_ENDPOINT).orEmpty()),
+                sceneJson = intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty(),
+                practice = intent.getBooleanExtra(EXTRA_PRACTICE, false),
+            ),
+            replacePending = true,
+        )
+    }
+
     private fun decodeEndpoints(encoded: String): List<String> = encoded
         .split(ENDPOINT_SEPARATOR)
         .map(String::trim)
@@ -740,18 +764,37 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private fun tryStartPending() {
         val request = pendingStart ?: return
         val previewRequired = !isolateLivePreviewForDevice
-        if (!prepared || !captureReady) {
-            publish(
-                StreamStatus.PREPARING,
-                if (previewRequired && !previewAttached) "Capture ready • preview optional; preparing session" else "Preparing capture",
-            )
-            handler.removeCallbacks(captureTimeout)
-            handler.postDelayed(captureTimeout, CAPTURE_TIMEOUT_MS)
-            return
+        when (CaptureStartPolicy.decide(
+            CaptureStartPolicy.State(
+                request = request,
+                prepared = prepared,
+                captureReady = captureReady,
+            ),
+            sessionGeneration.get(),
+        )) {
+            CaptureStartPolicy.Decision.NO_REQUEST -> return
+            CaptureStartPolicy.Decision.STALE_REQUEST -> {
+                pendingStart = null
+                handler.removeCallbacks(captureTimeout)
+                publish(StreamStatus.ERROR, "This capture request is stale. Start again")
+            }
+            CaptureStartPolicy.Decision.WAIT_FOR_CAPTURE -> {
+                publishPreparationPhase(
+                    if (!captureReady) "waiting_capture" else "waiting_preview",
+                    if (previewRequired && !previewAttached) "Capture ready • preview optional; preparing session" else "Preparing capture",
+                )
+                handler.removeCallbacks(captureTimeout)
+                handler.postDelayed(captureTimeout, CAPTURE_TIMEOUT_MS)
+            }
+            CaptureStartPolicy.Decision.START_NOW -> {
+                pendingStart = CaptureStartPolicy.consume(
+                    CaptureStartPolicy.State(request = request),
+                ).request
+                handler.removeCallbacks(captureTimeout)
+                publishPreparationPhase("capture_ready", "Capture is ready • starting encoder")
+                if (request.practice) startPractice(request.sceneJson) else startStream(request.endpoints, request.sceneJson)
+            }
         }
-        pendingStart = null
-        handler.removeCallbacks(captureTimeout)
-        if (request.practice) startPractice(request.sceneJson) else startStream(request.endpoints, request.sceneJson)
     }
 
     private fun readPreviewSurface(intent: Intent): Surface? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -761,7 +804,6 @@ class StreamingForegroundService : Service(), ConnectChecker {
         intent.getParcelableExtra(EXTRA_PREVIEW_SURFACE)
     }
 
-    private data class PendingStart(val endpoints: List<String>, val sceneJson: String, val practice: Boolean)
     private data class SceneRenderReport(val textOverlays: Int, val unsupportedLayers: Int)
 
     private fun applySceneOverlays(sceneJson: String): SceneRenderReport {
@@ -807,6 +849,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun startStream(endpoints: List<String>, sceneJson: String) {
+        StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "encoder_start_requested", "broadcast")
         StreamingStatusBus.clearHealth()
         val previous = StreamingStatusBus.state.value
         StreamingStatusBus.update(previous.copy(mode = SessionMode.BROADCAST, bitrateKbps = 0, fps = 0, droppedFrames = -1, audioLevel = -1))
@@ -1268,6 +1311,11 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
     }
 
+    private fun publishPreparationPhase(phase: String, message: String) {
+        StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "capture_phase_$phase")
+        publish(StreamStatus.PREPARING, message)
+    }
+
     private fun publish(status: StreamStatus, message: String? = null) {
         val previous = StreamingStatusBus.state.value
         if (!StreamStateMachine.canTransition(previous.status, status)) return
@@ -1640,6 +1688,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         const val EXTRA_PREVIEW_HEIGHT = "preview_height"
         const val EXTRA_PREVIEW_TOKEN = "preview_token"
         const val EXTRA_PIPELINE_GENERATION = "pipeline_generation"
+        const val EXTRA_START_AFTER_PREPARE = "start_after_prepare"
+        const val EXTRA_PRACTICE = "extra_practice"
         const val EXTRA_MARKER_LABEL = "extra_marker_label"
         private const val ENDPOINT_SEPARATOR = "\u001F"
         private const val MAX_DIRECT_DESTINATIONS = 2

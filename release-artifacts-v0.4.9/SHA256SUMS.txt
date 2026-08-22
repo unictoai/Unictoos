@@ -1,0 +1,3 @@
+445bb19a13f5326042da0a334b14e4af22a74155feb4b0e0a972b3b8e6691df8  release-artifacts-v0.4.9/Unictoos-v0.4.9-androidTest.apk
+13580311b6fc8655ad34396210c475871c94eb71ae43c34d4aef92f03f8f7743  release-artifacts-v0.4.9/Unictoos-v0.4.9-debug.apk
+594c4c3cf800a39aeb0b8bf4f297281c149cd9bb71fdc89ca793ad0b32c3b07b  release-artifacts-v0.4.9/Unictoos-v0.4.9-release-unsigned.apk

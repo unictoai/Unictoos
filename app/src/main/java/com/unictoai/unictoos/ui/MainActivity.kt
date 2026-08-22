@@ -38,18 +38,12 @@ class MainActivity : ComponentActivity() {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_PREPARE_PROJECTION
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_RESULT_CODE, result.resultCode)
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PROJECTION_DATA, result.data)
-            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_SCENE_JSON, pendingSceneJson)
-        }
-        androidx.core.content.ContextCompat.startForegroundService(this, prepareIntent)
-        startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
-            action = if (pendingPractice) {
-                com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START_PRACTICE
-            } else {
-                com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START
-            }
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_ENDPOINT, pendingEndpoint)
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_SCENE_JSON, pendingSceneJson)
-        })
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_START_AFTER_PREPARE, true)
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PRACTICE, pendingPractice)
+        }
+        androidx.core.content.ContextCompat.startForegroundService(this, prepareIntent)
         pendingPractice = false
     }
 
@@ -146,15 +140,9 @@ class MainActivity : ComponentActivity() {
         androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
             action = com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_PREPARE_CAMERA
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_SCENE_JSON, pendingSceneJson)
-        })
-        startService(Intent(this, com.unictoai.unictoos.streaming.StreamingForegroundService::class.java).apply {
-            action = if (pendingPractice) {
-                com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START_PRACTICE
-            } else {
-                com.unictoai.unictoos.streaming.StreamingForegroundService.ACTION_START
-            }
             putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_ENDPOINT, pendingEndpoint)
-            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_SCENE_JSON, pendingSceneJson)
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_START_AFTER_PREPARE, true)
+            putExtra(com.unictoai.unictoos.streaming.StreamingForegroundService.EXTRA_PRACTICE, pendingPractice)
         })
         pendingPractice = false
     }
