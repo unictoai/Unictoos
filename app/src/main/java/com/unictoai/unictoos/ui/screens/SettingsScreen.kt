@@ -158,6 +158,8 @@ internal fun SettingsScreen(
     onCustomStreamQualityChange: (Int, Int) -> Unit,
     thermalProtectionEnabled: Boolean,
     onThermalProtectionChange: (Boolean) -> Unit,
+    adaptiveBitrateEnabled: Boolean,
+    onAdaptiveBitrateChange: (Boolean) -> Unit,
     audioSettings: AudioSettings,
     onAudioQualityChange: (AudioQuality) -> Unit,
     onEchoCancelerChange: (Boolean) -> Unit,
@@ -329,6 +331,8 @@ internal fun SettingsScreen(
                     SettingToggle("Keep screen awake", "Prevent the display from sleeping in Studio", keepAwake, onCheckedChange = { keepAwake = it }, enabled = !settingsLocked)
                     HorizontalDivider(color = V02Palette.Neutral700)
                     SettingToggle("Automatic thermal protection", "Lower live bitrate when the device is running hot", thermalProtectionEnabled, onThermalProtectionChange)
+                    HorizontalDivider(color = V02Palette.Neutral700)
+                    SettingToggle("Adaptive bitrate", "Lower or raise bitrate gradually as network conditions change", adaptiveBitrateEnabled, onAdaptiveBitrateChange, enabled = !settingsLocked)
                 }
             }
         }

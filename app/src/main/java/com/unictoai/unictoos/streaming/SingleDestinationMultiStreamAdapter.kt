@@ -14,6 +14,8 @@ import com.pedro.library.view.GlInterface
 import com.pedro.library.view.RenderErrorCallback
 import com.pedro.encoder.input.sources.audio.NoAudioSource
 import com.pedro.encoder.input.sources.video.NoVideoSource
+import com.unictoai.unictoos.health.DestinationSlotEvent
+import com.unictoai.unictoos.health.HealthState
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -28,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class SingleDestinationMultiStreamAdapter(
     context: Context,
     connectChecker: ConnectChecker,
+    private val onSlotEvent: (DestinationSlotEvent) -> Unit = {},
 ) {
     private val closed = AtomicBoolean(false)
     private val trackerLock = Any()
@@ -123,6 +126,7 @@ class SingleDestinationMultiStreamAdapter(
             successfulSlots.clear()
             authenticatedSlots.clear()
             normalizedEndpoints.indices.forEach(activeSlots::add)
+            normalizedEndpoints.indices.forEach { index -> emitSlot(DestinationSlotEvent(index, HealthState.RECONNECTING)) }
             failureReported.set(false)
             disconnectReported.set(false)
             authErrorReported.set(false)
@@ -187,6 +191,10 @@ class SingleDestinationMultiStreamAdapter(
         }
     }
 
+    private fun emitSlot(event: DestinationSlotEvent) {
+        runCatching { onSlotEvent(event) }
+    }
+
     private fun checkOpen() {
         check(!closed.get()) { "MultiStream adapter is closed" }
     }
@@ -196,10 +204,12 @@ class SingleDestinationMultiStreamAdapter(
         private val delegate: ConnectChecker,
     ) : ConnectChecker {
         override fun onConnectionStarted(url: String) {
+            emitSlot(DestinationSlotEvent(slotIndex, HealthState.RECONNECTING))
             if (isPrimarySlot()) delegate.onConnectionStarted(url)
         }
 
         override fun onConnectionSuccess() {
+            emitSlot(DestinationSlotEvent(slotIndex, HealthState.HEALTHY))
             val shouldPublish = synchronized(trackerLock) {
                 successfulSlots += slotIndex
                 successfulSlots.containsAll(activeSlots) && activeSlots.isNotEmpty()
@@ -208,6 +218,7 @@ class SingleDestinationMultiStreamAdapter(
         }
 
         override fun onNewBitrate(bitrate: Long) {
+            emitSlot(DestinationSlotEvent(slotIndex, HealthState.HEALTHY, bitrate = bitrate))
             // The service’s adaptive target is per encoded output. Use slot zero as the
             // authoritative signal so a second destination cannot double the bitrate.
             if (isPrimarySlot()) delegate.onNewBitrate(bitrate)
@@ -215,6 +226,7 @@ class SingleDestinationMultiStreamAdapter(
 
         override fun onConnectionFailed(reason: String) {
             if (!isActiveSlot()) return
+            emitSlot(DestinationSlotEvent(slotIndex, HealthState.FAILED, error = reason.take(240)))
             if (failureReported.compareAndSet(false, true)) {
                 delegate.onConnectionFailed("Destination ${slotIndex + 1}: ${reason.ifBlank { "connection failed" }}")
             }
@@ -222,10 +234,12 @@ class SingleDestinationMultiStreamAdapter(
 
         override fun onDisconnect() {
             if (!isActiveSlot()) return
+            emitSlot(DestinationSlotEvent(slotIndex, HealthState.RECONNECTING))
             if (disconnectReported.compareAndSet(false, true)) delegate.onDisconnect()
         }
 
         override fun onAuthError() {
+            if (isActiveSlot()) emitSlot(DestinationSlotEvent(slotIndex, HealthState.FAILED, error = "Authentication failed"))
             if (isActiveSlot() && authErrorReported.compareAndSet(false, true)) delegate.onAuthError()
         }
 
@@ -238,6 +252,10 @@ class SingleDestinationMultiStreamAdapter(
         }
 
         private fun isActiveSlot(): Boolean = synchronized(trackerLock) { slotIndex in activeSlots }
+
+        private fun emitSlot(event: DestinationSlotEvent) {
+            runCatching { onSlotEvent(event) }
+        }
 
         private fun isPrimarySlot(): Boolean = synchronized(trackerLock) {
             activeSlots.firstOrNull() == slotIndex

@@ -20,7 +20,8 @@ data class SceneCompositionPlan(
             val imageCount = enabled.count { it.type == SourceType.IMAGE }
             val hasScreen = enabled.any { it.type == SourceType.SCREEN }
             val hasCamera = enabled.any { it.type == SourceType.CAMERA }
-            val unsupported = imageCount + enabled.count { it.type == SourceType.COLOR } + if (hasScreen && hasCamera) 1 else 0
+            val pipSupported = scene.pipConfig?.enabled == true && hasScreen && hasCamera
+            val unsupported = imageCount + enabled.count { it.type == SourceType.COLOR } + if (hasScreen && hasCamera && !pipSupported) 1 else 0
             return SceneCompositionPlan(textCount, imageCount, hasScreen, hasCamera, unsupported)
         }
     }

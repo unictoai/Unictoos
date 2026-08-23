@@ -6,7 +6,9 @@ import android.app.PendingIntent
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjection
@@ -22,7 +24,6 @@ import android.os.Looper
 import android.os.SystemClock
 import android.os.StatFs
 import android.view.Surface
-import com.pedro.encoder.input.gl.render.filters.`object`.TextObjectFilterRender
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
@@ -32,6 +33,14 @@ import com.pedro.library.view.RenderErrorCallback
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.encoder.input.sources.video.ScreenSource
+import com.unictoai.unictoos.domain.PipConfig
+import com.unictoai.unictoos.stream.CompositorSurface
+import com.unictoai.unictoos.stream.QualityTier
+import com.unictoai.unictoos.overlay.OverlayRenderer
+import com.unictoai.unictoos.overlay.StreamOverlay
+import com.unictoai.unictoos.health.DestinationHealth
+import com.unictoai.unictoos.health.DestinationSlotEvent
+import com.unictoai.unictoos.health.HealthState
 import com.unictoai.unictoos.R
 import com.unictoai.unictoos.ui.MainActivity
 import com.unictoai.unictoos.data.CreatorHistoryStore
@@ -72,6 +81,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var intentionallyReleasingProjection = false
     private var microphoneSource: MicrophoneSource? = null
     private var cameraSource: Camera2Source? = null
+    private var compositorSurface: CompositorSurface? = null
     private var prepared = false
     private var genericStreamReleased = false
     private var pipelineReleaseState = PipelineReleaseState.AVAILABLE
@@ -116,6 +126,17 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private val sessionHealthSamples = mutableListOf<StreamHealthSample>()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val capturePreparationMutex = Mutex()
+    private var backgroundAudioMode = false
+    private var audioOnlyActive = false
+    private var broadcastWakeLock: PowerManager.WakeLock? = null
+    private val screenStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: android.content.Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> enterBackgroundAudioModeIfAllowed()
+                Intent.ACTION_USER_PRESENT -> exitBackgroundAudioMode()
+            }
+        }
+    }
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -244,7 +265,15 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val generation = sessionGeneration.incrementAndGet()
         graphicsFailureRequested.set(false)
         StreamingDiagnostics.record(currentSessionId, generation, "pipeline_created")
-        return SingleDestinationMultiStreamAdapter(this, GenerationConnectChecker(generation)).apply {
+        return SingleDestinationMultiStreamAdapter(
+            context = this,
+            connectChecker = GenerationConnectChecker(generation),
+            onSlotEvent = { event ->
+                postSerialized {
+                    if (isCurrentGeneration(generation)) updateDestinationHealth(event)
+                }
+            },
+        ).apply {
             // Camera2Source and ScreenSource deliver SurfaceTexture frames themselves. A periodic
             // ForceRenderer adds a second render producer and can queue redundant GL work on devices
             // with slower encoder/EGL drivers. prepareVideo already enables RootEncoder's FPS limiter.
@@ -321,6 +350,47 @@ class StreamingForegroundService : Service(), ConnectChecker {
         StreamingStatusBus.update(previous.copy(fps = fps.coerceAtLeast(0)))
     }
 
+    private fun initializeDestinationHealth(count: Int) {
+        val health = (0 until count.coerceAtMost(2)).map { index ->
+            DestinationHealth(
+                profileId = "slot-${index + 1}",
+                profileName = "Destination ${index + 1}",
+                state = HealthState.RECONNECTING,
+                maxRetries = MAX_RECONNECT_ATTEMPTS,
+            )
+        }
+        StreamingStatusBus.update(StreamingStatusBus.state.value.copy(destinationHealth = health))
+    }
+
+    private fun updateDestinationHealth(event: DestinationSlotEvent) {
+        val current = StreamingStatusBus.state.value.destinationHealth
+        if (event.slotIndex !in 0..1) return
+        val updated = if (event.slotIndex < current.size) {
+            current.mapIndexed { index, item ->
+                if (index != event.slotIndex) item else item.copy(
+                    state = event.state,
+                    currentBitrate = event.bitrate ?: item.currentBitrate,
+                    lastError = event.error ?: if (event.state != HealthState.FAILED) null else item.lastError,
+                    retryCount = if (event.state == HealthState.RECONNECTING && item.state != HealthState.RECONNECTING) {
+                        (item.retryCount + 1).coerceAtMost(item.maxRetries)
+                    } else item.retryCount,
+                )
+            }
+        } else {
+            (current + (current.size..event.slotIndex).map { index ->
+                DestinationHealth(profileId = "slot-${index + 1}", profileName = "Destination ${index + 1}")
+            }).mapIndexed { index, item ->
+                if (index != event.slotIndex) item else item.copy(
+                    state = event.state,
+                    currentBitrate = event.bitrate ?: item.currentBitrate,
+                    lastError = event.error,
+                    retryCount = if (event.state == HealthState.RECONNECTING) 1 else 0,
+                )
+            }
+        }
+        StreamingStatusBus.update(StreamingStatusBus.state.value.copy(destinationHealth = updated))
+    }
+
     private fun resetTelemetryForInactiveSession() {
         val previous = StreamingStatusBus.state.value
         StreamingStatusBus.update(
@@ -346,6 +416,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private fun failCapturePreparation(message: String) {
         pendingStart = null
         handler.removeCallbacks(captureTimeout)
+        releaseBroadcastWakeLock()
         publish(StreamStatus.ERROR, message)
     }
 
@@ -394,6 +465,9 @@ class StreamingForegroundService : Service(), ConnectChecker {
             .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "stop_preview: ${it.message.orEmpty()}") }
         runCatching { genericStream.getGlInterface().stop() }
             .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "stop_gl: ${it.message.orEmpty()}") }
+        runCatching { compositorSurface?.release() }
+            .onFailure { StreamingDiagnostics.record(currentSessionId, generation, "pipeline_release_error", "release_pip: ${it.message.orEmpty()}") }
+        compositorSurface = null
         val releaseSucceeded = runCatching {
             genericStream.release()
             true
@@ -430,13 +504,21 @@ class StreamingForegroundService : Service(), ConnectChecker {
         latencyMode = LatencyModeStore(applicationContext).load()
         createNotificationChannel()
         registerNetworkCallback()
+        registerReceiver(screenStateReceiver, IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_USER_PRESENT)
+        })
         genericStream = createGenericStream()
         prepared = prepareGenericStream()
         if (!prepared) publish(StreamStatus.ERROR, "This device cannot prepare the requested capture profile")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        if (intent == null) {
+            StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "service_restart_ignored", "null_intent")
+            return START_NOT_STICKY
+        }
+        when (intent.action) {
             ACTION_PREPARE_PROJECTION -> serviceScope.launch {
                 capturePreparationMutex.withLock {
                     runCatching {
@@ -486,7 +568,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 intent.getLongExtra(EXTRA_PIPELINE_GENERATION, 0L).takeIf { it > 0L },
             )
         }
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     private suspend fun prepareProjectionFromIntent(intent: Intent) {
@@ -501,6 +583,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
             return
         }
         resetCaptureStateForPreparation()
+        backgroundAudioMode = false
+        audioOnlyActive = false
         publishPreparationPhase("microphone_prepare", "Preparing microphone input")
         if (!hasAudioPermission()) {
             failCapturePreparation("Microphone permission is not granted")
@@ -519,15 +603,21 @@ class StreamingForegroundService : Service(), ConnectChecker {
             intent.getParcelableExtra(EXTRA_PROJECTION_DATA)
         }
         publishPreparationPhase("screen_source", "Opening Android screen capture")
-        if (projectionData == null || !prepareProjection(resultCode, projectionData)) {
+        val scenePipConfig = ScenePayloadCodec.decode(intent.getStringExtra(EXTRA_SCENE_JSON).orEmpty())?.pipConfig
+        if (projectionData == null || !prepareProjection(resultCode, projectionData, scenePipConfig)) {
             failCapturePreparation("Screen capture permission was not available")
         } else {
-            publish(StreamStatus.PREPARING, "Microphone ready • waiting for Studio preview")
+            val pipMessage = when {
+                compositorSurface != null -> "Experimental screen and camera PiP ready • waiting for Studio preview"
+                scenePipConfig?.enabled == true -> "PiP camera unavailable; continuing screen-only • waiting for Studio preview"
+                else -> "Screen capture ready • waiting for Studio preview"
+            }
+            publish(StreamStatus.PREPARING, "Microphone ready • $pipMessage")
             attachPreviewIfPossible()
         }
     }
 
-    private fun prepareProjection(resultCode: Int, data: Intent): Boolean {
+    private fun prepareProjection(resultCode: Int, data: Intent, pipConfig: PipConfig?): Boolean {
         if (!prepared) return false
         val projection = projectionManager.getMediaProjection(resultCode, data) ?: return false
         intentionallyReleasingProjection = false
@@ -537,6 +627,34 @@ class StreamingForegroundService : Service(), ConnectChecker {
         return runCatching {
             genericStream.changeVideoSource(ScreenSource(applicationContext, projection))
             cameraSource = null
+            compositorSurface?.release()
+            compositorSurface = null
+            var pipFallback = false
+            if (pipConfig?.enabled == true) {
+                runCatching {
+                    CompositorSurface(
+                        context = applicationContext,
+                        glInterface = genericStream.getGlInterface(),
+                        frameWidth = activeStreamQuality.width,
+                        frameHeight = activeStreamQuality.height,
+                        frameFps = activeStreamQuality.fps,
+                    ).also { compositor ->
+                        if (compositor.start(pipConfig)) {
+                            compositorSurface = compositor
+                        } else {
+                            pipFallback = true
+                            compositor.release()
+                        }
+                    }
+                }.onFailure { error ->
+                    pipFallback = true
+                    StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "pip_fallback_screen_only", error.message.orEmpty())
+                    compositorSurface = null
+                }
+                if (pipFallback) {
+                    StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "pip_fallback_screen_only", "secondary_camera_unavailable")
+                }
+            }
             microphoneSource?.release()
             microphoneSource = MicrophoneSource().also { genericStream.changeAudioSource(it) }
             captureReady = true
@@ -561,6 +679,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
             return
         }
         resetCaptureStateForPreparation()
+        backgroundAudioMode = ScenePayloadCodec.decode(sceneJson)?.backgroundAudioMode == true
+        audioOnlyActive = false
         if (!hasAudioPermission()) {
             failCapturePreparation("Microphone permission is not granted")
             return
@@ -597,7 +717,20 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private fun switchCamera() {
         postSerialized {
             val source = cameraSource
-            if (source == null || !captureReady) {
+            if (!captureReady) {
+                publish(StreamStatus.ERROR, "Camera switching is available while camera capture is prepared")
+                return@postSerialized
+            }
+            if (source == null && compositorSurface != null) {
+                if (compositorSurface?.switchCamera() == true) {
+                    StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "pip_camera_switched")
+                    publish(StreamingStatusBus.state.value.status, "PiP camera switched")
+                } else {
+                    publish(StreamStatus.ERROR, "PiP camera could not switch")
+                }
+                return@postSerialized
+            }
+            if (source == null) {
                 publish(StreamStatus.ERROR, "Camera switching is available while camera capture is prepared")
                 return@postSerialized
             }
@@ -810,19 +943,25 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val scene = ScenePayloadCodec.decode(sceneJson) ?: return SceneRenderReport(0, 0)
         val plan = SceneCompositionPlan.from(scene)
         val textSources = scene.sources.filter { it.enabled && it.type == SourceType.TEXT && it.textContent.isNotBlank() }.sortedBy { it.zIndex }
-        val unsupported = plan.unsupportedLayerCount
-        genericStream.getGlInterface().clearFilters()
-        val scaledDensity = resources.displayMetrics.density * resources.configuration.fontScale
-        textSources.forEachIndexed { index, source ->
-            val filter = TextObjectFilterRender().apply {
-                setText(source.textContent, source.textSizeSp * scaledDensity, source.textColor.toInt(), source.fillColor.toInt())
-                setAlpha(source.opacity.coerceIn(0f, 1f))
-                setScale((source.width * 100f).coerceIn(5f, 100f), (source.height * 100f).coerceIn(5f, 100f))
-                setPosition((source.x * 100f).coerceIn(0f, 100f), (source.y * 100f).coerceIn(0f, 100f))
-            }
-            if (index == 0) genericStream.getGlInterface().setFilter(filter) else genericStream.getGlInterface().addFilter(filter)
+        val overlays = textSources.map { source ->
+            StreamOverlay.TextOverlay(
+                id = source.id,
+                text = source.textContent,
+                x = source.x,
+                y = source.y,
+                textSizeSp = source.textSizeSp,
+                textColor = source.textColor,
+                backgroundColor = source.fillColor,
+                width = source.width,
+                height = source.height,
+                opacity = source.opacity,
+            )
         }
-        return SceneRenderReport(plan.textOverlayCount, unsupported)
+        val result = OverlayRenderer(
+            glInterface = genericStream.getGlInterface(),
+            density = resources.displayMetrics.density * resources.configuration.fontScale,
+        ).render(overlays, uptimeSeconds = StreamingStatusBus.state.value.elapsedSeconds)
+        return SceneRenderReport(result.renderedCount, plan.unsupportedLayerCount + result.skippedCount)
     }
 
     private fun startPractice(sceneJson: String) {
@@ -832,6 +971,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         }
         if (!runEnvironmentPreflight(practice = true)) return
         manualStop = false
+        acquireBroadcastWakeLock()
         currentEndpoint = ""
         currentEndpoints = emptyList()
         reconnectAttempt = 0
@@ -839,13 +979,17 @@ class StreamingForegroundService : Service(), ConnectChecker {
         currentSessionId = "session-${System.currentTimeMillis()}"
         sessionHealthSamples.clear()
         StreamingStatusBus.clearHealth()
+        StreamingStatusBus.update(StreamingStatusBus.state.value.copy(backgroundAudioMode = backgroundAudioMode, audioOnlyActive = false))
         val previous = StreamingStatusBus.state.value
         val report = applySceneOverlays(sceneJson)
         val sceneMessage = if (report.unsupportedLayers > 0) "Practice mode active • ${report.textOverlays} text overlay(s) rendered; some scene layers are not yet composited" else "Practice mode active • ${report.textOverlays} text overlay(s) rendered"
         pendingPracticeLiveMessage = sceneMessage
         StreamingStatusBus.update(previous.copy(mode = SessionMode.PRACTICE, bitrateKbps = 0, fps = 0, droppedFrames = -1, audioLevel = -1, message = "Starting local practice recording"))
         startRecording(prefix = "unictoos-practice")
-        if (StreamingStatusBus.state.value.recordingState == RecordingState.FAILED) pendingPracticeLiveMessage = null
+        if (StreamingStatusBus.state.value.recordingState == RecordingState.FAILED) {
+            pendingPracticeLiveMessage = null
+            releaseBroadcastWakeLock()
+        }
     }
 
     private fun startStream(endpoints: List<String>, sceneJson: String) {
@@ -865,11 +1009,14 @@ class StreamingForegroundService : Service(), ConnectChecker {
         if (!runEnvironmentPreflight(practice = false)) return
         if (genericStream.isStreaming) return
         manualStop = false
+        acquireBroadcastWakeLock()
         autoStopSeconds = AutoStopStore(applicationContext).load().seconds
         currentSessionId = "session-${System.currentTimeMillis()}"
         sessionHealthSamples.clear()
+        StreamingStatusBus.update(StreamingStatusBus.state.value.copy(backgroundAudioMode = backgroundAudioMode, audioOnlyActive = false))
         currentEndpoints = endpoints
         currentEndpoint = endpoints.firstOrNull().orEmpty()
+        initializeDestinationHealth(endpoints.size)
         val report = applySceneOverlays(sceneJson)
         val sceneMessage = if (report.unsupportedLayers > 0) "Connecting to your destination • ${report.textOverlays} text overlay(s) rendered; some scene layers are not yet composited" else "Connecting to your destination • ${report.textOverlays} text overlay(s) rendered"
         publish(StreamStatus.CONNECTING, sceneMessage)
@@ -878,6 +1025,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             scheduleConnectionWatchdog(sessionGeneration.get())
         }.onFailure {
             cancelConnectionWatchdog()
+            releaseBroadcastWakeLock()
             publish(StreamStatus.ERROR, "Unable to start the stream: ${it.message.orEmpty()}")
         }
     }
@@ -895,7 +1043,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
         handler.removeCallbacksAndMessages(null)
         sessionGeneration.incrementAndGet()
         elapsedTickerGeneration = 0L
-        if (!hadPendingStart && !StreamStateMachine.acceptsStop(current.status)) return
+        if (!hadPendingStart && !StreamStateMachine.acceptsStop(current.status)) {
+            releaseBroadcastWakeLock()
+            return
+        }
         if (current.status != StreamStatus.STOPPING && current.status != StreamStatus.STOPPED && current.status != StreamStatus.IDLE) {
             publish(StreamStatus.STOPPING, if (hadPendingStart) "Cancelling capture" else "Stopping session")
         }
@@ -948,7 +1099,11 @@ class StreamingForegroundService : Service(), ConnectChecker {
         autoStopSeconds = 0L
         currentSessionId = ""
         sessionHealthSamples.clear()
+        audioOnlyActive = false
+        backgroundAudioMode = false
+        releaseBroadcastWakeLock()
         resetTelemetryForInactiveSession()
+        StreamingStatusBus.update(StreamingStatusBus.state.value.copy(destinationHealth = emptyList(), backgroundAudioMode = false, audioOnlyActive = false))
         publish(StreamStatus.STOPPED, reason)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -965,6 +1120,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         sessionGeneration.incrementAndGet()
         elapsedTickerGeneration = 0L
         val released = releaseFailedPipeline()
+        releaseBroadcastWakeLock()
         resetTelemetryForInactiveSession()
         StreamingStatusBus.update(
             StreamingStatusBus.state.value.copy(
@@ -1027,6 +1183,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         sessionGeneration.incrementAndGet()
         elapsedTickerGeneration = 0L
         val released = releaseFailedPipeline()
+        releaseBroadcastWakeLock()
         resetTelemetryForInactiveSession()
         StreamingDiagnostics.record(
             currentSessionId,
@@ -1119,6 +1276,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
                             }
                         } else if (status == RecordController.Status.STOPPED && previous.recordingState == RecordingState.STARTING) {
                             pendingPracticeLiveMessage = null
+                            if (previous.mode == SessionMode.PRACTICE) releaseBroadcastWakeLock()
                             publish(StreamStatus.ERROR, "Practice recording could not start")
                         }
                     }
@@ -1126,6 +1284,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
             })
         }.onFailure {
             activeRecordingFile = null
+            if (StreamingStatusBus.state.value.mode == SessionMode.PRACTICE) releaseBroadcastWakeLock()
             StreamingStatusBus.update(
                 StreamingStatusBus.state.value.copy(
                     recording = false,
@@ -1277,6 +1436,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 .onFailure { error -> StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "terminal_stream_stop_failed", error.message.orEmpty()) }
         }
         releasePreviewForCaptureChange()
+        releaseBroadcastWakeLock()
         resetTelemetryForInactiveSession()
         publish(StreamStatus.ERROR, message)
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -1297,14 +1457,17 @@ class StreamingForegroundService : Service(), ConnectChecker {
             ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), serviceTypes)
             true
         } catch (error: SecurityException) {
+            releaseBroadcastWakeLock()
             publish(StreamStatus.ERROR, "Android rejected the capture service: ${error.message.orEmpty()}")
             stopSelf()
             false
         } catch (error: IllegalArgumentException) {
+            releaseBroadcastWakeLock()
             publish(StreamStatus.ERROR, "Capture service configuration is invalid: ${error.message.orEmpty()}")
             stopSelf()
             false
         } catch (error: IllegalStateException) {
+            releaseBroadcastWakeLock()
             publish(StreamStatus.ERROR, "Android did not allow the capture service to start: ${error.message.orEmpty()}")
             stopSelf()
             false
@@ -1338,6 +1501,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 encoderReady = prepared,
                 previewReady = previewAttached,
                 pipelineGeneration = sessionGeneration.get(),
+                qualityTier = qualityTierForBitrate(adaptiveTargetBitrate.takeIf { it > 0 } ?: activeStreamQuality.bitrate),
                 message = message,
             ),
         )
@@ -1479,6 +1643,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         pendingPracticeLiveMessage = null
         serviceScope.cancel()
         handler.removeCallbacksAndMessages(null)
+        runCatching { unregisterReceiver(screenStateReceiver) }
+        releaseBroadcastWakeLock()
         if (::genericStream.isInitialized && !genericStreamReleased) {
             releasePreviewForCaptureChange()
             if (StreamingStatusBus.state.value.recordingState in setOf(RecordingState.STARTING, RecordingState.RECORDING, RecordingState.STOPPING)) {
@@ -1498,11 +1664,62 @@ class StreamingForegroundService : Service(), ConnectChecker {
         pendingStart = null
         pendingPracticeLiveMessage = null
         mediaProjection = null
+        backgroundAudioMode = false
+        audioOnlyActive = false
         startedAtElapsed = 0L
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun acquireBroadcastWakeLock() {
+        if (broadcastWakeLock?.isHeld == true) return
+        runCatching {
+            broadcastWakeLock = getSystemService(PowerManager::class.java)
+                ?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Unictoos:Broadcast")
+                ?.apply { setReferenceCounted(false); acquire() }
+            StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "wakelock_acquired")
+        }.onFailure {
+            broadcastWakeLock = null
+            StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "wakelock_acquire_failed", it.message.orEmpty())
+        }
+    }
+
+    private fun releaseBroadcastWakeLock() {
+        runCatching { broadcastWakeLock?.takeIf { it.isHeld }?.release() }
+        broadcastWakeLock = null
+    }
+
+    private fun enterBackgroundAudioModeIfAllowed() {
+        postSerialized {
+            val state = StreamingStatusBus.state.value
+            if (!BackgroundAudioPolicy.canEnter(
+                    enabled = backgroundAudioMode,
+                    screenCaptureActive = mediaProjection != null,
+                    captureReady = captureReady,
+                    status = state.status,
+                ) || !::genericStream.isInitialized
+            ) return@postSerialized
+            runCatching { genericStream.getGlInterface().muteVideo() }.onSuccess {
+                audioOnlyActive = true
+                StreamingStatusBus.update(state.copy(audioOnlyActive = true, message = "Audio-only stream • tap Unictoos to resume video"))
+                updateNotification("Audio-only stream • tap to resume video")
+                StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "audio_only_entered")
+            }.onFailure { StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "audio_only_enter_failed", it.message.orEmpty()) }
+        }
+    }
+
+    private fun exitBackgroundAudioMode() {
+        postSerialized {
+            if (!audioOnlyActive || !::genericStream.isInitialized) return@postSerialized
+            runCatching { genericStream.getGlInterface().unMuteVideo() }.onSuccess {
+                audioOnlyActive = false
+                StreamingStatusBus.update(StreamingStatusBus.state.value.copy(audioOnlyActive = false, message = "Broadcast is live"))
+                updateNotification("Broadcast is live")
+                StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "audio_only_exited")
+            }.onFailure { StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "audio_only_exit_failed", it.message.orEmpty()) }
+        }
+    }
 
     private fun registerNetworkCallback() {
         if (networkCallbackRegistered) return
@@ -1558,13 +1775,17 @@ class StreamingForegroundService : Service(), ConnectChecker {
         if (!isCurrentGeneration(generation)) return
         val state = StreamingStatusBus.state.value
         if (!genericStream.isStreaming || state.status !in setOf(StreamStatus.CONNECTING, StreamStatus.LIVE, StreamStatus.RECONNECTING)) return
+        if (!runCatching { com.unictoai.unictoos.data.AdaptiveBitrateStore(applicationContext).isEnabled() }.getOrDefault(true)) {
+            StreamingStatusBus.update(state.copy(bitrateKbps = (bitrate / 1000L).toInt()))
+            return
+        }
         val reported = bitrate.coerceAtLeast(0L).toInt()
         bitrateHistory.addLast(reported)
         if (bitrateHistory.size > 5) bitrateHistory.removeFirst()
         val average = if (bitrateHistory.isEmpty()) 0 else bitrateHistory.sum() / bitrateHistory.size
         val target = adaptiveTargetBitrate.takeIf { it > 0 } ?: activeStreamQuality.bitrate
-        val degraded = average < (target * 0.60f).toInt()
-        val recovered = average >= (target * 0.85f).toInt()
+        val degraded = average < (target * 0.80f).toInt()
+        val recovered = average >= (target * 0.95f).toInt()
         if (degraded) {
             if (degradedSinceElapsed == 0L) degradedSinceElapsed = SystemClock.elapsedRealtime()
             recoveredSinceElapsed = 0L
@@ -1593,11 +1814,15 @@ class StreamingForegroundService : Service(), ConnectChecker {
                     } else {
                         "Network recovered • quality raised to ${decision.bitrate / 1000} kbps"
                     }
+                    StreamingStatusBus.update(StreamingStatusBus.state.value.copy(qualityTier = qualityTierForBitrate(decision.bitrate)))
                     publish(StreamStatus.LIVE, message)
                 }
         }
         StreamingStatusBus.update(StreamingStatusBus.state.value.copy(bitrateKbps = (bitrate / 1000L).toInt()))
     }
+
+    private fun qualityTierForBitrate(bitrate: Int): QualityTier = QualityTier.values().minByOrNull { tier -> kotlin.math.abs(tier.targetBitrate - bitrate) }
+        ?: QualityTier.TIER_720P30
 
     private fun onConnectionFailedForGeneration(reason: String, generation: Long) {
         if (!isCurrentGeneration(generation)) return

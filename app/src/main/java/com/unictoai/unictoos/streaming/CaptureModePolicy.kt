@@ -6,10 +6,9 @@ import com.unictoai.unictoos.domain.SourceType
 /**
  * Selects the capture path that the current runtime can actually provide.
  *
- * Unictoos does not yet composite camera and screen sources into PiP. When an
- * older scene contains both enabled sources, prefer the camera path so a
- * first-run broadcast does not unexpectedly request screen capture instead of
- * using the visible camera scene. Screen-only scenes still use MediaProjection.
+ * Mixed scenes remain camera-first unless PiP is explicitly enabled. This
+ * protects older saved scenes from unexpectedly requesting screen capture while
+ * allowing the v0.5 Gameplay + Camera template to opt into composition.
  */
 object CaptureModePolicy {
     const val NONE = "none"
@@ -17,6 +16,9 @@ object CaptureModePolicy {
     const val CAMERA = "camera"
 
     fun forScene(scene: Scene): String = when {
+        scene.pipConfig?.enabled == true &&
+            scene.sources.any { it.enabled && it.type == SourceType.SCREEN } &&
+            scene.sources.any { it.enabled && it.type == SourceType.CAMERA } -> SCREEN
         scene.sources.any { it.enabled && it.type == SourceType.CAMERA } -> CAMERA
         scene.sources.any { it.enabled && it.type == SourceType.SCREEN } -> SCREEN
         else -> NONE

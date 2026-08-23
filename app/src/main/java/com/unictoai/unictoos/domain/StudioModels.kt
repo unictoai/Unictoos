@@ -1,6 +1,8 @@
 package com.unictoai.unictoos.domain
 
 import androidx.compose.runtime.Immutable
+import com.unictoai.unictoos.health.DestinationHealth
+import com.unictoai.unictoos.stream.QualityTier
 
 @Immutable
 data class Scene(
@@ -10,6 +12,8 @@ data class Scene(
     val aspectRatio: AspectRatio = AspectRatio.PORTRAIT,
     val sourceGroups: List<SourceGroup> = emptyList(),
     val transition: SceneTransition = SceneTransition(),
+    val pipConfig: PipConfig? = null,
+    val backgroundAudioMode: Boolean = false,
 )
 
 @Immutable
@@ -108,5 +112,9 @@ data class StreamSessionState(
     val encoderReady: Boolean = false,
     val previewReady: Boolean = false,
     val pipelineGeneration: Long = 0L,
+    val destinationHealth: List<DestinationHealth> = emptyList(),
+    val backgroundAudioMode: Boolean = false,
+    val audioOnlyActive: Boolean = false,
+    val qualityTier: QualityTier = QualityTier.TIER_720P30,
     val message: String? = null,
 )

@@ -29,6 +29,7 @@ for permission in (
     "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
     "android.permission.FOREGROUND_SERVICE_MICROPHONE",
     "android.permission.FOREGROUND_SERVICE_CAMERA",
+    "android.permission.WAKE_LOCK",
 ):
     check(f"manifest permission: {permission}", permission in MANIFEST)
 for action in (
@@ -103,8 +104,24 @@ check("go-live readiness regression", "cameraModeRequiresCameraPermissionButScre
 check("empty capture source is blocked", "const val NONE = \"none\"" in (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/CaptureModePolicy.kt").read_text() and 'captureMode = captureMode' in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/StudioScreen.kt").read_text() and "Enable a camera or screen source" in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/MainActivity.kt").read_text() and "noCaptureSourceIsBlocking" in (ROOT / "app/src/test/java/com/unictoai/unictoos/streaming/GoLiveReadinessPolicyTest.kt").read_text())
 check("stream key masked by default", "PasswordVisualTransformation" in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/SettingsScreen.kt").read_text() and "Hide stream key" in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/SettingsScreen.kt").read_text())
 check("camera switch action", "ACTION_SWITCH_CAMERA" in SERVICE and "switchCamera()" in SERVICE and "onSwitchCamera" in UI)
+PIP_CONFIG = (ROOT / "app/src/main/java/com/unictoai/unictoos/domain/PipConfig.kt").read_text()
+COMPOSITOR = (ROOT / "app/src/main/java/com/unictoai/unictoos/stream/CompositorSurface.kt").read_text()
+OVERLAY = (ROOT / "app/src/main/java/com/unictoai/unictoos/overlay/OverlayRenderer.kt").read_text()
+HEALTH = (ROOT / "app/src/main/java/com/unictoai/unictoos/health/DestinationHealth.kt").read_text()
+HEALTH_EVENT = (ROOT / "app/src/main/java/com/unictoai/unictoos/health/DestinationSlotEvent.kt").read_text()
+AB_POLICY = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/AdaptiveBitratePolicy.kt").read_text()
+AB_STORE = (ROOT / "app/src/main/java/com/unictoai/unictoos/data/AdaptiveBitrateStore.kt").read_text()
+BACKGROUND_POLICY = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/BackgroundAudioPolicy.kt").read_text()
+check("experimental RootEncoder PiP path", "PipConfig" in SERVICE and "CompositorSurface" in SERVICE and "SurfaceFilterRender" in COMPOSITOR and "pip_fallback_screen_only" in SERVICE)
+check("bounded PiP geometry contract", "PipGeometryPolicy" in PIP_CONFIG and "PipPosition" in PIP_CONFIG and "PipSize" in PIP_CONFIG)
+check("per-destination health events", "DestinationSlotEvent" in ADAPTER and "onSlotEvent" in SERVICE and "DestinationHealth" in HEALTH and "HealthState" in HEALTH_EVENT)
+check("adaptive bitrate v0.5 policy", "0.80f" in AB_POLICY and "0.95f" in AB_POLICY and "15" in AB_POLICY and "60" in AB_POLICY and "AdaptiveBitrateStore" in AB_STORE and "adaptiveBitrateEnabled" in SETTINGS)
+check("quality tier telemetry", "QualityTier" in (ROOT / "app/src/main/java/com/unictoai/unictoos/stream/QualityTier.kt").read_text() and "qualityTier" in SERVICE and "session.qualityTier" in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/StudioScreen.kt").read_text())
+check("camera-only background audio policy", "WAKE_LOCK" in MANIFEST and "START_NOT_STICKY" in SERVICE and "BackgroundAudioPolicy" in SERVICE and "muteVideo()" in SERVICE and "unMuteVideo()" in SERVICE)
+check("text overlay renderer contract", "OverlayRenderer" in SERVICE and "TextObjectFilterRender" in OVERLAY and "StreamOverlay" in (ROOT / "app/src/main/java/com/unictoai/unictoos/overlay/StreamOverlay.kt").read_text())
 check("actionable broadcast notification", "PendingIntent.getService" in SERVICE and '"Stop"' in SERVICE and '"Mute"' in SERVICE and "recordingInProgress" in SERVICE)
 check("terminal reconnect failure stops service", "terminateStreamingFailure" in SERVICE and "stopSelf()" in SERVICE and "Reconnect limit reached" in SERVICE)
+check("wake-lock terminal cleanup", "releaseBroadcastWakeLock()" in SERVICE and "onDestroy" in SERVICE and "service_restart_ignored" in SERVICE)
 check("practice LIVE follows recording callback", "pendingPracticeLiveMessage" in SERVICE and "Practice recording could not start" in SERVICE and "publish(StreamStatus.LIVE, practiceMessage)" in SERVICE)
 IMPORTER = (ROOT / "app/src/main/java/com/unictoai/unictoos/data/ConfigImporter.kt").read_text()
 check("safe scene-only configuration import", "onImportConfig" in SETTINGS and "destinations were unchanged" in APP and "streamKey" not in IMPORTER)
@@ -179,7 +196,7 @@ check("Kotlin 2.4.10 toolchain", 'org.jetbrains.kotlin.plugin.compose") version 
 check("Gradle 9.5 wrapper", "gradle-9.5.0-bin.zip" in (ROOT / "gradle/wrapper/gradle-wrapper.properties").read_text())
 check("Compose 2026.08 BOM", "compose-bom:2026.08.00" in BUILD_GRADLE)
 check("Android target SDK 36", "targetSdk = 36" in BUILD_GRADLE)
-check("v0.4.11 release metadata", 'versionName = "0.4.11"' in BUILD_GRADLE and "versionCode = 52" in BUILD_GRADLE and (ROOT / "VERSION").read_text().strip() == "0.4.11" and (ROOT / "RELEASE_NOTES_v0.4.11.md").exists() and (ROOT / "docs/V0.4_RESEARCH_AND_PRODUCT_PLAN.md").exists())
+check("v0.5.0 release metadata", 'versionName = "0.5.0"' in BUILD_GRADLE and "versionCode = 60" in BUILD_GRADLE and (ROOT / "VERSION").read_text().strip() == "0.5.0" and (ROOT / "RELEASE_NOTES_v0.5.0.md").exists() and (ROOT / "docs/V0.4_RESEARCH_AND_PRODUCT_PLAN.md").exists())
 check("compressed onboarding assets", len(list((ROOT / "app/src/main/res/drawable-nodpi").glob("onboarding_*.webp"))) == 4 and not list((ROOT / "app/src/main/res/drawable-nodpi").glob("onboarding_*.png")))
 check("release resource shrinking", "isShrinkResources = true" in BUILD_GRADLE)
 check("explicit terminal release boundary", "PipelineReleaseState.TERMINAL" in RELEASE_POLICY and "canCreateNewPipeline" in SERVICE_SOURCE)

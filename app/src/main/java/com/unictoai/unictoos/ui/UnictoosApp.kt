@@ -197,6 +197,7 @@ internal fun UnictoosApp(
                     onMoveSource = vm::moveSource,
                     onSetSourceOpacity = vm::setSourceOpacity,
                     onSetSourceGeometry = vm::setSourceGeometry,
+                    onSetPipConfig = vm::setPipConfig,
                     onUpdateTextSource = vm::updateTextSource,
                     onSetTransition = vm::setSceneTransition,
                     onCreateSourceGroup = vm::createSourceGroup,
@@ -333,6 +334,7 @@ private fun SettingsRoute(
     val session by vm.session.collectAsStateWithLifecycle()
     val streamQuality by vm.streamQuality.collectAsStateWithLifecycle()
     val thermalProtectionEnabled by vm.thermalProtectionEnabled.collectAsStateWithLifecycle()
+    val adaptiveBitrateEnabled by vm.adaptiveBitrateEnabled.collectAsStateWithLifecycle()
     val audioSettings by vm.audioSettings.collectAsStateWithLifecycle()
     val latencyMode by vm.latencyMode.collectAsStateWithLifecycle()
     SettingsScreen(
@@ -348,6 +350,8 @@ private fun SettingsRoute(
         onCustomStreamQualityChange = vm::updateCustomStreamQuality,
         thermalProtectionEnabled = thermalProtectionEnabled,
         onThermalProtectionChange = vm::setThermalProtectionEnabled,
+        adaptiveBitrateEnabled = adaptiveBitrateEnabled,
+        onAdaptiveBitrateChange = vm::setAdaptiveBitrateEnabled,
         audioSettings = audioSettings,
         onAudioQualityChange = vm::setAudioQuality,
         onEchoCancelerChange = vm::setEchoCanceler,

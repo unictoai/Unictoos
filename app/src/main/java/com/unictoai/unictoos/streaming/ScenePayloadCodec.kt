@@ -1,6 +1,9 @@
 package com.unictoai.unictoos.streaming
 
 import com.unictoai.unictoos.domain.AspectRatio
+import com.unictoai.unictoos.domain.PipConfig
+import com.unictoai.unictoos.domain.PipPosition
+import com.unictoai.unictoos.domain.PipSize
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.Source
 import com.unictoai.unictoos.domain.SourceType
@@ -18,6 +21,17 @@ object ScenePayloadCodec {
         put("id", scene.id.take(MAX_ID_LENGTH))
         put("name", scene.name.take(MAX_NAME_LENGTH))
         put("aspectRatio", scene.aspectRatio.name)
+        put("backgroundAudioMode", scene.backgroundAudioMode)
+        scene.pipConfig?.let { pip ->
+            put("pipConfig", JSONObject().apply {
+                put("enabled", pip.enabled)
+                put("position", pip.position.name)
+                put("size", pip.size.name)
+                put("cornerRadiusDp", pip.safeCornerRadiusDp)
+                put("borderWidthDp", pip.safeBorderWidthDp)
+                put("dropShadow", pip.dropShadow)
+            })
+        }
         put("sources", JSONArray().apply {
             scene.sources.take(MAX_SOURCES).forEach { source ->
                 put(JSONObject().apply {
@@ -70,11 +84,24 @@ object ScenePayloadCodec {
                 )
             }
         }
+        val pipJson = json.optJSONObject("pipConfig")
+        val pipConfig = pipJson?.let {
+            PipConfig(
+                enabled = it.optBoolean("enabled", false),
+                position = runCatching { PipPosition.valueOf(it.optString("position")) }.getOrDefault(PipPosition.BOTTOM_RIGHT),
+                size = runCatching { PipSize.valueOf(it.optString("size")) }.getOrDefault(PipSize.MEDIUM),
+                cornerRadiusDp = it.optInt("cornerRadiusDp", 16).coerceIn(0, 64),
+                borderWidthDp = it.optInt("borderWidthDp", 2).coerceIn(0, 8),
+                dropShadow = it.optBoolean("dropShadow", true),
+            )
+        }
         Scene(
             id = json.optString("id", "scene").take(MAX_ID_LENGTH).ifBlank { "scene" },
             name = json.optString("name", "Scene").take(MAX_NAME_LENGTH).ifBlank { "Scene" },
             aspectRatio = runCatching { AspectRatio.valueOf(json.optString("aspectRatio")) }.getOrDefault(AspectRatio.PORTRAIT),
             sources = sources,
+            pipConfig = pipConfig,
+            backgroundAudioMode = json.optBoolean("backgroundAudioMode", false),
         )
     }.getOrNull()
 }

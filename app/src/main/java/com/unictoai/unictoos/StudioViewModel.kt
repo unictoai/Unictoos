@@ -16,6 +16,8 @@ import com.unictoai.unictoos.data.ThermalProtectionRepository
 import com.unictoai.unictoos.data.ThermalProtectionStore
 import com.unictoai.unictoos.data.MultistreamSelectionRepository
 import com.unictoai.unictoos.data.MultistreamSelectionStore
+import com.unictoai.unictoos.data.AdaptiveBitrateRepository
+import com.unictoai.unictoos.data.AdaptiveBitrateStore
 import com.unictoai.unictoos.data.AudioSettingsRepository
 import com.unictoai.unictoos.data.AudioSettingsStore
 import com.unictoai.unictoos.data.AutoStopRepository
@@ -27,6 +29,9 @@ import com.unictoai.unictoos.domain.AutoStopDuration
 import com.unictoai.unictoos.domain.LatencyMode
 import com.unictoai.unictoos.domain.AudioQuality
 import com.unictoai.unictoos.domain.AudioSettings
+import com.unictoai.unictoos.domain.PipConfig
+import com.unictoai.unictoos.domain.PipPosition
+import com.unictoai.unictoos.domain.PipSize
 import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SceneTransition
@@ -83,6 +88,14 @@ private object UnavailableMultistreamSelectionRepository : MultistreamSelectionR
 private fun safeMultistreamSelectionRepository(application: Application): MultistreamSelectionRepository =
     runCatching { MultistreamSelectionStore(application.applicationContext) }.getOrElse { UnavailableMultistreamSelectionRepository }
 
+private object UnavailableAdaptiveBitrateRepository : AdaptiveBitrateRepository {
+    override fun isEnabled(): Boolean = true
+    override fun setEnabled(enabled: Boolean) = Unit
+}
+
+private fun safeAdaptiveBitrateRepository(application: Application): AdaptiveBitrateRepository =
+    runCatching { AdaptiveBitrateStore(application.applicationContext) }.getOrElse { UnavailableAdaptiveBitrateRepository }
+
 private fun safeMultistreamPlatforms(repository: MultistreamSelectionRepository): Set<PlatformPreset> =
     runCatching { repository.load() }.getOrDefault(setOf(PlatformPreset.YOUTUBE))
 
@@ -109,6 +122,7 @@ class StudioViewModel @JvmOverloads constructor(
     private val autoStopStore: AutoStopRepository = AutoStopStore(application.applicationContext),
     private val latencyModeStore: LatencyModeRepository = LatencyModeStore(application.applicationContext),
     private val multistreamSelectionStore: MultistreamSelectionRepository = safeMultistreamSelectionRepository(application),
+    private val adaptiveBitrateStore: AdaptiveBitrateRepository = safeAdaptiveBitrateRepository(application),
 ) : AndroidViewModel(application) {
     private val _scenes = MutableStateFlow(
         listOf(
@@ -160,6 +174,8 @@ class StudioViewModel @JvmOverloads constructor(
 
     private val _thermalProtectionEnabled = MutableStateFlow(runCatching { thermalProtectionStore.isEnabled() }.getOrDefault(true))
     val thermalProtectionEnabled: StateFlow<Boolean> = _thermalProtectionEnabled.asStateFlow()
+    private val _adaptiveBitrateEnabled = MutableStateFlow(runCatching { adaptiveBitrateStore.isEnabled() }.getOrDefault(true))
+    val adaptiveBitrateEnabled: StateFlow<Boolean> = _adaptiveBitrateEnabled.asStateFlow()
 
     private val _audioSettings = MutableStateFlow(safeAudioSettings(audioSettingsStore))
     val audioSettings: StateFlow<AudioSettings> = _audioSettings.asStateFlow()
@@ -205,6 +221,11 @@ class StudioViewModel @JvmOverloads constructor(
     fun setThermalProtectionEnabled(enabled: Boolean) {
         _thermalProtectionEnabled.value = enabled
         thermalProtectionStore.setEnabled(enabled)
+    }
+
+    fun setAdaptiveBitrateEnabled(enabled: Boolean) {
+        _adaptiveBitrateEnabled.value = enabled
+        adaptiveBitrateStore.setEnabled(enabled)
     }
 
     fun setAutoStopDuration(duration: AutoStopDuration) {
@@ -391,6 +412,7 @@ class StudioViewModel @JvmOverloads constructor(
                 ),
                 sourceGroups = listOf(SourceGroup("group-$suffix", "Live composition", listOf("screen-$suffix", "camera-$suffix", "text-$suffix"))),
                 transition = SceneTransition(SceneTransitionMode.CUT),
+                pipConfig = PipConfig(enabled = true, position = PipPosition.BOTTOM_RIGHT, size = PipSize.MEDIUM),
             )
             else -> Scene(
                 id = "template-talk-$suffix",
@@ -513,6 +535,13 @@ class StudioViewModel @JvmOverloads constructor(
                     },
                 )
             }
+        }
+        scheduleScenePersistence()
+    }
+
+    fun setPipConfig(sceneId: String, config: PipConfig?) {
+        _scenes.update { scenes ->
+            scenes.map { scene -> if (scene.id == sceneId) scene.copy(pipConfig = config) else scene }
         }
         scheduleScenePersistence()
     }

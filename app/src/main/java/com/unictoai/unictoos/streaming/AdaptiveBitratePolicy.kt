@@ -27,18 +27,23 @@ fun decideAdaptiveBitrate(
     maximumBitrate: Int = baselineTargetBitrate,
 ): AdaptiveBitrateDecision {
     val safeCurrent = currentTargetBitrate.coerceIn(minimumBitrate, maximumBitrate)
-    val belowDegradationThreshold = rollingAverageBitrate < (safeCurrent * 0.60f).roundToInt()
-    val aboveRecoveryThreshold = rollingAverageBitrate >= (safeCurrent * 0.85f).roundToInt()
+    val belowDegradationThreshold = rollingAverageBitrate < (safeCurrent * DEGRADATION_RATIO).roundToInt()
+    val aboveRecoveryThreshold = rollingAverageBitrate >= (safeCurrent * RECOVERY_RATIO).roundToInt()
 
-    if (belowDegradationThreshold && degradedSeconds >= 5 && safeCurrent > minimumBitrate) {
+    if (belowDegradationThreshold && degradedSeconds >= DEGRADATION_WAIT_SECONDS && safeCurrent > minimumBitrate) {
         val next = (safeCurrent * 0.85f).roundToInt().coerceAtLeast(minimumBitrate)
         return AdaptiveBitrateDecision(AdaptiveBitrateAction.STEP_DOWN, next)
     }
 
-    if (aboveRecoveryThreshold && recoveredSeconds >= 15 && safeCurrent < maximumBitrate) {
+    if (aboveRecoveryThreshold && recoveredSeconds >= RECOVERY_WAIT_SECONDS && safeCurrent < maximumBitrate) {
         val next = (safeCurrent * 1.10f).roundToInt().coerceAtMost(maximumBitrate)
         return AdaptiveBitrateDecision(AdaptiveBitrateAction.STEP_UP, next)
     }
 
     return AdaptiveBitrateDecision(AdaptiveBitrateAction.HOLD, safeCurrent)
 }
+
+private const val DEGRADATION_RATIO = 0.80f
+private const val RECOVERY_RATIO = 0.95f
+private const val DEGRADATION_WAIT_SECONDS = 15
+private const val RECOVERY_WAIT_SECONDS = 60

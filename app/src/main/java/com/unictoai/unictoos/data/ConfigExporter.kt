@@ -11,7 +11,16 @@ object ConfigExporter {
             append("{\"id\":").append(quote(scene.id))
                 .append(",\"name\":").append(quote(scene.name))
                 .append(",\"aspectRatio\":").append(quote(scene.aspectRatio.name))
-                .append(",\"transitionMode\":").append(quote(scene.transition.mode.name))
+                .append(",\"backgroundAudioMode\":").append(scene.backgroundAudioMode)
+            scene.pipConfig?.let { pip ->
+                append(",\"pipConfig\":{\"enabled\":").append(pip.enabled)
+                    .append(",\"position\":").append(quote(pip.position.name))
+                    .append(",\"size\":").append(quote(pip.size.name))
+                    .append(",\"cornerRadiusDp\":").append(pip.safeCornerRadiusDp)
+                    .append(",\"borderWidthDp\":").append(pip.safeBorderWidthDp)
+                    .append(",\"dropShadow\":").append(pip.dropShadow).append('}')
+            } ?: append(",\"pipConfig\":null")
+            append(",\"transitionMode\":").append(quote(scene.transition.mode.name))
                 .append(",\"transitionDurationMs\":").append(scene.transition.safeDurationMs)
                 .append(",\"sourceGroups\":[")
             scene.sourceGroups.forEachIndexed { groupIndex, group ->

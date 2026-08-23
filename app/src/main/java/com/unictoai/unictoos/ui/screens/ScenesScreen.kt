@@ -112,6 +112,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.unictoai.unictoos.domain.AspectRatio
+import com.unictoai.unictoos.domain.PipConfig
+import com.unictoai.unictoos.domain.PipPosition
+import com.unictoai.unictoos.domain.PipSize
 import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
@@ -143,6 +146,7 @@ internal fun ScenesScreen(
     onMoveSource: (String, String, Int) -> Unit,
     onSetSourceOpacity: (String, String, Float) -> Unit,
     onSetSourceGeometry: (String, String, Float, Float, Float, Float) -> Unit,
+    onSetPipConfig: (String, PipConfig?) -> Unit,
     onUpdateTextSource: (String, String, String, Float) -> Unit,
     onSetTransition: (String, SceneTransitionMode, Long) -> Unit,
     onCreateSourceGroup: (String, String, List<String>) -> Unit,
@@ -223,6 +227,11 @@ internal fun ScenesScreen(
                     }
                 }
                 Spacer(Modifier.height(Spacing.md))
+                PipControls(
+                    scene = selectedScene,
+                    onChange = { config -> onSetPipConfig(selectedScene.id, config) },
+                )
+                Spacer(Modifier.height(Spacing.md))
                 PresentationControls(
                     scene = selectedScene,
                     groupName = groupName,
@@ -251,6 +260,73 @@ internal fun ScenesScreen(
             },
         )
     }
+}
+
+@Composable
+private fun PipControls(
+    scene: Scene,
+    onChange: (PipConfig?) -> Unit,
+) {
+    val hasScreen = scene.sources.any { it.enabled && it.type == SourceType.SCREEN }
+    val hasCamera = scene.sources.any { it.enabled && it.type == SourceType.CAMERA }
+    val supported = hasScreen && hasCamera
+    val config = scene.pipConfig ?: PipConfig()
+    SectionHeader("Camera PiP", "Compose screen capture with a draggable-style camera corner")
+    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Screen + camera composition", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (supported) "The camera is rendered as a PiP layer over screen capture."
+                        else "Enable one Screen and one Camera source to use PiP.",
+                        color = V02Palette.Neutral500,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(
+                    checked = config.enabled && supported,
+                    enabled = supported,
+                    onCheckedChange = { enabled -> onChange(if (enabled) config.copy(enabled = true) else config.copy(enabled = false)) },
+                )
+            }
+            if (supported && config.enabled) {
+                Text("Position", fontWeight = FontWeight.SemiBold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    items(PipPosition.values().toList()) { position ->
+                        FilterChip(
+                            selected = config.position == position,
+                            onClick = { onChange(config.copy(position = position)) },
+                            label = { Text(position.label()) },
+                        )
+                    }
+                }
+                Text("Size", fontWeight = FontWeight.SemiBold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    items(PipSize.values().toList()) { size ->
+                        FilterChip(
+                            selected = config.size == size,
+                            onClick = { onChange(config.copy(size = size)) },
+                            label = { Text(size.label()) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun PipPosition.label(): String = when (this) {
+    PipPosition.TOP_LEFT -> "Top left"
+    PipPosition.TOP_RIGHT -> "Top right"
+    PipPosition.BOTTOM_LEFT -> "Bottom left"
+    PipPosition.BOTTOM_RIGHT -> "Bottom right"
+}
+
+private fun PipSize.label(): String = when (this) {
+    PipSize.SMALL -> "Small"
+    PipSize.MEDIUM -> "Medium"
+    PipSize.LARGE -> "Large"
 }
 
 @Composable

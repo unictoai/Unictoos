@@ -82,6 +82,8 @@ import com.unictoai.unictoos.domain.AutoStopDuration
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.domain.StreamHealthSample
+import com.unictoai.unictoos.health.DestinationHealth
+import com.unictoai.unictoos.health.HealthState
 import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
@@ -200,6 +202,9 @@ internal fun StudioScreen(
             item { LiveTelemetryCard(session = session, latestHealth = healthHistory.lastOrNull()) }
         }
         item { GoLiveReadinessCard(readiness) }
+        if (session.destinationHealth.isNotEmpty()) {
+            item { DestinationHealthCard(session.destinationHealth) }
+        }
         if (session.status == StreamStatus.ERROR) {
             item { SessionErrorCard(session.message.orEmpty(), onReleaseCapture) }
         }
@@ -324,6 +329,44 @@ private fun PreviewCard(
 }
 
 @Composable
+private fun DestinationHealthCard(destinations: List<DestinationHealth>) {
+    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(18.dp)) {
+        Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+            Text("Destination health", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Per-destination insight • reconnect is coordinated by the shared encoder", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
+            destinations.forEach { destination ->
+                val (label, color) = when (destination.state) {
+                    HealthState.HEALTHY -> "Healthy" to V02Palette.AccentBlue
+                    HealthState.DEGRADED -> "Degraded" to V02Palette.Caution
+                    HealthState.RECONNECTING -> "Reconnecting" to V02Palette.Caution
+                    HealthState.FAILED -> "Failed" to V02Palette.Danger
+                    HealthState.IDLE -> "Idle" to V02Palette.Neutral500
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(color))
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(destination.profileName, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            destination.lastError?.takeIf { it.isNotBlank() } ?: "$label • ${destination.retryCount}/${destination.maxRetries} retries",
+                            color = V02Palette.Neutral500,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Text(
+                        if (destination.currentBitrate > 0L) "${destination.currentBitrate / 1000} kbps" else "—",
+                        color = V02Palette.Neutral300,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun BroadcastActionCard(
     session: StreamSessionState,
     canStart: Boolean,
@@ -436,7 +479,10 @@ private fun LiveTelemetryCard(session: StreamSessionState, latestHealth: StreamH
                     Text("Live signal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text("Measured by the active encoder", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                 }
-                Icon(Icons.Default.Wifi, contentDescription = null, tint = if (transport == "Offline") V02Palette.Caution else V02Palette.AccentBlue)
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(session.qualityTier.label, color = V02Palette.AccentBlue, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                    if (session.audioOnlyActive) Text("AUDIO ONLY", color = V02Palette.Caution, style = MaterialTheme.typography.labelSmall)
+                }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 TelemetryMetric("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—")

@@ -1,6 +1,9 @@
 package com.unictoai.unictoos.data
 
 import com.unictoai.unictoos.domain.AspectRatio
+import com.unictoai.unictoos.domain.PipConfig
+import com.unictoai.unictoos.domain.PipPosition
+import com.unictoai.unictoos.domain.PipSize
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.Source
 import com.unictoai.unictoos.domain.SourceType
@@ -53,9 +56,31 @@ object ConfigImporter {
                 durationMs = sceneJson.optLong("transitionDurationMs", SceneTransition.DEFAULT_DURATION_MS),
             )
             val groups = sceneJson.optJSONArray("sourceGroups")?.toSourceGroupList().orEmpty()
+            val pipJson = sceneJson.optJSONObject("pipConfig")
+            val pipConfig = pipJson?.let {
+                PipConfig(
+                    enabled = it.optBoolean("enabled", false),
+                    position = runCatching { PipPosition.valueOf(it.optString("position")) }.getOrDefault(PipPosition.BOTTOM_RIGHT),
+                    size = runCatching { PipSize.valueOf(it.optString("size")) }.getOrDefault(PipSize.MEDIUM),
+                    cornerRadiusDp = it.optInt("cornerRadiusDp", 16).coerceIn(0, 64),
+                    borderWidthDp = it.optInt("borderWidthDp", 2).coerceIn(0, 8),
+                    dropShadow = it.optBoolean("dropShadow", true),
+                )
+            }
             val id = sceneJson.optString("id").trim().ifBlank { "imported-scene-$index" }
             val name = sceneJson.optString("name").trim().ifBlank { "Imported scene" }
-            add(Scene(id = id, name = name, aspectRatio = ratio, sources = sources, sourceGroups = groups, transition = transition))
+            add(
+                Scene(
+                    id = id,
+                    name = name,
+                    aspectRatio = ratio,
+                    sources = sources,
+                    sourceGroups = groups,
+                    transition = transition,
+                    pipConfig = pipConfig,
+                    backgroundAudioMode = sceneJson.optBoolean("backgroundAudioMode", false),
+                ),
+            )
         }
     }
 

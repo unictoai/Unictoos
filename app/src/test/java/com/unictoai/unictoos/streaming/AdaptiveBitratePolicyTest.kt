@@ -5,19 +5,19 @@ import org.junit.Test
 
 class AdaptiveBitratePolicyTest {
     @Test
-    fun degradationWaitsFiveSecondsBeforeSteppingDown() {
+    fun degradationWaitsFifteenSecondsBeforeSteppingDown() {
         val beforeThreshold = decideAdaptiveBitrate(
             currentTargetBitrate = 4_500_000,
             baselineTargetBitrate = 4_500_000,
             rollingAverageBitrate = 2_000_000,
-            degradedSeconds = 4,
+            degradedSeconds = 14,
             recoveredSeconds = 0,
         )
         val atThreshold = decideAdaptiveBitrate(
             currentTargetBitrate = 4_500_000,
             baselineTargetBitrate = 4_500_000,
             rollingAverageBitrate = 2_000_000,
-            degradedSeconds = 5,
+            degradedSeconds = 15,
             recoveredSeconds = 0,
         )
 
@@ -27,20 +27,20 @@ class AdaptiveBitratePolicyTest {
     }
 
     @Test
-    fun recoveryWaitsFifteenSecondsAndStepsUpGradually() {
+    fun recoveryWaitsSixtySecondsAndStepsUpGradually() {
         val beforeThreshold = decideAdaptiveBitrate(
             currentTargetBitrate = 3_825_000,
             baselineTargetBitrate = 4_500_000,
-            rollingAverageBitrate = 3_400_000,
+            rollingAverageBitrate = 3_700_000,
             degradedSeconds = 0,
-            recoveredSeconds = 14,
+            recoveredSeconds = 59,
         )
         val atThreshold = decideAdaptiveBitrate(
             currentTargetBitrate = 3_825_000,
             baselineTargetBitrate = 4_500_000,
-            rollingAverageBitrate = 3_400_000,
+            rollingAverageBitrate = 3_700_000,
             degradedSeconds = 0,
-            recoveredSeconds = 15,
+            recoveredSeconds = 60,
         )
 
         assertEquals(AdaptiveBitrateAction.HOLD, beforeThreshold.action)

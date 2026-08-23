@@ -1,6 +1,7 @@
 package com.unictoai.unictoos.streaming
 
 import com.unictoai.unictoos.domain.AspectRatio
+import com.unictoai.unictoos.domain.PipConfig
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.Source
 import com.unictoai.unictoos.domain.SourceType
@@ -21,6 +22,22 @@ class CaptureModePolicyTest {
         )
 
         assertEquals(CaptureModePolicy.CAMERA, CaptureModePolicy.forScene(scene))
+    }
+
+    @Test
+    fun explicitlyEnabledPipSceneUsesScreenCapture() {
+        val scene = Scene(
+            id = "pip",
+            name = "PiP",
+            aspectRatio = AspectRatio.LANDSCAPE,
+            sources = listOf(
+                Source("screen", "Screen", SourceType.SCREEN),
+                Source("camera", "Camera", SourceType.CAMERA),
+            ),
+            pipConfig = PipConfig(enabled = true),
+        )
+
+        assertEquals(CaptureModePolicy.SCREEN, CaptureModePolicy.forScene(scene))
     }
 
     @Test
