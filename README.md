@@ -12,7 +12,7 @@ The current build remains an **alpha engineering milestone**. It compiles and pa
 
 ## Latest test build
 
-The latest build is **Unictoos v0.5.2** with Android `versionCode 62`, applying the Black Hole visual theme across the app while retaining the v0.5.1 Go Live crash guards and streaming paths. The unsigned release APK is **8,549,243 bytes**. No physical device, platform ingest, PiP, Android 15 OEM background, or 60-minute endurance evidence is available in this repository build. Review `RELEASE_NOTES_v0.5.2.md` for the exact checksums and evidence boundary.
+The latest build is **Unictoos v0.5.5** with Android `versionCode 65`, maintaining the Black Hole visual theme and all v0.5.2 streaming paths. The app remains a no-backend, on-device alpha build. The unsigned release APK is **8,549,243 bytes**. No physical device, platform ingest, PiP, Android 15 OEM background, or 60-minute endurance evidence is available in this repository build. Review `RELEASE_NOTES_v0.5.5.md` for the exact details and validation boundary.
 
 ## Build locally
 
