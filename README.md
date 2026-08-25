@@ -12,7 +12,7 @@ The current build remains an **alpha engineering milestone**. It compiles and pa
 
 ## Latest test build
 
-The latest build is **Unictoos v0.5.0** with Android `versionCode 60`. It retains the atomic camera/screen-capture-to-start handoff and staged startup diagnostics while adding experimental PiP with fallback, per-destination health observation, 80%/15-second downshift and 95%/60-second recovery thresholds, camera-only background audio, wake-lock lifecycle cleanup, and text overlays. The unsigned release APK is **8,549,243 bytes**. No physical device, platform ingest, PiP, Android 15 OEM background, or 60-minute endurance evidence is available in this repository build. Review `RELEASE_NOTES_v0.5.0.md` for the exact checksums and evidence boundary.
+The latest build is **Unictoos v0.5.1** with Android `versionCode 61`, a focused hotfix for the reported crash after tapping Go Live. It keeps the v0.5.0 streaming feature set while avoiding empty-scene GL filter mutation during startup, deferring experimental PiP until after encoder startup, guarding optional receiver registration, and safely handling service initialization failures. The unsigned release APK is **8,549,243 bytes**. No physical device, platform ingest, PiP, Android 15 OEM background, or 60-minute endurance evidence is available in this repository build. Review `RELEASE_NOTES_v0.5.1.md` for the exact checksums and evidence boundary.
 
 ## Build locally
 

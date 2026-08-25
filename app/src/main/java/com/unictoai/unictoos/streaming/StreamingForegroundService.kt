@@ -7,6 +7,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
@@ -129,6 +130,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
     private var backgroundAudioMode = false
     private var audioOnlyActive = false
     private var broadcastWakeLock: PowerManager.WakeLock? = null
+    private var initializationFailed = false
+    private var screenStateReceiverRegistered = false
     private val screenStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: android.content.Context?, intent: Intent?) {
             when (intent?.action) {
@@ -496,24 +499,53 @@ class StreamingForegroundService : Service(), ConnectChecker {
     override fun onCreate() {
         super.onCreate()
         serviceDestroyed = false
-        historyStore = CreatorHistoryStore(applicationContext)
-        analyticsStore = LocalAnalyticsStore(applicationContext)
-        streamQuality = StreamQualityStore(applicationContext).load()
-        activeStreamQuality = streamQuality.validated()
-        audioSettings = AudioSettingsStore(applicationContext).load()
-        latencyMode = LatencyModeStore(applicationContext).load()
-        createNotificationChannel()
-        registerNetworkCallback()
-        registerReceiver(screenStateReceiver, IntentFilter().apply {
+        initializationFailed = false
+        try {
+            historyStore = CreatorHistoryStore(applicationContext)
+            analyticsStore = LocalAnalyticsStore(applicationContext)
+            streamQuality = StreamQualityStore(applicationContext).load()
+            activeStreamQuality = streamQuality.validated()
+            audioSettings = AudioSettingsStore(applicationContext).load()
+            latencyMode = LatencyModeStore(applicationContext).load()
+            createNotificationChannel()
+            runCatching { registerNetworkCallback() }
+                .onFailure { StreamingDiagnostics.record("", sessionGeneration.get(), "network_callback_registration_failed", it.message.orEmpty()) }
+            registerScreenStateReceiverSafely()
+            genericStream = createGenericStream()
+            prepared = prepareGenericStream()
+            if (!prepared) publish(StreamStatus.ERROR, "This device cannot prepare the requested capture profile")
+        } catch (error: Exception) {
+            initializationFailed = true
+            StreamingDiagnostics.record("", sessionGeneration.get(), "service_initialization_failed", error.message.orEmpty())
+            releaseBroadcastWakeLock()
+            runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
+            stopSelf()
+        }
+    }
+
+    private fun registerScreenStateReceiverSafely() {
+        val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_USER_PRESENT)
-        })
-        genericStream = createGenericStream()
-        prepared = prepareGenericStream()
-        if (!prepared) publish(StreamStatus.ERROR, "This device cannot prepare the requested capture profile")
+        }
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(screenStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                @Suppress("DEPRECATION")
+                registerReceiver(screenStateReceiver, filter)
+            }
+            screenStateReceiverRegistered = true
+        }.onFailure {
+            // Background audio is optional; inability to observe screen state must not
+            // abort camera/screen capture startup.
+            screenStateReceiverRegistered = false
+            StreamingDiagnostics.record("", sessionGeneration.get(), "screen_state_receiver_unavailable", it.message.orEmpty())
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (initializationFailed) return START_NOT_STICKY
         if (intent == null) {
             StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "service_restart_ignored", "null_intent")
             return START_NOT_STICKY
@@ -607,12 +639,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         if (projectionData == null || !prepareProjection(resultCode, projectionData, scenePipConfig)) {
             failCapturePreparation("Screen capture permission was not available")
         } else {
-            val pipMessage = when {
-                compositorSurface != null -> "Experimental screen and camera PiP ready • waiting for Studio preview"
-                scenePipConfig?.enabled == true -> "PiP camera unavailable; continuing screen-only • waiting for Studio preview"
-                else -> "Screen capture ready • waiting for Studio preview"
-            }
-            publish(StreamStatus.PREPARING, "Microphone ready • $pipMessage")
+            publish(StreamStatus.PREPARING, "Microphone ready • Screen capture ready • waiting for Studio preview")
             attachPreviewIfPossible()
         }
     }
@@ -627,34 +654,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
         return runCatching {
             genericStream.changeVideoSource(ScreenSource(applicationContext, projection))
             cameraSource = null
+            // The GL filter graph is not touched during projection preparation.
+            // PiP is attached only after the encoder has started consuming frames.
             compositorSurface?.release()
             compositorSurface = null
-            var pipFallback = false
-            if (pipConfig?.enabled == true) {
-                runCatching {
-                    CompositorSurface(
-                        context = applicationContext,
-                        glInterface = genericStream.getGlInterface(),
-                        frameWidth = activeStreamQuality.width,
-                        frameHeight = activeStreamQuality.height,
-                        frameFps = activeStreamQuality.fps,
-                    ).also { compositor ->
-                        if (compositor.start(pipConfig)) {
-                            compositorSurface = compositor
-                        } else {
-                            pipFallback = true
-                            compositor.release()
-                        }
-                    }
-                }.onFailure { error ->
-                    pipFallback = true
-                    StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "pip_fallback_screen_only", error.message.orEmpty())
-                    compositorSurface = null
-                }
-                if (pipFallback) {
-                    StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "pip_fallback_screen_only", "secondary_camera_unavailable")
-                }
-            }
             microphoneSource?.release()
             microphoneSource = MicrophoneSource().also { genericStream.changeAudioSource(it) }
             captureReady = true
@@ -664,6 +667,30 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 captureReady = false
                 releaseProjection()
             }
+        }
+    }
+
+    private fun startExperimentalPipIfRequested(sceneJson: String) {
+        val config = ScenePayloadCodec.decode(sceneJson)?.pipConfig?.takeIf { it.enabled } ?: return
+        if (!::genericStream.isInitialized || !genericStream.isStreaming) return
+        runCatching {
+            val compositor = CompositorSurface(
+                context = applicationContext,
+                glInterface = genericStream.getGlInterface(),
+                frameWidth = activeStreamQuality.width,
+                frameHeight = activeStreamQuality.height,
+                frameFps = activeStreamQuality.fps,
+            )
+            if (compositor.start(config)) {
+                compositorSurface = compositor
+                StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "pip_experimental_active")
+            } else {
+                compositor.release()
+                StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "pip_fallback_screen_only", "secondary_camera_unavailable")
+            }
+        }.onFailure { error ->
+            compositorSurface = null
+            StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "pip_fallback_screen_only", error.message.orEmpty())
         }
     }
 
@@ -957,10 +984,21 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 opacity = source.opacity,
             )
         }
-        val result = OverlayRenderer(
-            glInterface = genericStream.getGlInterface(),
-            density = resources.displayMetrics.density * resources.configuration.fontScale,
-        ).render(overlays, uptimeSeconds = StreamingStatusBus.state.value.elapsedSeconds)
+        if (overlays.isEmpty()) {
+            // Do not touch the GL filter graph for the common camera/screen path.
+            // RootEncoder may not have a running GL consumer at this point in startup.
+            return SceneRenderReport(0, plan.unsupportedLayerCount)
+        }
+        val result = runCatching {
+            OverlayRenderer(
+                glInterface = genericStream.getGlInterface(),
+                density = resources.displayMetrics.density * resources.configuration.fontScale,
+            ).render(overlays, uptimeSeconds = StreamingStatusBus.state.value.elapsedSeconds)
+        }.onFailure {
+            StreamingDiagnostics.record(currentSessionId, sessionGeneration.get(), "overlay_render_skipped", it.message.orEmpty())
+        }.getOrElse {
+            return SceneRenderReport(0, plan.unsupportedLayerCount + overlays.size)
+        }
         return SceneRenderReport(result.renderedCount, plan.unsupportedLayerCount + result.skippedCount)
     }
 
@@ -1022,6 +1060,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         publish(StreamStatus.CONNECTING, sceneMessage)
         runCatching {
             genericStream.startStream(endpoints)
+            startExperimentalPipIfRequested(sceneJson)
             scheduleConnectionWatchdog(sessionGeneration.get())
         }.onFailure {
             cancelConnectionWatchdog()
@@ -1643,7 +1682,8 @@ class StreamingForegroundService : Service(), ConnectChecker {
         pendingPracticeLiveMessage = null
         serviceScope.cancel()
         handler.removeCallbacksAndMessages(null)
-        runCatching { unregisterReceiver(screenStateReceiver) }
+        if (screenStateReceiverRegistered) runCatching { unregisterReceiver(screenStateReceiver) }
+        screenStateReceiverRegistered = false
         releaseBroadcastWakeLock()
         if (::genericStream.isInitialized && !genericStreamReleased) {
             releasePreviewForCaptureChange()
