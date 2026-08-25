@@ -16,20 +16,29 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Approved v0.2 neutral palette. Functional color is intentionally rare. */
+/**
+ * Unictoos Black Hole palette.
+ *
+ * The visual language uses an almost-black event horizon, blue-violet
+ * accretion light, photon cyan for live signal, and warm orange for caution.
+ * Existing names remain stable so the theme can be applied across every
+ * screen without changing streaming behavior or component contracts.
+ */
 object V02Palette {
-    val Neutral950 = Color(0xFF0B0D0F)
-    val Neutral900 = Color(0xFF111418)
-    val Neutral850 = Color(0xFF171B20)
-    val Neutral800 = Color(0xFF1E242A)
-    val Neutral700 = Color(0xFF2A323A)
-    val Neutral500 = Color(0xFF6E7883)
-    val Neutral300 = Color(0xFFAEB7C1)
-    val Neutral100 = Color(0xFFF1F4F7)
-    val AccentBlue = Color(0xFF5B8DEF)
-    val AccentBluePressed = Color(0xFF4677D6)
-    val Danger = Color(0xFFE05A64)
-    val Caution = Color(0xFFC9953B)
+    val Neutral950 = Color(0xFF03040A)
+    val Neutral900 = Color(0xFF080A12)
+    val Neutral850 = Color(0xFF0E1220)
+    val Neutral800 = Color(0xFF151B2C)
+    val Neutral700 = Color(0xFF27324A)
+    val Neutral500 = Color(0xFF7D8AA6)
+    val Neutral300 = Color(0xFFBFC9DD)
+    val Neutral100 = Color(0xFFF4F7FF)
+    val AccentBlue = Color(0xFF7D6BFF)
+    val AccentBluePressed = Color(0xFF624FE5)
+    val PhotonCyan = Color(0xFF4DE8FF)
+    val EventHorizon = Color(0xFFFF8B45)
+    val Danger = Color(0xFFFF5D73)
+    val Caution = Color(0xFFFFA24F)
     val OnAccent = Color.White
 }
 
@@ -51,22 +60,22 @@ object MotionTokens {
     val gentleEasing: Easing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 }
 
-/** Legacy names remain as a migration bridge; screen commits will remove their use. */
+/** Compatibility names used by the app shell and existing screens. */
 object UnictoosPalette {
-    val Ink = Color(0xFF101214)
-    val InkSoft = Color(0xFF171A1D)
-    val Surface = Color(0xFF1C2023)
-    val SurfaceRaised = Color(0xFF24292D)
-    val Stroke = Color(0xFF30363B)
-    val Violet = Color(0xFF516F86)
-    val VioletBright = Color(0xFF86A9C4)
-    val Magenta = Color(0xFFE8617E)
-    val Cyan = Color(0xFFA9D0DB)
-    val Mint = Color(0xFF68D6A5)
-    val Amber = Color(0xFFF2C56B)
+    val Ink = Color(0xFF04050B)
+    val InkSoft = Color(0xFF080B14)
+    val Surface = Color(0xFF0E1220)
+    val SurfaceRaised = Color(0xFF151B2C)
+    val Stroke = Color(0xFF27324A)
+    val Violet = Color(0xFF6F5AE8)
+    val VioletBright = Color(0xFF9B86FF)
+    val Magenta = Color(0xFFFF5D92)
+    val Cyan = Color(0xFF4DE8FF)
+    val Mint = Color(0xFF54D7B1)
+    val Amber = Color(0xFFFFB45C)
     val Danger = V02Palette.Danger
-    val TextPrimary = Color(0xFFF4F6F7)
-    val TextMuted = Color(0xFFA6ADB7)
+    val TextPrimary = Color(0xFFF4F7FF)
+    val TextMuted = Color(0xFF9AA8C2)
 }
 
 private val UnictoosDarkColors = darkColorScheme(
@@ -74,12 +83,14 @@ private val UnictoosDarkColors = darkColorScheme(
     onPrimary = V02Palette.OnAccent,
     primaryContainer = V02Palette.Neutral800,
     onPrimaryContainer = V02Palette.Neutral100,
-    secondary = V02Palette.Neutral300,
+    secondary = V02Palette.PhotonCyan,
     onSecondary = V02Palette.Neutral950,
-    secondaryContainer = V02Palette.Neutral800,
-    onSecondaryContainer = V02Palette.Neutral100,
-    tertiary = V02Palette.Neutral300,
+    secondaryContainer = Color(0xFF12313D),
+    onSecondaryContainer = Color(0xFFC6F7FF),
+    tertiary = V02Palette.EventHorizon,
     onTertiary = V02Palette.Neutral950,
+    tertiaryContainer = Color(0xFF3A2116),
+    onTertiaryContainer = Color(0xFFFFDBCA),
     background = V02Palette.Neutral950,
     onBackground = V02Palette.Neutral100,
     surface = V02Palette.Neutral900,
@@ -87,28 +98,34 @@ private val UnictoosDarkColors = darkColorScheme(
     surfaceVariant = V02Palette.Neutral850,
     onSurfaceVariant = V02Palette.Neutral300,
     outline = V02Palette.Neutral700,
+    outlineVariant = Color(0xFF1C263A),
     error = V02Palette.Danger,
+    onError = Color.White,
 )
 
 private val UnictoosLightColors = lightColorScheme(
-    primary = Color(0xFF3D6FC9),
+    primary = Color(0xFF5B46D5),
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFDCE7FF),
-    onPrimaryContainer = Color(0xFF102754),
-    secondary = Color(0xFF55616C),
+    primaryContainer = Color(0xFFE8E1FF),
+    onPrimaryContainer = Color(0xFF1D0F5B),
+    secondary = Color(0xFF006978),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE1E6EB),
-    onSecondaryContainer = Color(0xFF1A2026),
-    tertiary = Color(0xFF55616C),
+    secondaryContainer = Color(0xFFB7F2FC),
+    onSecondaryContainer = Color(0xFF001F25),
+    tertiary = Color(0xFF9A4300),
     onTertiary = Color.White,
-    background = Color(0xFFF7F9FB),
-    onBackground = Color(0xFF111418),
-    surface = Color.White,
-    onSurface = Color(0xFF111418),
-    surfaceVariant = Color(0xFFEEF1F4),
-    onSurfaceVariant = Color(0xFF4F5A65),
-    outline = Color(0xFFCBD2D9),
-    error = Color(0xFFB3263A),
+    tertiaryContainer = Color(0xFFFFDBCA),
+    onTertiaryContainer = Color(0xFF351000),
+    background = Color(0xFFF8F7FC),
+    onBackground = Color(0xFF11131C),
+    surface = Color(0xFFFDFBFF),
+    onSurface = Color(0xFF11131C),
+    surfaceVariant = Color(0xFFEDECF5),
+    onSurfaceVariant = Color(0xFF4C4C5A),
+    outline = Color(0xFF7D7C8A),
+    outlineVariant = Color(0xFFD0CFDA),
+    error = Color(0xFFBA1A35),
+    onError = Color.White,
 )
 
 private val UnictoosTypography = Typography().run {

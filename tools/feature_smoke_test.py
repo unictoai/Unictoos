@@ -11,6 +11,7 @@ UI = "\n".join(path.read_text() for path in (ROOT / "app/src/main/java/com/unict
 SERVICE = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/StreamingForegroundService.kt").read_text()
 RELEASE_BLOCK = SERVICE.split("private fun releaseGenericStream", 1)[1].split("override fun onCreate", 1)[0]
 MANIFEST = (ROOT / "app/src/main/AndroidManifest.xml").read_text()
+THEME = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/theme/Theme.kt").read_text()
 APK = ROOT / "app/build/outputs/apk/debug/app-debug.apk"
 
 checks = []
@@ -63,6 +64,7 @@ check("health history path", "healthHistory" in UI and "recordHealth" in SERVICE
 check("preflight path", "PreflightCard" in UI and "ACCESS_NETWORK_STATE" in MANIFEST)
 check("stale enum state is guarded", "firstOrNull { it.name == selectedPlatformName }" in UI)
 check("empty scene state is guarded", "scenes.firstOrNull() ?: Scene(" in UI)
+check("black-hole theme palette", "Black Hole palette" in THEME and "Neutral950 = Color(0xFF03040A)" in THEME and "PhotonCyan" in THEME and "EventHorizon" in THEME and "UnictoosDarkColors" in THEME)
 check("RootEncoder owns microphone lifecycle", "RootEncoder owns the real microphone session" in SERVICE and "MicrophoneSource" in SERVICE and "android.media.AudioRecord" not in SERVICE and "AudioRecord(" not in SERVICE)
 check("microphone availability check is off main thread", "withContext(Dispatchers.IO)" in SERVICE and "serviceScope.cancel()" in SERVICE)
 check("foreground start is guarded", "startForegroundSafely" in SERVICE and "catch (error: SecurityException)" in SERVICE)
@@ -199,7 +201,7 @@ check("Kotlin 2.4.10 toolchain", 'org.jetbrains.kotlin.plugin.compose") version 
 check("Gradle 9.5 wrapper", "gradle-9.5.0-bin.zip" in (ROOT / "gradle/wrapper/gradle-wrapper.properties").read_text())
 check("Compose 2026.08 BOM", "compose-bom:2026.08.00" in BUILD_GRADLE)
 check("Android target SDK 36", "targetSdk = 36" in BUILD_GRADLE)
-check("v0.5.1 release metadata", 'versionName = "0.5.1"' in BUILD_GRADLE and "versionCode = 61" in BUILD_GRADLE and (ROOT / "VERSION").read_text().strip() == "0.5.1" and (ROOT / "RELEASE_NOTES_v0.5.1.md").exists() and (ROOT / "docs/V0.4_RESEARCH_AND_PRODUCT_PLAN.md").exists())
+check("v0.5.2 release metadata", 'versionName = "0.5.2"' in BUILD_GRADLE and "versionCode = 62" in BUILD_GRADLE and (ROOT / "VERSION").read_text().strip() == "0.5.2" and (ROOT / "RELEASE_NOTES_v0.5.2.md").exists() and (ROOT / "docs/V0.4_RESEARCH_AND_PRODUCT_PLAN.md").exists())
 check("compressed onboarding assets", len(list((ROOT / "app/src/main/res/drawable-nodpi").glob("onboarding_*.webp"))) == 4 and not list((ROOT / "app/src/main/res/drawable-nodpi").glob("onboarding_*.png")))
 check("release resource shrinking", "isShrinkResources = true" in BUILD_GRADLE)
 check("explicit terminal release boundary", "PipelineReleaseState.TERMINAL" in RELEASE_POLICY and "canCreateNewPipeline" in SERVICE_SOURCE)

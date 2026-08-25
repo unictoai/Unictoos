@@ -12,7 +12,7 @@ The current build remains an **alpha engineering milestone**. It compiles and pa
 
 ## Latest test build
 
-The latest build is **Unictoos v0.5.1** with Android `versionCode 61`, a focused hotfix for the reported crash after tapping Go Live. It keeps the v0.5.0 streaming feature set while avoiding empty-scene GL filter mutation during startup, deferring experimental PiP until after encoder startup, guarding optional receiver registration, and safely handling service initialization failures. The unsigned release APK is **8,549,243 bytes**. No physical device, platform ingest, PiP, Android 15 OEM background, or 60-minute endurance evidence is available in this repository build. Review `RELEASE_NOTES_v0.5.1.md` for the exact checksums and evidence boundary.
+The latest build is **Unictoos v0.5.2** with Android `versionCode 62`, applying the Black Hole visual theme across the app while retaining the v0.5.1 Go Live crash guards and streaming paths. The unsigned release APK is **8,549,243 bytes**. No physical device, platform ingest, PiP, Android 15 OEM background, or 60-minute endurance evidence is available in this repository build. Review `RELEASE_NOTES_v0.5.2.md` for the exact checksums and evidence boundary.
 
 ## Build locally
 
