@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -23,6 +24,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -104,6 +106,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
@@ -129,6 +133,55 @@ import com.unictoai.unictoos.ui.theme.MotionTokens
 import com.unictoai.unictoos.ui.theme.Spacing
 import com.unictoai.unictoos.ui.theme.V02Palette
 import com.unictoai.unictoos.ui.theme.UnictoosTheme
+import kotlin.math.cos
+import kotlin.math.sin
+
+@Composable
+internal fun BlackHoleBackdrop(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "blackHoleMotion")
+    val phase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = (2f * Math.PI).toFloat(),
+        animationSpec = infiniteRepeatable(tween(18_000, easing = LinearEasing), RepeatMode.Restart),
+        label = "blackHoleOrbit",
+    )
+    Canvas(modifier) {
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(V02Palette.Neutral950, Color(0xFF070A15), V02Palette.Neutral950),
+            ),
+        )
+        val center = Offset(size.width * 0.84f, size.height * 0.16f)
+        val radius = size.minDimension.coerceAtLeast(1f) * 0.16f
+        drawCircle(color = Color.Black.copy(alpha = 0.82f), radius = radius, center = center)
+        drawCircle(
+            color = V02Palette.AccentBlue.copy(alpha = 0.24f),
+            radius = radius * 1.42f,
+            center = center,
+            style = Stroke(width = 2.5f),
+        )
+        drawCircle(
+            color = V02Palette.PhotonCyan.copy(alpha = 0.12f),
+            radius = radius * 1.75f,
+            center = center,
+            style = Stroke(width = 1.5f),
+        )
+        repeat(7) { index ->
+            val angle = phase + (index * (2f * Math.PI.toFloat() / 7f))
+            val orbitRadius = radius * (1.60f + (index % 2) * 0.28f)
+            val orbitCenter = Offset(
+                x = center.x + cos(angle) * orbitRadius,
+                y = center.y + sin(angle) * orbitRadius * 0.52f,
+            )
+            drawCircle(
+                color = if (index % 2 == 0) V02Palette.PhotonCyan else V02Palette.AccentBlue,
+                radius = if (index % 3 == 0) 3.5f else 2f,
+                center = orbitCenter,
+                alpha = 0.18f + (index % 3) * 0.10f,
+            )
+        }
+    }
+}
 
 @Composable
 internal fun BrandHeader(
@@ -138,7 +191,12 @@ internal fun BrandHeader(
 ) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Surface(color = Color.White, shape = RoundedCornerShape(15.dp), modifier = Modifier.size(48.dp)) {
+            Surface(
+                color = V02Palette.Neutral800,
+                shape = RoundedCornerShape(15.dp),
+                border = BorderStroke(1.dp, V02Palette.PhotonCyan.copy(alpha = 0.28f)),
+                modifier = Modifier.size(48.dp),
+            ) {
                 Image(
                     painter = painterResource(com.unictoai.unictoos.R.drawable.logo_unictoos),
                     contentDescription = "Unictoos logo",
@@ -164,7 +222,7 @@ internal fun LivePulseDot() {
         animationSpec = infiniteRepeatable(tween(1_400, easing = LinearEasing), RepeatMode.Reverse),
         label = "livePulseAlpha",
     )
-    Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(V02Palette.AccentBlue.copy(alpha = alpha)))
+    Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(V02Palette.PhotonCyan.copy(alpha = alpha)))
 }
 @Composable
 internal fun PreflightCard(
@@ -339,6 +397,11 @@ internal fun SceneCard(
     onClick: (() -> Unit)? = null,
     onOpenStudio: (() -> Unit)? = null,
 ) {
+    val selectionProgress by animateFloatAsState(
+        targetValue = if (selected) 1f else 0f,
+        animationSpec = tween(MotionTokens.standard, easing = MotionTokens.gentleEasing),
+        label = "sceneSelection",
+    )
     val colors = if (selected) {
         CardDefaults.cardColors(containerColor = V02Palette.AccentBlue.copy(alpha = 0.20f))
     } else {
@@ -348,7 +411,7 @@ internal fun SceneCard(
         onClick = onClick ?: {},
         colors = colors,
         shape = RoundedCornerShape(22.dp),
-        border = if (onClick != null) BorderStroke(1.dp, if (selected) V02Palette.AccentBlue.copy(alpha = 0.72f) else V02Palette.Neutral700) else null,
+        border = if (onClick != null) BorderStroke(1.dp, if (selected) V02Palette.AccentBlue.copy(alpha = 0.20f + (0.52f * selectionProgress)) else V02Palette.Neutral700) else null,
         modifier = Modifier.animateContentSize(tween(MotionTokens.quick, easing = MotionTokens.gentleEasing)),
     ) {
         Row(Modifier.fillMaxWidth().padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -453,7 +516,7 @@ internal fun AddSceneDialog(onDismiss: () -> Unit, onCreate: (String, AspectRati
 @Composable
 internal fun StatusPill(status: StreamStatus) {
     val (label, color) = when (status) {
-        StreamStatus.LIVE -> "LIVE" to V02Palette.AccentBlue
+        StreamStatus.LIVE -> "LIVE" to V02Palette.PhotonCyan
         StreamStatus.PREPARING -> "PREPARING" to V02Palette.Caution
         StreamStatus.CONNECTING -> "CONNECTING" to V02Palette.Caution
         StreamStatus.RECONNECTING -> "RECONNECTING" to V02Palette.Caution
@@ -475,9 +538,18 @@ internal fun StatusPill(status: StreamStatus) {
 
 @Composable
 internal fun SectionHeader(title: String, subtitle: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        if (subtitle.isNotBlank()) Text(subtitle, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(
+            Modifier
+                .width(3.dp)
+                .height(25.dp)
+                .clip(RoundedCornerShape(50))
+                .background(V02Palette.PhotonCyan.copy(alpha = 0.82f)),
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            if (subtitle.isNotBlank()) Text(subtitle, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 

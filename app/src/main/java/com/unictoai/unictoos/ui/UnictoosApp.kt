@@ -75,6 +75,7 @@ import com.unictoai.unictoos.streaming.DeviceCompatibilityReportFactory
 import com.unictoai.unictoos.streaming.StreamingDiagnostics
 import com.unictoai.unictoos.streaming.SupportabilityExport
 import com.unictoai.unictoos.ui.components.AddSceneDialog
+import com.unictoai.unictoos.ui.components.BlackHoleBackdrop
 import com.unictoai.unictoos.ui.screens.HomeScreen
 import com.unictoai.unictoos.ui.screens.LibraryScreen
 import com.unictoai.unictoos.ui.screens.ScenesScreen
@@ -153,7 +154,7 @@ internal fun UnictoosApp(
     }
 
     Scaffold(
-        containerColor = UnictoosPalette.Ink,
+        containerColor = Color.Transparent,
         topBar = {
             GlassyTopBar(
                 selectedTab = selectedTab,
@@ -169,7 +170,9 @@ internal fun UnictoosApp(
             GlassyBottomBar(selectedTab = selectedTab, onSelect = { selectedTab = it })
         },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
+        Box(Modifier.fillMaxSize()) {
+            BlackHoleBackdrop(Modifier.matchParentSize())
+            Box(Modifier.fillMaxSize().padding(padding)) {
             AnimatedContent(
                 modifier = Modifier.fillMaxSize(),
                 targetState = selectedTab,
@@ -229,6 +232,7 @@ internal fun UnictoosApp(
                     onShareConfig = onShareConfig,
                     onShareDiagnostics = onShareDiagnostics,
                 )
+            }
             }
             }
         }
@@ -402,11 +406,11 @@ private fun GlassyTopBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 52.dp),
-            color = V02Palette.Neutral900.copy(alpha = 0.88f),
+            color = V02Palette.Neutral900.copy(alpha = 0.78f),
             contentColor = V02Palette.Neutral100,
             shape = RoundedCornerShape(22.dp),
-            border = BorderStroke(1.dp, V02Palette.Neutral700.copy(alpha = 0.72f)),
-            shadowElevation = 10.dp,
+            border = BorderStroke(1.dp, V02Palette.PhotonCyan.copy(alpha = 0.18f)),
+            shadowElevation = 16.dp,
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = Spacing.xs),
@@ -414,7 +418,8 @@ private fun GlassyTopBar(
             ) {
                 Box(modifier = Modifier.weight(0.18f)) {
                     IconButton(modifier = Modifier.size(44.dp), onClick = { onMenuExpandedChange(true) }) {
-                        Icon(Icons.Default.Tune, contentDescription = "Open workspace menu", tint = V02Palette.Neutral100)
+                                                    Icon(Icons.Default.Tune, contentDescription = "Open workspace menu", tint = V02Palette.PhotonCyan)
+
                     }
                     DropdownMenu(
                         expanded = menuExpanded,
@@ -437,7 +442,8 @@ private fun GlassyTopBar(
                 }
                 Box(modifier = Modifier.weight(0.18f), contentAlignment = Alignment.CenterEnd) {
                     IconButton(modifier = Modifier.size(44.dp), onClick = { onSelectTab(AppTab.SETTINGS) }) {
-                    Icon(Icons.Default.Settings, contentDescription = "Open Settings", tint = V02Palette.Neutral100)
+                                            Icon(Icons.Default.Settings, contentDescription = "Open Settings", tint = V02Palette.Neutral300)
+
                     }
                 }
             }
@@ -449,12 +455,13 @@ private fun GlassyTopBar(
 private fun GlassyBottomBar(selectedTab: AppTab, onSelect: (AppTab) -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-        color = V02Palette.Neutral900.copy(alpha = 0.92f),
+        color = V02Palette.Neutral900.copy(alpha = 0.88f),
         shape = RoundedCornerShape(26.dp),
-        border = BorderStroke(1.dp, V02Palette.Neutral700.copy(alpha = 0.72f)),
-        shadowElevation = 14.dp,
+        border = BorderStroke(1.dp, V02Palette.AccentBlue.copy(alpha = 0.24f)),
+        shadowElevation = 18.dp,
     ) {
         NavigationBar(
+            modifier = Modifier.height(74.dp),
             containerColor = Color.Transparent,
             tonalElevation = 0.dp,
         ) {
@@ -465,9 +472,9 @@ private fun GlassyBottomBar(selectedTab: AppTab, onSelect: (AppTab) -> Unit) {
                     icon = { Icon(tab.icon(), contentDescription = tab.label) },
                     label = { Text(tab.label, maxLines = 1) },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color.White,
+                        selectedIconColor = V02Palette.Neutral100,
                         selectedTextColor = V02Palette.Neutral100,
-                        indicatorColor = V02Palette.AccentBlue.copy(alpha = 0.28f),
+                        indicatorColor = V02Palette.PhotonCyan.copy(alpha = 0.18f),
                         unselectedIconColor = V02Palette.Neutral500,
                         unselectedTextColor = V02Palette.Neutral500,
                     ),

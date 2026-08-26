@@ -16,6 +16,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -208,11 +209,18 @@ internal fun configuredDestinationLabel(destinations: List<StreamDestination>): 
 @Composable
 internal fun ExecutiveHero(session: StreamSessionState, setupReady: Boolean, onOpenStudio: () -> Unit) {
     val isLive = session.status == StreamStatus.LIVE
+    val motion = rememberInfiniteTransition(label = "heroEnergy")
+    val glowAlpha by motion.animateFloat(
+        initialValue = 0.42f,
+        targetValue = 0.92f,
+        animationSpec = infiniteRepeatable(tween(1_800, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "heroGlow",
+    )
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900),
-        border = BorderStroke(1.dp, V02Palette.Neutral700.copy(alpha = 0.65f)),
+        colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900.copy(alpha = 0.92f)),
+        border = BorderStroke(1.dp, if (isLive) V02Palette.PhotonCyan.copy(alpha = 0.48f) else V02Palette.AccentBlue.copy(alpha = 0.32f)),
     ) {
         Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -222,8 +230,17 @@ internal fun ExecutiveHero(session: StreamSessionState, setupReady: Boolean, onO
                         Text(if (live) "You are live." else "Ready when you are.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                     }
                 }
-                Surface(color = (if (isLive) V02Palette.AccentBlue else V02Palette.Neutral300).copy(alpha = 0.12f), shape = RoundedCornerShape(16.dp)) {
-                    Icon(if (isLive) Icons.Default.FiberManualRecord else Icons.Default.Bolt, contentDescription = null, tint = if (isLive) V02Palette.AccentBlue else V02Palette.Neutral300, modifier = Modifier.padding(12.dp).size(22.dp))
+                Surface(
+                    color = (if (isLive) V02Palette.PhotonCyan else V02Palette.AccentBlue).copy(alpha = 0.12f + (glowAlpha * 0.08f)),
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, (if (isLive) V02Palette.PhotonCyan else V02Palette.AccentBlue).copy(alpha = 0.24f)),
+                ) {
+                    Icon(
+                        if (isLive) Icons.Default.FiberManualRecord else Icons.Default.Bolt,
+                        contentDescription = null,
+                        tint = (if (isLive) V02Palette.PhotonCyan else V02Palette.AccentBlue).copy(alpha = glowAlpha),
+                        modifier = Modifier.padding(12.dp).size(22.dp),
+                    )
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -231,11 +248,12 @@ internal fun ExecutiveHero(session: StreamSessionState, setupReady: Boolean, onO
                 Spacer(Modifier.width(9.dp))
                 Text(if (isLive) "Session is active" else if (setupReady) "All essential checks are ready" else "Open Go Live to finish setup", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodyMedium)
             }
-            Button(
+                        Button(
                 onClick = onOpenStudio,
-                modifier = Modifier.fillMaxWidth().height(54.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (isLive) V02Palette.Danger else Color.White, contentColor = if (isLive) Color.White else V02Palette.Neutral950),
-                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = if (isLive) V02Palette.Danger else V02Palette.AccentBlue, contentColor = Color.White),
+                shape = RoundedCornerShape(18.dp),
+
             ) {
                 Icon(if (isLive) Icons.Default.LiveTv else Icons.Default.PlayArrow, contentDescription = null)
                 Spacer(Modifier.width(9.dp))
