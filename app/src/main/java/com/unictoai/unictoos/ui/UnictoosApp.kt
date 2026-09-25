@@ -341,6 +341,7 @@ private fun SettingsRoute(
     val adaptiveBitrateEnabled by vm.adaptiveBitrateEnabled.collectAsStateWithLifecycle()
     val audioSettings by vm.audioSettings.collectAsStateWithLifecycle()
     val latencyMode by vm.latencyMode.collectAsStateWithLifecycle()
+    val credentialsResetNotice by vm.credentialsResetNotice.collectAsStateWithLifecycle()
     SettingsScreen(
         destination = destination,
         sessionStatus = session.status,
@@ -363,6 +364,8 @@ private fun SettingsRoute(
         latencyMode = latencyMode,
         onLatencyModeChange = vm::setLatencyMode,
         onExportConfig = { onShareConfig(vm.exportConfigJson()) },
+        credentialsResetNotice = credentialsResetNotice,
+        onDismissCredentialsResetNotice = vm::dismissCredentialsResetNotice,
         onImportConfig = { raw ->
             when (val result = vm.importConfigJson(raw)) {
                 is ConfigImportResult.Success -> android.widget.Toast.makeText(context, "Imported ${result.scenes.size} scene(s); destinations were unchanged", android.widget.Toast.LENGTH_LONG).show()

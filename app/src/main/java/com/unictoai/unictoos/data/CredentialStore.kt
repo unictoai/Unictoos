@@ -2,6 +2,7 @@ package com.unictoai.unictoos.data
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import com.unictoai.unictoos.domain.PlatformPreset
@@ -16,6 +17,12 @@ interface CredentialRepository {
     fun save(platform: PlatformPreset, serverUrl: String, streamKey: String)
     fun load(platform: PlatformPreset): Pair<String, String>
     fun clear(platform: PlatformPreset)
+
+    /**
+     * Returns true once if the keystore key was invalidated and regenerated since the
+     * last call. Callers should surface a "please re-enter your destinations" notice.
+     */
+    fun consumeRekeyEvent(): Boolean = false
 }
 
 class CredentialStore(context: Context) : CredentialRepository {
@@ -42,6 +49,12 @@ class CredentialStore(context: Context) : CredentialRepository {
             .remove(serverKey(platform))
             .remove(streamKey(platform))
             .apply()
+    }
+
+    override fun consumeRekeyEvent(): Boolean {
+        if (!preferences.getBoolean(KEY_WAS_REKEYED, false)) return false
+        preferences.edit().remove(KEY_WAS_REKEYED).apply()
+        return true
     }
 
     fun save(serverUrl: String, streamKey: String) = save(PlatformPreset.YOUTUBE, serverUrl, streamKey)
@@ -158,22 +171,63 @@ class CredentialStore(context: Context) : CredentialRepository {
     private fun ensureKey() {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         if (!keyStore.containsAlias(KEY_ALIAS)) {
-            val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
-            generator.init(
-                KeyGenParameterSpec.Builder(
-                    KEY_ALIAS,
-                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
-                )
-                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                    .setRandomizedEncryptionRequired(true)
-                    .build(),
-            )
-            generator.generateKey()
+            generateKey()
+            return
         }
+        // The alias exists — verify the key is still usable. A key invalidated by a
+        // device security change throws KeyPermanentlyInvalidatedException here.
+        runCatching { loadKeyEntry() }.onFailure { error ->
+            if (error is KeyPermanentlyInvalidatedException) recoverFromInvalidatedKey()
+            else throw error
+        }.getOrThrow()
+    }
+
+    private fun generateKey() {
+        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
+        generator.init(
+            KeyGenParameterSpec.Builder(
+                KEY_ALIAS,
+                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+            )
+                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setRandomizedEncryptionRequired(true)
+                .build(),
+        )
+        generator.generateKey()
+    }
+
+    /**
+     * Recovers from an invalidated keystore key: deletes the dead alias, generates a
+     * fresh key, and clears previously encrypted values (they can never be decrypted
+     * again). Sets a flag so the UI can ask the user to re-enter their destinations
+     * instead of failing silently.
+     */
+    private fun recoverFromInvalidatedKey() {
+        runCatching {
+            KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }.deleteEntry(KEY_ALIAS)
+        }
+        generateKey()
+        val editor = preferences.edit()
+        PlatformPreset.entries.forEach { platform ->
+            editor.remove(serverKey(platform))
+            editor.remove(streamKey(platform))
+        }
+        editor.putBoolean(KEY_WAS_REKEYED, true)
+        editor.apply()
     }
 
     private fun getKey(): SecretKey {
+        return try {
+            loadKeyEntry()
+        } catch (invalidated: KeyPermanentlyInvalidatedException) {
+            // Invalidation can also happen after init; heal and retry once.
+            recoverFromInvalidatedKey()
+            loadKeyEntry()
+        }
+    }
+
+    private fun loadKeyEntry(): SecretKey {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
         return (keyStore.getEntry(KEY_ALIAS, null) as KeyStore.SecretKeyEntry).secretKey
     }
@@ -181,6 +235,7 @@ class CredentialStore(context: Context) : CredentialRepository {
     companion object {
         private const val PREFERENCES = "unictoos_secure_credentials"
         private const val KEY_ALIAS = "unictoos_stream_credentials"
+        private const val KEY_WAS_REKEYED = "keystore_was_rekeyed"
         private const val LEGACY_SERVER_URL = "encrypted_server_url"
         private const val LEGACY_STREAM_KEY = "encrypted_stream_key"
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"

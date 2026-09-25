@@ -12,7 +12,7 @@ The current build remains an **alpha engineering milestone**. It compiles and pa
 
 ## Latest test build
 
-The latest build is **Unictoos v0.5.2** with Android `versionCode 62`, applying the Black Hole visual theme across the app while retaining the v0.5.1 Go Live crash guards and streaming paths. The unsigned release APK is **8,549,243 bytes**. No physical device, platform ingest, PiP, Android 15 OEM background, or 60-minute endurance evidence is available in this repository build. Review `RELEASE_NOTES_v0.5.2.md` for the exact checksums and evidence boundary.
+The latest build is **Unictoos v0.5.3** with Android `versionCode 63`, a professional UI redesign (floating glass control deck, broadcast-monitor Studio preview, animated backdrop) with the v0.5.1 Go Live crash guards and all streaming/capture paths untouched. The debug APK is **87,255,394 bytes** (SHA-256 `3d03209aceb3cd6c4e0dc8102e814a8da36bb2b1547f7201bb26936bab22d819`); the unsigned release APK was not completed in the build sandbox (R8 was killed by the memory limit). No physical device, platform ingest, PiP, Android 15 OEM background, or 60-minute endurance evidence is available in this repository build. Review `RELEASE_NOTES_v0.5.3.md` for the exact checksums and evidence boundary.
 
 ## Build locally
 

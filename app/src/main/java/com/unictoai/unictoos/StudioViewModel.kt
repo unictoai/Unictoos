@@ -195,6 +195,12 @@ class StudioViewModel @JvmOverloads constructor(
     private val _multistreamPlatforms = MutableStateFlow(safeMultistreamPlatforms(multistreamSelectionStore).take(2).toSet())
     val multistreamPlatforms: StateFlow<Set<PlatformPreset>> = _multistreamPlatforms.asStateFlow()
 
+    private val _credentialsResetNotice = MutableStateFlow(runCatching { credentialStore.consumeRekeyEvent() }.getOrDefault(false))
+    val credentialsResetNotice: StateFlow<Boolean> = _credentialsResetNotice.asStateFlow()
+    fun dismissCredentialsResetNotice() {
+        _credentialsResetNotice.value = false
+    }
+
     init {
         _scenes.value = runCatching { sceneStore.loadOrDefault(_scenes.value) }.getOrDefault(_scenes.value)
         hydrateSavedDestinations()
@@ -553,24 +559,5 @@ class StudioViewModel @JvmOverloads constructor(
             }
         }
         scheduleScenePersistence()
-    }
-
-    fun startPreparing() {
-        _session.update { it.copy(status = StreamStatus.PREPARING, message = "Preparing capture and encoder") }
-    }
-
-    fun enterLive() {
-        _session.update {
-            it.copy(
-                status = StreamStatus.LIVE,
-                message = "Broadcast is live",
-                bitrateKbps = 4500,
-                fps = 30,
-            )
-        }
-    }
-
-    fun stopStream() {
-        _session.update { StreamSessionState(status = StreamStatus.IDLE, message = "Broadcast stopped") }
     }
 }

@@ -9,6 +9,8 @@ import com.unictoai.unictoos.domain.PlatformPreset
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.domain.StreamStatus
+import com.unictoai.unictoos.domain.StreamSessionState
+import com.unictoai.unictoos.streaming.StreamingStatusBus
 import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.StreamQualityPreset
 import com.unictoai.unictoos.data.StreamQualityRepository
@@ -183,17 +185,19 @@ class StudioViewModelBehaviorTest {
     }
 
     @Test
-    fun sessionStateEmitsMeaningfulTransitions() = runTest {
+    fun sessionMirrorsStreamingStatusBus() = runTest {
+        StreamingStatusBus.update(StreamSessionState(status = StreamStatus.IDLE))
         viewModel.session.test {
             assertEquals(StreamStatus.IDLE, awaitItem().status)
-            viewModel.startPreparing()
+            StreamingStatusBus.update(StreamSessionState(status = StreamStatus.PREPARING, message = "Preparing capture and encoder"))
             assertEquals(StreamStatus.PREPARING, awaitItem().status)
-            viewModel.enterLive()
+            StreamingStatusBus.update(StreamSessionState(status = StreamStatus.LIVE, message = "Broadcast is live"))
             assertEquals(StreamStatus.LIVE, awaitItem().status)
-            viewModel.stopStream()
+            StreamingStatusBus.update(StreamSessionState(status = StreamStatus.IDLE, message = "Broadcast stopped"))
             assertEquals(StreamStatus.IDLE, awaitItem().status)
             cancelAndIgnoreRemainingEvents()
         }
+        StreamingStatusBus.update(StreamSessionState(status = StreamStatus.IDLE))
     }
 
     @Test

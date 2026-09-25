@@ -169,6 +169,8 @@ internal fun SettingsScreen(
     onExportConfig: () -> Unit,
     onImportConfig: (String) -> Unit,
     onExportDiagnostics: () -> Unit,
+    credentialsResetNotice: Boolean,
+    onDismissCredentialsResetNotice: () -> Unit,
 ) {
     val context = LocalContext.current
     var microphoneEnabled by rememberSaveable { mutableStateOf(true) }
@@ -208,6 +210,26 @@ internal fun SettingsScreen(
         item {
             SectionHeader("Destination", "Choose where Unictoos should send your broadcast")
             Spacer(Modifier.height(10.dp))
+            if (credentialsResetNotice) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900),
+                    border = BorderStroke(1.dp, V02Palette.Caution),
+                ) {
+                    Column(Modifier.padding(Spacing.md)) {
+                        Text("Saved destinations were cleared", color = V02Palette.Caution, style = MaterialTheme.typography.titleSmall)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Your device's secure storage changed, so saved stream keys could no longer be decrypted and were removed. Re-enter your destinations below to go live again.",
+                            color = V02Palette.Neutral500,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        TextButton(onClick = onDismissCredentialsResetNotice, modifier = Modifier.align(Alignment.End)) {
+                            Text("Dismiss", color = V02Palette.Caution)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+            }
             LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
                 items(PlatformPreset.values().toList()) { platform ->
                     FilterChip(
