@@ -220,7 +220,7 @@ internal fun ExecutiveHero(session: StreamSessionState, setupReady: Boolean, onO
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900.copy(alpha = 0.92f)),
-        border = BorderStroke(1.dp, if (isLive) V02Palette.PhotonCyan.copy(alpha = 0.48f) else V02Palette.AccentBlue.copy(alpha = 0.32f)),
+        border = BorderStroke(1.dp, if (isLive) V02Palette.AccentBlue.copy(alpha = 0.48f) else V02Palette.AccentBlue.copy(alpha = 0.32f)),
     ) {
         Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -231,14 +231,14 @@ internal fun ExecutiveHero(session: StreamSessionState, setupReady: Boolean, onO
                     }
                 }
                 Surface(
-                    color = (if (isLive) V02Palette.PhotonCyan else V02Palette.AccentBlue).copy(alpha = 0.12f + (glowAlpha * 0.08f)),
+                    color = (if (isLive) V02Palette.AccentBlue else V02Palette.AccentBlue).copy(alpha = 0.12f + (glowAlpha * 0.08f)),
                     shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, (if (isLive) V02Palette.PhotonCyan else V02Palette.AccentBlue).copy(alpha = 0.24f)),
+                    border = BorderStroke(1.dp, (if (isLive) V02Palette.AccentBlue else V02Palette.AccentBlue).copy(alpha = 0.24f)),
                 ) {
                     Icon(
                         if (isLive) Icons.Default.FiberManualRecord else Icons.Default.Bolt,
                         contentDescription = null,
-                        tint = (if (isLive) V02Palette.PhotonCyan else V02Palette.AccentBlue).copy(alpha = glowAlpha),
+                        tint = (if (isLive) V02Palette.AccentBlue else V02Palette.AccentBlue).copy(alpha = glowAlpha),
                         modifier = Modifier.padding(12.dp).size(22.dp),
                     )
                 }

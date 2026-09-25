@@ -89,6 +89,7 @@ import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
 import com.unictoai.unictoos.ui.PreviewSurfaceView
 import com.unictoai.unictoos.ui.components.BrandHeader
+import com.unictoai.unictoos.ui.components.LivePulseDot
 import com.unictoai.unictoos.ui.components.MetricCard
 import com.unictoai.unictoos.ui.components.ReadinessRow
 import com.unictoai.unictoos.ui.components.SessionErrorCard
@@ -281,7 +282,7 @@ private fun PreviewCard(
     Card(
         colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral950),
         shape = RoundedCornerShape(26.dp),
-        border = BorderStroke(1.dp, if (session.status == StreamStatus.LIVE) V02Palette.PhotonCyan.copy(alpha = signalAlpha) else V02Palette.Neutral700.copy(alpha = 0.65f)),
+        border = BorderStroke(1.dp, if (session.status == StreamStatus.LIVE) V02Palette.AccentBlue.copy(alpha = signalAlpha) else V02Palette.Neutral700.copy(alpha = 0.65f)),
     ) {
         Box(Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) {
             AndroidView(
@@ -299,11 +300,11 @@ private fun PreviewCard(
             if (!session.previewReady) {
                 Surface(color = V02Palette.Neutral900.copy(alpha = 0.96f), shape = RoundedCornerShape(18.dp), modifier = Modifier.padding(Spacing.xl)) {
                     Column(Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.lg), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        Icon(Icons.Default.Videocam, contentDescription = null, tint = V02Palette.PhotonCyan.copy(alpha = signalAlpha), modifier = Modifier.size(28.dp))
+                        Icon(Icons.Default.Videocam, contentDescription = null, tint = V02Palette.AccentBlue.copy(alpha = signalAlpha), modifier = Modifier.size(28.dp))
                         Text("Preview is waiting", color = V02Palette.Neutral100, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(session.message ?: "Approve capture to start your live preview", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
                         if (session.status == StreamStatus.PREPARING || session.status == StreamStatus.CONNECTING || session.status == StreamStatus.RECONNECTING) {
-                            LinearProgressIndicator(Modifier.fillMaxWidth(0.72f), color = V02Palette.PhotonCyan, trackColor = V02Palette.Neutral700)
+                            LinearProgressIndicator(Modifier.fillMaxWidth(0.72f), color = V02Palette.AccentBlue, trackColor = V02Palette.Neutral700)
                         }
                     }
                 }
@@ -314,7 +315,7 @@ private fun PreviewCard(
                     color = V02Palette.Neutral950.copy(alpha = 0.82f),
                     contentColor = V02Palette.Neutral100,
                     shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.dp, V02Palette.PhotonCyan.copy(alpha = 0.28f)),
+                    border = BorderStroke(1.dp, V02Palette.AccentBlue.copy(alpha = 0.28f)),
                 ) {
                     Text(
                         "${if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—"} • ${if (session.fps > 0) "${session.fps} fps" else "—"}",
@@ -326,10 +327,10 @@ private fun PreviewCard(
             }
             Surface(
                 Modifier.align(Alignment.TopStart).padding(14.dp),
-                color = if (session.status == StreamStatus.LIVE) V02Palette.PhotonCyan.copy(alpha = 0.22f) else V02Palette.Neutral800.copy(alpha = 0.78f),
+                color = if (session.status == StreamStatus.LIVE) V02Palette.AccentBlue.copy(alpha = 0.22f) else V02Palette.Neutral800.copy(alpha = 0.78f),
                 contentColor = V02Palette.Neutral100,
                 shape = RoundedCornerShape(50),
-                border = BorderStroke(1.dp, if (session.status == StreamStatus.LIVE) V02Palette.PhotonCyan.copy(alpha = 0.58f) else V02Palette.Neutral700.copy(alpha = 0.62f)),
+                border = BorderStroke(1.dp, if (session.status == StreamStatus.LIVE) V02Palette.AccentBlue.copy(alpha = 0.58f) else V02Palette.Neutral700.copy(alpha = 0.62f)),
             ) {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (session.status == StreamStatus.LIVE) LivePulseDot()
@@ -646,11 +647,4 @@ private fun SessionPreferences(
             }
         }
     }
-}
-
-@Composable
-private fun LivePulseDot() {
-    val transition = rememberInfiniteTransition(label = "v021LivePulse")
-    val alpha by transition.animateFloat(initialValue = 0.55f, targetValue = 1f, animationSpec = infiniteRepeatable(tween(1_400, easing = LinearEasing), RepeatMode.Reverse), label = "v021LivePulseAlpha")
-    Box(Modifier.size(8.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = alpha)))
 }

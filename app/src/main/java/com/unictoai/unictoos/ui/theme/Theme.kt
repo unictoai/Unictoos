@@ -19,28 +19,26 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Unictoos Black Hole palette.
+ * Unictoos professional palette.
  *
- * The visual language uses an almost-black event horizon, blue-violet
- * accretion light, photon cyan for live signal, and warm orange for caution.
- * Existing names remain stable so the theme can be applied across every
- * screen without changing streaming behavior or component contracts.
+ * Restrained creator-tool language per the v0.2 design-token proposal: cool
+ * neutral surfaces, one confident blue accent reserved for primary actions,
+ * selection, and the live indicator, red for errors only, and amber for
+ * genuinely cautionary states. No competing decorative accents.
  */
 object V02Palette {
-    val Neutral950 = Color(0xFF03040A)
-    val Neutral900 = Color(0xFF080A12)
-    val Neutral850 = Color(0xFF0E1220)
-    val Neutral800 = Color(0xFF151B2C)
-    val Neutral700 = Color(0xFF27324A)
-    val Neutral500 = Color(0xFF7D8AA6)
-    val Neutral300 = Color(0xFFBFC9DD)
-    val Neutral100 = Color(0xFFF4F7FF)
-    val AccentBlue = Color(0xFF7D6BFF)
-    val AccentBluePressed = Color(0xFF624FE5)
-    val PhotonCyan = Color(0xFF4DE8FF)
-    val EventHorizon = Color(0xFFFF8B45)
-    val Danger = Color(0xFFFF5D73)
-    val Caution = Color(0xFFFFA24F)
+    val Neutral950 = Color(0xFF0B0D0F)
+    val Neutral900 = Color(0xFF111418)
+    val Neutral850 = Color(0xFF171B20)
+    val Neutral800 = Color(0xFF1E242A)
+    val Neutral700 = Color(0xFF2A323A)
+    val Neutral500 = Color(0xFF6E7883)
+    val Neutral300 = Color(0xFFAEB7C1)
+    val Neutral100 = Color(0xFFF1F4F7)
+    val AccentBlue = Color(0xFF5B8DEF)
+    val AccentBluePressed = Color(0xFF4677D6)
+    val Danger = Color(0xFFE05A64)
+    val Caution = Color(0xFFC9953B)
     val OnAccent = Color.White
 }
 
@@ -85,14 +83,14 @@ private val UnictoosDarkColors = darkColorScheme(
     onPrimary = V02Palette.OnAccent,
     primaryContainer = V02Palette.Neutral800,
     onPrimaryContainer = V02Palette.Neutral100,
-    secondary = V02Palette.PhotonCyan,
-    onSecondary = V02Palette.Neutral950,
-    secondaryContainer = Color(0xFF12313D),
-    onSecondaryContainer = Color(0xFFC6F7FF),
-    tertiary = V02Palette.EventHorizon,
+    secondary = V02Palette.AccentBlue,
+    onSecondary = V02Palette.OnAccent,
+    secondaryContainer = Color(0xFF1B2A4A),
+    onSecondaryContainer = Color(0xFFD3E2FF),
+    tertiary = V02Palette.Caution,
     onTertiary = V02Palette.Neutral950,
-    tertiaryContainer = Color(0xFF3A2116),
-    onTertiaryContainer = Color(0xFFFFDBCA),
+    tertiaryContainer = Color(0xFF2E2417),
+    onTertiaryContainer = Color(0xFFF3DFAE),
     background = V02Palette.Neutral950,
     onBackground = V02Palette.Neutral100,
     surface = V02Palette.Neutral900,

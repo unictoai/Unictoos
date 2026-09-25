@@ -75,7 +75,7 @@ import com.unictoai.unictoos.streaming.DeviceCompatibilityReportFactory
 import com.unictoai.unictoos.streaming.StreamingDiagnostics
 import com.unictoai.unictoos.streaming.SupportabilityExport
 import com.unictoai.unictoos.ui.components.AddSceneDialog
-import com.unictoai.unictoos.ui.components.BlackHoleBackdrop
+import com.unictoai.unictoos.ui.components.AppBackdrop
 import com.unictoai.unictoos.ui.screens.HomeScreen
 import com.unictoai.unictoos.ui.screens.LibraryScreen
 import com.unictoai.unictoos.ui.screens.ScenesScreen
@@ -171,7 +171,7 @@ internal fun UnictoosApp(
         },
     ) { padding ->
         Box(Modifier.fillMaxSize()) {
-            BlackHoleBackdrop(Modifier.matchParentSize())
+            AppBackdrop(Modifier.matchParentSize())
             Box(Modifier.fillMaxSize().padding(padding)) {
             AnimatedContent(
                 modifier = Modifier.fillMaxSize(),
@@ -412,7 +412,7 @@ private fun GlassyTopBar(
             color = V02Palette.Neutral900.copy(alpha = 0.78f),
             contentColor = V02Palette.Neutral100,
             shape = RoundedCornerShape(22.dp),
-            border = BorderStroke(1.dp, V02Palette.PhotonCyan.copy(alpha = 0.18f)),
+            border = BorderStroke(1.dp, V02Palette.AccentBlue.copy(alpha = 0.18f)),
             shadowElevation = 16.dp,
         ) {
             Row(
@@ -421,7 +421,7 @@ private fun GlassyTopBar(
             ) {
                 Box(modifier = Modifier.weight(0.18f)) {
                     IconButton(modifier = Modifier.size(44.dp), onClick = { onMenuExpandedChange(true) }) {
-                                                    Icon(Icons.Default.Tune, contentDescription = "Open workspace menu", tint = V02Palette.PhotonCyan)
+                                                    Icon(Icons.Default.Tune, contentDescription = "Open workspace menu", tint = V02Palette.AccentBlue)
 
                     }
                     DropdownMenu(
@@ -477,7 +477,7 @@ private fun GlassyBottomBar(selectedTab: AppTab, onSelect: (AppTab) -> Unit) {
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = V02Palette.Neutral100,
                         selectedTextColor = V02Palette.Neutral100,
-                        indicatorColor = V02Palette.PhotonCyan.copy(alpha = 0.18f),
+                        indicatorColor = V02Palette.AccentBlue.copy(alpha = 0.18f),
                         unselectedIconColor = V02Palette.Neutral500,
                         unselectedTextColor = V02Palette.Neutral500,
                     ),
