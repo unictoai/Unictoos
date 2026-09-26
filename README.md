@@ -9,7 +9,7 @@
 
 **Unictoos** is a free, open-source Android live-streaming studio for creators. Broadcast from your phone to **YouTube, Twitch, Kick**, or any custom **RTMP / RTMPS / SRT** destination — with scenes, local MP4 recording, and a focused touch-first Studio screen.
 
-> ⚠️ **Alpha software.** Unictoos v0.5.3 compiles and packages cleanly and all automated checks pass, but real-device ingest validation (YouTube / Twitch / Kick) and endurance testing are still in progress. Do not trust an important broadcast or an irreplaceable stream key to a development build yet.
+> ⚠️ **Alpha software.** Unictoos v0.5.4 builds on v0.5.3 with bug fixes and a refined professional theme; all automated checks pass, but real-device ingest validation (YouTube / Twitch / Kick) and endurance testing are still in progress. Do not trust an important broadcast or an irreplaceable stream key to a development build yet.
 
 ## ✨ Features
 
@@ -71,7 +71,7 @@ One shared encoder fans out to at most two destinations. The UI never owns strea
 - [ ] Chat/alerts integrations, scheduling, thumbnails
 - [ ] Stable 1.0 release
 
-See [`FEATURE_ROADMAP.md`](FEATURE_ROADMAP.md) and [`RELEASE_NOTES_v0.5.3.md`](RELEASE_NOTES_v0.5.3.md) for detail.
+See [`FEATURE_ROADMAP.md`](FEATURE_ROADMAP.md), [`RELEASE_NOTES_v0.5.4.md`](RELEASE_NOTES_v0.5.4.md), and [`RELEASE_NOTES_v0.5.3.md`](RELEASE_NOTES_v0.5.3.md) for detail.
 
 ## 🤝 Contributing
 
