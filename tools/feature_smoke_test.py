@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Static smoke checks for the Unictoos alpha when no Android device is attached."""
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -202,7 +203,7 @@ check("Kotlin 2.4.10 toolchain", 'org.jetbrains.kotlin.plugin.compose") version 
 check("Gradle 9.5 wrapper", "gradle-9.5.0-bin.zip" in (ROOT / "gradle/wrapper/gradle-wrapper.properties").read_text())
 check("Compose 2026.08 BOM", "compose-bom:2026.08.00" in BUILD_GRADLE)
 check("Android target SDK 36", "targetSdk = 36" in BUILD_GRADLE)
-check("v0.5.3 release metadata", 'versionName = "0.5.3"' in BUILD_GRADLE and "versionCode = 63" in BUILD_GRADLE and (ROOT / "VERSION").read_text().strip() == "0.5.3" and (ROOT / "RELEASE_NOTES_v0.5.3.md").exists() and (ROOT / "docs/V0.4_RESEARCH_AND_PRODUCT_PLAN.md").exists())
+check("v0.5.4 release metadata", 'versionName = "0.5.4"' in BUILD_GRADLE and "versionCode = 64" in BUILD_GRADLE and (ROOT / "VERSION").read_text().strip() == "0.5.4" and (ROOT / "RELEASE_NOTES_v0.5.4.md").exists() and (ROOT / "docs/V0.4_RESEARCH_AND_PRODUCT_PLAN.md").exists())
 check("compressed onboarding assets", len(list((ROOT / "app/src/main/res/drawable-nodpi").glob("onboarding_*.webp"))) == 4 and not list((ROOT / "app/src/main/res/drawable-nodpi").glob("onboarding_*.png")))
 check("release resource shrinking", "isShrinkResources = true" in BUILD_GRADLE)
 check("explicit terminal release boundary", "PipelineReleaseState.TERMINAL" in RELEASE_POLICY and "canCreateNewPipeline" in SERVICE_SOURCE)
@@ -221,7 +222,8 @@ check("repeated lifecycle test exists", "repeat(50)" in (ROOT / "app/src/test/ja
 check("adaptive launcher icon resources", "@mipmap/ic_launcher" in MANIFEST and (ROOT / "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml").exists() and (ROOT / "app/src/main/res/drawable/ic_unictoos_foreground.xml").exists())
 
 if APK.exists():
-    aapt = Path("/home/ubuntu/android-sdk/build-tools/35.0.0/aapt")
+    sdk_home = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT") or str(Path.home() / "android-sdk")
+    aapt = Path(sdk_home) / "build-tools/35.0.0/aapt"
     if aapt.exists():
         output = subprocess.check_output([str(aapt), "dump", "badging", str(APK)], text=True)
         check("APK package id", "com.unictoai.unictoos" in output)
