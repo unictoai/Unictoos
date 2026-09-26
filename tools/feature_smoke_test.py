@@ -203,7 +203,7 @@ check("Kotlin 2.4.10 toolchain", 'org.jetbrains.kotlin.plugin.compose") version 
 check("Gradle 9.5 wrapper", "gradle-9.5.0-bin.zip" in (ROOT / "gradle/wrapper/gradle-wrapper.properties").read_text())
 check("Compose 2026.08 BOM", "compose-bom:2026.08.00" in BUILD_GRADLE)
 check("Android target SDK 36", "targetSdk = 36" in BUILD_GRADLE)
-check("v0.5.4 release metadata", 'versionName = "0.5.4"' in BUILD_GRADLE and "versionCode = 64" in BUILD_GRADLE and (ROOT / "VERSION").read_text().strip() == "0.5.4" and (ROOT / "RELEASE_NOTES_v0.5.4.md").exists() and (ROOT / "docs/V0.4_RESEARCH_AND_PRODUCT_PLAN.md").exists())
+check("v0.5.5 release metadata", 'versionName = "0.5.5"' in BUILD_GRADLE and "versionCode = 65" in BUILD_GRADLE and (ROOT / "VERSION").read_text().strip() == "0.5.5" and (ROOT / "RELEASE_NOTES_v0.5.5.md").exists() and (ROOT / "docs/V0.4_RESEARCH_AND_PRODUCT_PLAN.md").exists())
 check("compressed onboarding assets", len(list((ROOT / "app/src/main/res/drawable-nodpi").glob("onboarding_*.webp"))) == 4 and not list((ROOT / "app/src/main/res/drawable-nodpi").glob("onboarding_*.png")))
 check("release resource shrinking", "isShrinkResources = true" in BUILD_GRADLE)
 check("explicit terminal release boundary", "PipelineReleaseState.TERMINAL" in RELEASE_POLICY and "canCreateNewPipeline" in SERVICE_SOURCE)
