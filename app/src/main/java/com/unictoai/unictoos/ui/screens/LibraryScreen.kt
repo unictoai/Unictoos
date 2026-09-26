@@ -1,98 +1,34 @@
 package com.unictoai.unictoos.ui.screens
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.media.projection.MediaProjectionManager
-import android.os.Build
-import android.os.Bundle
-import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FiberManualRecord
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LiveTv
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.DriveFileRenameOutline
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -104,49 +40,41 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.withContext
-import com.unictoai.unictoos.domain.AspectRatio
-import com.unictoai.unictoos.domain.PlatformPreset
-import com.unictoai.unictoos.domain.Scene
-import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.data.CreatorHistoryStore
 import com.unictoai.unictoos.data.LocalAnalyticsComparison
 import com.unictoai.unictoos.data.LocalAnalyticsSession
 import com.unictoai.unictoos.data.LocalAnalyticsStore
+import com.unictoai.unictoos.data.LocalRecordingEditState
 import com.unictoai.unictoos.data.Media3RecordingEditor
-import com.unictoai.unictoos.integrations.RecordingEditResult
-import com.unictoai.unictoos.integrations.RecordingTrimRequest
-import com.unictoai.unictoos.domain.StreamDestination
 import com.unictoai.unictoos.domain.SessionSummary
 import com.unictoai.unictoos.domain.StreamHealthSample
-import com.unictoai.unictoos.domain.StreamSessionState
-import com.unictoai.unictoos.domain.StreamStatus
+import com.unictoai.unictoos.integrations.RecordingEditResult
+import com.unictoai.unictoos.integrations.RecordingTrimRequest
 import com.unictoai.unictoos.streaming.StreamingDiagnostic
 import com.unictoai.unictoos.streaming.StreamingDiagnostics
-import com.unictoai.unictoos.ui.theme.Spacing
-import com.unictoai.unictoos.ui.theme.V02Palette
-import com.unictoai.unictoos.ui.theme.UnictoosTheme
-import com.unictoai.unictoos.ui.components.BrandHeader
-import com.unictoai.unictoos.ui.components.ReadinessRow
+import com.unictoai.unictoos.ui.components.DividerHairline
+import com.unictoai.unictoos.ui.components.EmptyState
 import com.unictoai.unictoos.ui.components.SectionHeader
+import com.unictoai.unictoos.ui.components.StatusRow
+import com.unictoai.unictoos.ui.components.StudioButton
+import com.unictoai.unictoos.ui.components.StudioButtonStyle
+import com.unictoai.unictoos.ui.components.StudioCard
+import com.unictoai.unictoos.ui.components.StudioDialog
+import com.unictoai.unictoos.ui.components.StudioTextField
+import com.unictoai.unictoos.ui.theme.StudioColorsScheme
+import com.unictoai.unictoos.ui.theme.StudioTypeScale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 
 @Composable
 internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
     val context = LocalContext.current
-    val recordingsDirectory = java.io.File(context.filesDir, "recordings")
+    val recordingsDirectory = File(context.filesDir, "recordings")
     var recordings by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var sessionSummaries by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var latestSession by remember { mutableStateOf<SessionSummary?>(null) }
@@ -171,7 +99,7 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
     }
 
     fun contentUri(name: String): android.net.Uri? {
-        val file = java.io.File(recordingsDirectory, name)
+        val file = File(recordingsDirectory, name)
         return if (file.exists()) runCatching {
             androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         }.getOrNull() else null
@@ -206,7 +134,9 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
         val analytics = LocalAnalyticsStore(context)
         val sessions = history.loadSessions()
         latestSession = sessions.maxByOrNull { it.finishedAtMillis }
-        sessionSummaries = sessions.map { summary -> "${summary.mode.name.lowercase().replaceFirstChar { it.uppercase() }} • ${summary.elapsedSeconds / 60} min • ${summary.bitrateKbps} kbps" }
+        sessionSummaries = sessions.map { summary ->
+            "${summary.mode.name.lowercase().replaceFirstChar { it.uppercase() }} • ${summary.elapsedSeconds / 60} min • ${summary.bitrateKbps} kbps"
+        }
         markerCount = history.loadMarkers().size
         healthSamples = history.loadHealthSamples()
         timeline = StreamingDiagnostics.snapshot().takeLast(24)
@@ -215,240 +145,314 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
     LaunchedEffect(recordingEditor) {
         recordingEditor.states.collect { state ->
             editMessage = when (state) {
-                is com.unictoai.unictoos.data.LocalRecordingEditState.Completed -> "Trim export completed and was saved locally."
-                is com.unictoai.unictoos.data.LocalRecordingEditState.Failed -> "Trim export failed: ${state.message}"
-                is com.unictoai.unictoos.data.LocalRecordingEditState.Started -> "Trim export started. The new MP4 will be saved locally when complete."
+                is LocalRecordingEditState.Completed -> "Trim export completed and was saved locally."
+                is LocalRecordingEditState.Failed -> "Trim export failed: ${state.message}"
+                is LocalRecordingEditState.Started -> "Trim export started. The new MP4 will be saved locally when complete."
             }
         }
     }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(Spacing.xl),
-        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+        contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         item {
-            BrandHeader("Your content", "Library")
-            Spacer(Modifier.height(6.dp))
-            Text("Recordings stay on this device until you choose to share them.", color = V02Palette.Neutral500)
+            LibraryHeader()
         }
         item {
-            SectionHeader("Creator analytics", "Local history only")
-            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    ReadinessRow("Completed sessions", sessionSummaries.size.toString(), sessionSummaries.isNotEmpty())
-                    ReadinessRow("Marked moments", markerCount.toString(), markerCount > 0)
-                    ReadinessRow("Latest session", sessionSummaries.lastOrNull() ?: "No completed sessions", sessionSummaries.isNotEmpty())
-                }
+            SectionHeader("Overview", subtitle = "Kept on this device only")
+            StudioCard {
+                StatusRow("Completed sessions", sessionSummaries.size.toString())
+                StatusRow("Marked moments", markerCount.toString())
+                StatusRow(
+                    "Latest session",
+                    sessionSummaries.lastOrNull() ?: "No completed sessions",
+                )
             }
         }
         if (analyticsSessions.isNotEmpty()) {
             item {
                 val comparison = LocalAnalyticsComparison.from(analyticsSessions)
-                SectionHeader("Performance comparison", "SQLite analytics • this device only")
-                Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(18.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        Text("Recent-session baseline", fontWeight = FontWeight.Bold)
-                        AnalyticsMetricRow("Sessions compared", comparison.sessionCount.toString())
-                        AnalyticsMetricRow("Average duration", formatDuration(comparison.averageDurationSeconds))
-                        AnalyticsMetricRow("Average bitrate", "${comparison.averageBitrateKbps} kbps")
-                        AnalyticsMetricRow("Average dropped frames", comparison.averageDroppedFrames.toString())
-                        AnalyticsMetricRow("Sessions with reconnects", comparison.reconnectingSessions.toString())
-                    }
+                SectionHeader("Performance", subtitle = "Recent-session baseline")
+                StudioCard {
+                    StatusRow("Sessions compared", comparison.sessionCount.toString())
+                    StatusRow("Avg duration", formatLibraryDuration(comparison.averageDurationSeconds))
+                    StatusRow("Avg bitrate", "${comparison.averageBitrateKbps} kbps")
+                    StatusRow("Avg dropped frames", comparison.averageDroppedFrames.toString())
+                    StatusRow("Sessions with reconnects", comparison.reconnectingSessions.toString())
                 }
             }
         }
         latestSession?.let { summary ->
             item {
-                SectionHeader("Last session recap", "A private summary retained on this device")
-                Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(18.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        Text(if (summary.mode.name == "PRACTICE") "Practice session" else "Broadcast session", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Finished ${java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(summary.finishedAtMillis))}", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                            RecapMetric("Duration", formatDuration(summary.elapsedSeconds))
-                            RecapMetric("Bitrate", "${summary.bitrateKbps} kbps")
-                            RecapMetric("FPS", summary.fps.toString())
-                        }
-                        Text(if (summary.droppedFrames >= 0) "Dropped frames: ${summary.droppedFrames}" else "Dropped-frame count was not reported by the encoder", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
+                SectionHeader("Last session")
+                StudioCard {
+                    Text(
+                        if (summary.mode.name == "PRACTICE") "Practice session" else "Broadcast session",
+                        style = StudioTypeScale.headline,
+                        color = StudioColorsScheme.textPrimary,
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "Finished ${
+                            java.text.DateFormat.getDateTimeInstance(
+                                java.text.DateFormat.SHORT,
+                                java.text.DateFormat.SHORT,
+                            ).format(java.util.Date(summary.finishedAtMillis))
+                        }",
+                        style = StudioTypeScale.caption,
+                        color = StudioColorsScheme.textSecondary,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RecapMetric("Duration", formatLibraryDuration(summary.elapsedSeconds), Modifier.weight(1f))
+                        RecapMetric("Bitrate", "${summary.bitrateKbps} kbps", Modifier.weight(1f))
+                        RecapMetric("FPS", summary.fps.toString(), Modifier.weight(1f))
                     }
                 }
             }
         }
         item {
-            SectionHeader("Stream health history", "Persisted locally from completed sessions")
-            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    if (healthSamples.isEmpty()) {
-                        Text("Health samples will appear after your first completed session.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        val recent: List<StreamHealthSample> = healthSamples.takeLast(36)
-                        val maxBitrate: Int = recent.maxOf { sample -> sample.bitrateKbps }.coerceAtLeast(1)
-                        Row(Modifier.fillMaxWidth().height(96.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                            for (sample in recent) {
-                                Box(
-                                    Modifier.weight(1f).fillMaxHeight((sample.bitrateKbps.toFloat() / maxBitrate).coerceIn(0.08f, 1f)).clip(RoundedCornerShape(3.dp)).background(if (sample.networkLabel == "Offline") V02Palette.Caution else V02Palette.Neutral300),
-                                )
-                            }
-                        }
-                        Text("${healthSamples.size} samples retained • latest ${recent.lastOrNull()?.bitrateKbps ?: 0} kbps", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-        }
-        item {
-            SectionHeader("Session timeline", "Recent lifecycle events retained for support")
-            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
-                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    if (timeline.isEmpty()) {
-                        Text("Events will appear after Unictoos prepares or starts a session.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        timeline.asReversed().take(12).forEach { event ->
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(event.event.replace('_', ' '), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
-                                val detail = event.detail.ifBlank { "generation ${event.generation}" }
-                                Text(detail, color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            }
+            SectionHeader("Signal history", subtitle = "${healthSamples.size} samples retained")
+            StudioCard {
+                if (healthSamples.isEmpty()) {
+                    Text(
+                        "Health samples will appear after your first completed session.",
+                        style = StudioTypeScale.body,
+                        color = StudioColorsScheme.textSecondary,
+                    )
+                } else {
+                    val recent: List<StreamHealthSample> = healthSamples.takeLast(36)
+                    val maxBitrate: Int = recent.maxOf { it.bitrateKbps }.coerceAtLeast(1)
+                    Row(
+                        Modifier.fillMaxWidth().height(88.dp),
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        for (sample in recent) {
+                            Box(
+                                Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(
+                                        (sample.bitrateKbps.toFloat() / maxBitrate).coerceIn(0.08f, 1f),
+                                    )
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(
+                                        if (sample.networkLabel == "Offline") StudioColorsScheme.warning
+                                        else StudioColorsScheme.cyan.copy(alpha = 0.75f),
+                                    ),
+                            )
                         }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Latest ${recent.lastOrNull()?.bitrateKbps ?: 0} kbps",
+                        style = StudioTypeScale.caption,
+                        color = StudioColorsScheme.textSecondary,
+                    )
                 }
             }
         }
         if (recordings.isEmpty()) {
             item {
-                Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(24.dp)) {
-                    Column(Modifier.padding(Spacing.xl), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                        Icon(Icons.Default.Movie, null, tint = V02Palette.AccentBlue, modifier = Modifier.size(32.dp))
-                        Text("No recordings yet", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-                        Text("Press Record in Studio or start Practice mode. Saved MP4 sessions will appear here.", color = V02Palette.Neutral500)
-                        FilledTonalButton(onClick = onOpenStudio, shape = RoundedCornerShape(12.dp)) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Open Studio")
-                        }
-                    }
-                }
+                EmptyState(
+                    title = "No recordings yet",
+                    subtitle = "Press Record in Studio or start Practice mode. Saved MP4 sessions will appear here.",
+                    icon = Icons.Default.Movie,
+                    actionText = "Open Studio",
+                    onAction = onOpenStudio,
+                )
             }
         } else {
-            item { SectionHeader("Saved recordings", "Stored locally on this device") }
+            item {
+                SectionHeader("Recordings", subtitle = "${recordings.size} stored locally")
+            }
             items(recordings, key = { it }) { name ->
-                Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(18.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Surface(color = V02Palette.AccentBlue.copy(alpha = 0.16f), shape = RoundedCornerShape(12.dp)) {
-                                Icon(Icons.Default.Movie, null, tint = V02Palette.Neutral300, modifier = Modifier.padding(Spacing.md).size(22.dp))
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(name.removeSuffix(".mp4"), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text("MP4 • app-private storage", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                            }
+                RecordingRow(
+                    name = name,
+                    onPlay = { play(name) },
+                    onShare = { share(name) },
+                    onTrim = { trimTarget = name },
+                    onRename = { renameTarget = name; renameValue = name.removeSuffix(".mp4") },
+                    onDelete = { File(recordingsDirectory, name).delete(); refresh() },
+                )
+                Spacer(Modifier.height(10.dp))
+            }
+        }
+        if (timeline.isNotEmpty()) {
+            item {
+                SectionHeader("Session timeline", subtitle = "Recent events, kept for support")
+                StudioCard {
+                    timeline.asReversed().take(10).forEach { event ->
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                event.event.replace('_', ' '),
+                                style = StudioTypeScale.bodyStrong,
+                                color = StudioColorsScheme.textPrimary,
+                            )
+                            val detail = event.detail.ifBlank { "generation ${event.generation}" }
+                            Text(
+                                detail,
+                                style = StudioTypeScale.caption,
+                                color = StudioColorsScheme.textSecondary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                            OutlinedButton(onClick = { play(name) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
-                                Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Play")
-                            }
-                            OutlinedButton(onClick = { share(name) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
-                                Icon(Icons.Default.Share, null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Share")
-                            }
-                            OutlinedButton(onClick = { trimTarget = name }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
-                                Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Trim")
-                            }
-                        }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            TextButton(onClick = { renameTarget = name; renameValue = name.removeSuffix(".mp4") }) { Text("Rename") }
-                            TextButton(onClick = { java.io.File(recordingsDirectory, name).delete(); refresh() }) { Text("Delete", color = V02Palette.Danger) }
-                        }
+                        Spacer(Modifier.height(10.dp))
+                        DividerHairline()
+                        Spacer(Modifier.height(10.dp))
                     }
                 }
             }
-        }
-        item {
-            SectionHeader("Creator assets", "Overlays, intros, and saved scene media")
-            ReadinessRow("Scene templates", "Available", true)
-            ReadinessRow("Overlay library", "Next milestone", false)
-            ReadinessRow("Cloud backup", "Not connected", false)
         }
     }
 
     if (renameTarget != null) {
-        AlertDialog(
-            onDismissRequest = { renameTarget = null },
-            title = { Text("Rename recording") },
-            text = { OutlinedTextField(value = renameValue, onValueChange = { renameValue = it }, label = { Text("Recording name") }, singleLine = true) },
-            confirmButton = {
-                Button(onClick = {
-                    val old = renameTarget
-                    val safe = renameValue.trim().ifBlank { old?.removeSuffix(".mp4").orEmpty() }.replace(Regex("[^A-Za-z0-9 _-]"), "_")
-                    if (old != null && safe.isNotBlank()) java.io.File(recordingsDirectory, old).renameTo(java.io.File(recordingsDirectory, "$safe.mp4"))
-                    renameTarget = null
-                    refresh()
-                }) { Text("Save") }
+        StudioDialog(
+            title = "Rename recording",
+            onDismiss = { renameTarget = null },
+            confirmText = "Save",
+            onConfirm = {
+                val old = renameTarget
+                val safe = renameValue.trim()
+                    .ifBlank { old?.removeSuffix(".mp4").orEmpty() }
+                    .replace(Regex("[^A-Za-z0-9 _-]"), "_")
+                if (old != null && safe.isNotBlank()) {
+                    File(recordingsDirectory, old).renameTo(File(recordingsDirectory, "$safe.mp4"))
+                }
+                renameTarget = null
+                refresh()
             },
-            dismissButton = { TextButton(onClick = { renameTarget = null }) { Text("Cancel") } },
-        )
+        ) {
+            StudioTextField(value = renameValue, onValueChange = { renameValue = it }, placeholder = "Recording name")
+        }
     }
     if (trimTarget != null) {
-        AlertDialog(
-            onDismissRequest = { trimTarget = null },
-            title = { Text("Trim recording") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Text("Create a new local MP4 without changing the original recording.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(value = trimStartSeconds, onValueChange = { trimStartSeconds = it.filter(Char::isDigit).take(8) }, label = { Text("Start seconds") }, singleLine = true)
-                    OutlinedTextField(value = trimEndSeconds, onValueChange = { trimEndSeconds = it.filter(Char::isDigit).take(8) }, label = { Text("End seconds") }, singleLine = true)
+        StudioDialog(
+            title = "Trim recording",
+            onDismiss = { trimTarget = null },
+            confirmText = "Export trim",
+            onConfirm = {
+                val target = trimTarget
+                val start = trimStartSeconds.toLongOrNull()
+                val end = trimEndSeconds.toLongOrNull()
+                if (target != null && start != null && end != null) {
+                    val input = File(recordingsDirectory, target)
+                    when (val result = recordingEditor.trim(RecordingTrimRequest(input.absolutePath, start * 1_000L, end * 1_000L))) {
+                        RecordingEditResult.Planned -> editMessage = "Trim export started. The new MP4 will be saved locally when complete."
+                        is RecordingEditResult.Failure -> editMessage = result.message
+                        is RecordingEditResult.Unsupported -> editMessage = result.explanation
+                    }
+                    trimTarget = null
                 }
             },
-            confirmButton = {
-                Button(onClick = {
-                    val target = trimTarget
-                    val start = trimStartSeconds.toLongOrNull()
-                    val end = trimEndSeconds.toLongOrNull()
-                    if (target != null && start != null && end != null) {
-                        val input = java.io.File(recordingsDirectory, target)
-                        when (val result = recordingEditor.trim(RecordingTrimRequest(input.absolutePath, start * 1_000L, end * 1_000L))) {
-                            RecordingEditResult.Planned -> editMessage = "Trim export started. The new MP4 will be saved locally when complete."
-                            is RecordingEditResult.Failure -> editMessage = result.message
-                            is RecordingEditResult.Unsupported -> editMessage = result.explanation
-                        }
-                        trimTarget = null
-                    }
-                }) { Text("Export trim") }
-            },
-            dismissButton = { TextButton(onClick = { trimTarget = null }) { Text("Cancel") } },
-        )
+        ) {
+            Text(
+                "Creates a new local MP4 without changing the original.",
+                style = StudioTypeScale.caption,
+                color = StudioColorsScheme.textSecondary,
+            )
+            Spacer(Modifier.height(12.dp))
+            StudioTextField(
+                value = trimStartSeconds,
+                onValueChange = { trimStartSeconds = it.filter(Char::isDigit).take(8) },
+                label = "Start (seconds)",
+            )
+            Spacer(Modifier.height(10.dp))
+            StudioTextField(
+                value = trimEndSeconds,
+                onValueChange = { trimEndSeconds = it.filter(Char::isDigit).take(8) },
+                label = "End (seconds)",
+            )
+        }
     }
     if (editMessage != null) {
-        AlertDialog(
-            onDismissRequest = { editMessage = null },
-            title = { Text("Local editor") },
-            text = { Text(editMessage.orEmpty()) },
-            confirmButton = { TextButton(onClick = { editMessage = null; refresh() }) { Text("Done") } },
-        )
+        StudioDialog(
+            title = "Local editor",
+            onDismiss = { editMessage = null },
+            confirmText = "Done",
+            onConfirm = { editMessage = null; refresh() },
+            dismissText = "",
+        ) {
+            Text(editMessage.orEmpty(), style = StudioTypeScale.body, color = StudioColorsScheme.textPrimary)
+        }
     }
 }
 
 @Composable
-private fun AnalyticsMetricRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-        Text(value, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+private fun LibraryHeader() {
+    val c = StudioColorsScheme
+    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+        Text("Library", style = StudioTypeScale.display, color = c.textPrimary)
+        Text("Recordings and session history", style = StudioTypeScale.body, color = c.textSecondary)
     }
-}
-
-private fun formatDuration(seconds: Long): String {
-    return "%02d:%02d".format(seconds / 60, seconds % 60)
 }
 
 @Composable
-private fun RowScope.RecapMetric(label: String, value: String) {
-    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
-        Text(value, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+private fun RecapMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    val c = StudioColorsScheme
+    StudioCard(modifier = modifier, contentPadding = PaddingValues(12.dp)) {
+        Text(label.uppercase(), style = StudioTypeScale.eyebrow.copy(fontSize = 10.sp), color = c.textTertiary)
+        Spacer(Modifier.height(2.dp))
+        Text(value, style = StudioTypeScale.bodyStrong, color = c.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
+
+@Composable
+private fun RecordingRow(
+    name: String,
+    onPlay: () -> Unit,
+    onShare: () -> Unit,
+    onTrim: () -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val c = StudioColorsScheme
+    StudioCard(contentPadding = PaddingValues(14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Movie, null, tint = c.cyan, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    name.removeSuffix(".mp4"),
+                    style = StudioTypeScale.bodyStrong,
+                    color = c.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text("MP4 • on this device", style = StudioTypeScale.caption, color = c.textSecondary)
+            }
+            IconButton(onClick = onPlay) {
+                Icon(Icons.Default.PlayArrow, "Play", tint = c.textPrimary)
+            }
+            IconButton(onClick = onShare) {
+                Icon(Icons.Default.Share, "Share", tint = c.textSecondary)
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        DividerHairline()
+        Spacer(Modifier.height(4.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            androidx.compose.material3.TextButton(onClick = onTrim) {
+                Icon(Icons.Default.ContentCut, null, tint = c.textSecondary, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Trim", style = StudioTypeScale.label, color = c.textSecondary)
+            }
+            androidx.compose.material3.TextButton(onClick = onRename) {
+                Icon(Icons.Default.DriveFileRenameOutline, null, tint = c.textSecondary, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Rename", style = StudioTypeScale.label, color = c.textSecondary)
+            }
+            androidx.compose.material3.TextButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, null, tint = c.signalRed, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Delete", style = StudioTypeScale.label, color = c.signalRed)
+            }
+        }
+    }
+}
+
+private fun formatLibraryDuration(seconds: Long): String =
+    "%02d:%02d".format(seconds / 60, seconds % 60)

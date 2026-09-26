@@ -294,10 +294,6 @@ class StreamingForegroundService : Service(), ConnectChecker {
             setFpsListener { fps ->
                 postSerialized { publishFpsSample(fps, generation) }
             }
-            if (latencyMode == LatencyMode.LOW_LATENCY) {
-                // RootEncoder exposes client-cache sizing, but no public keyframe-interval override in this version.
-                getStreamClient().resizeCache(0)
-            }
         }
     }
 
@@ -332,7 +328,13 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private fun prepareGenericStream(): Boolean = runCatching {
-        genericStream.prepareVideo(activeStreamQuality.width, activeStreamQuality.height, activeStreamQuality.bitrate, rotation = 0) &&
+        genericStream.prepareVideo(
+            activeStreamQuality.width,
+            activeStreamQuality.height,
+            activeStreamQuality.bitrate,
+            fps = activeStreamQuality.fps,
+            rotation = 0,
+        ) &&
             genericStream.prepareAudio(
                 audioSettings.sampleRate,
                 false,
@@ -1059,7 +1061,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         val sceneMessage = if (report.unsupportedLayers > 0) "Connecting to your destination • ${report.textOverlays} text overlay(s) rendered; some scene layers are not yet composited" else "Connecting to your destination • ${report.textOverlays} text overlay(s) rendered"
         publish(StreamStatus.CONNECTING, sceneMessage)
         runCatching {
-            genericStream.startStream(endpoints)
+            genericStream.startStream(endpoints, lowLatencyCache = latencyMode == LatencyMode.LOW_LATENCY)
             startExperimentalPipIfRequested(sceneJson)
             scheduleConnectionWatchdog(sessionGeneration.get())
         }.onFailure {
@@ -1454,7 +1456,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
             if (!isCurrentGeneration(generation) || manualStop || currentEndpoint.isBlank()) return@Runnable
             publish(StreamStatus.CONNECTING, "Reconnecting securely")
             runCatching {
-                genericStream.startStream(currentEndpoints.ifEmpty { listOf(currentEndpoint) })
+                genericStream.startStream(
+                    currentEndpoints.ifEmpty { listOf(currentEndpoint) },
+                    lowLatencyCache = latencyMode == LatencyMode.LOW_LATENCY,
+                )
                 scheduleConnectionWatchdog(generation)
             }.onFailure {
                 cancelConnectionWatchdog()

@@ -1,16 +1,9 @@
 package com.unictoai.unictoos.ui.screens
 
+import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.view.Surface
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,88 +11,75 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Cameraswitch
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FiberManualRecord
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
-import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
 import com.unictoai.unictoos.DestinationConfig
 import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.AutoStopDuration
 import com.unictoai.unictoos.domain.Scene
-import com.unictoai.unictoos.domain.SourceType
 import com.unictoai.unictoos.domain.StreamHealthSample
-import com.unictoai.unictoos.health.DestinationHealth
-import com.unictoai.unictoos.health.HealthState
 import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
-import com.unictoai.unictoos.ui.PreviewSurfaceView
-import com.unictoai.unictoos.ui.components.BrandHeader
-import com.unictoai.unictoos.ui.components.LivePulseDot
-import com.unictoai.unictoos.ui.components.MetricCard
-import com.unictoai.unictoos.ui.components.ReadinessRow
-import com.unictoai.unictoos.ui.components.SessionErrorCard
-import com.unictoai.unictoos.ui.components.StatusPill
-import com.unictoai.unictoos.ui.theme.MotionTokens
-import com.unictoai.unictoos.ui.theme.Spacing
-import com.unictoai.unictoos.ui.theme.V02Palette
-import com.unictoai.unictoos.streaming.GoLiveReadiness
+import com.unictoai.unictoos.health.DestinationHealth
+import com.unictoai.unictoos.health.HealthState
 import com.unictoai.unictoos.streaming.CaptureModePolicy
 import com.unictoai.unictoos.streaming.GoLiveReadinessPolicy
+import com.unictoai.unictoos.ui.PreviewSurfaceView
+import com.unictoai.unictoos.ui.components.BadgeTone
+import com.unictoai.unictoos.ui.components.DividerHairline
+import com.unictoai.unictoos.ui.components.GoLiveButton
+import com.unictoai.unictoos.ui.components.LiveDot
+import com.unictoai.unictoos.ui.components.SectionHeader
+import com.unictoai.unictoos.ui.components.StateBadge
+import com.unictoai.unictoos.ui.components.StatusRow
+import com.unictoai.unictoos.ui.components.StudioButton
+import com.unictoai.unictoos.ui.components.StudioButtonStyle
+import com.unictoai.unictoos.ui.components.StudioCard
+import com.unictoai.unictoos.ui.theme.StudioColorsScheme
+import com.unictoai.unictoos.ui.theme.StudioTypeScale
 
 @Composable
 internal fun StudioScreen(
@@ -139,8 +119,7 @@ internal fun StudioScreen(
             }
         }
     }
-    val actionSource = remember { MutableInteractionSource() }
-    val actionPressed by actionSource.collectIsPressedAsState()
+    val isLive = session.status == StreamStatus.LIVE
     val isActive = session.status in setOf(
         StreamStatus.PREPARING,
         StreamStatus.CONNECTING,
@@ -151,93 +130,108 @@ internal fun StudioScreen(
     val canStart = session.status in setOf(StreamStatus.IDLE, StreamStatus.STOPPED, StreamStatus.ERROR)
     val captureMode = CaptureModePolicy.forScene(scene)
     val captureLabel = when (captureMode) {
-        "screen" -> "Screen capture"
-        "camera" -> "Camera capture"
-        else -> "Capture source not selected"
+        "screen" -> "Screen"
+        "camera" -> "Camera"
+        else -> "No source"
     }
     val context = LocalContext.current
-    val effectiveQuality = remember(streamQuality, scene.aspectRatio) { streamQuality.forAspectRatio(scene.aspectRatio) }
-    val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
+    val effectiveQuality = remember(streamQuality, scene.aspectRatio) {
+        streamQuality.forAspectRatio(scene.aspectRatio)
+    }
+    val connectivity = context.getSystemService(ConnectivityManager::class.java)
     val networkCapabilities = connectivity?.getNetworkCapabilities(connectivity.activeNetwork)
     val readiness = GoLiveReadinessPolicy.evaluate(
         destinationReady = destination.isConfigured,
         captureMode = captureMode,
-        microphonePermission = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED,
-        cameraPermission = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED,
-        networkAvailable = networkCapabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true,
+        microphonePermission = ContextCompat.checkSelfPermission(
+            context, android.Manifest.permission.RECORD_AUDIO,
+        ) == PackageManager.PERMISSION_GRANTED,
+        cameraPermission = ContextCompat.checkSelfPermission(
+            context, android.Manifest.permission.CAMERA,
+        ) == PackageManager.PERMISSION_GRANTED,
+        networkAvailable = networkCapabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true,
         quality = effectiveQuality,
     )
+    var showDetails by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = Spacing.lg, vertical = Spacing.xl),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md),
+        contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            BrandHeader(
-                eyebrow = "BROADCAST WORKSPACE",
-                title = "Studio",
-                action = { StatusPill(session.status) },
+            StudioTopBar(
+                sceneName = scene.name,
+                captureLabel = captureLabel,
+                aspectLabel = scene.aspectRatio.label,
+                qualityLabel = effectiveQuality.displayName,
+                status = session.status,
             )
         }
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(scene.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("$captureLabel  •  ${scene.aspectRatio.label}", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                }
-                Surface(color = V02Palette.Neutral800, shape = RoundedCornerShape(50)) {
-                    Text(effectiveQuality.displayName, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), color = V02Palette.Neutral300, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-        item {
-            PreviewCard(
+            PreviewHero(
                 session = session,
                 previewListener = previewListener,
                 encoderWidth = effectiveQuality.width,
                 encoderHeight = effectiveQuality.height,
+                aspectRatio = if (scene.aspectRatio == AspectRatio.PORTRAIT) 9f / 16f else 16f / 9f,
             )
         }
-        if (isActive || session.status == StreamStatus.LIVE) {
-            item { LiveTelemetryCard(session = session, latestHealth = healthHistory.lastOrNull()) }
-        }
-        item { GoLiveReadinessCard(readiness) }
-        if (session.destinationHealth.isNotEmpty()) {
-            item { DestinationHealthCard(session.destinationHealth) }
-        }
         if (session.status == StreamStatus.ERROR) {
-            item { SessionErrorCard(session.message.orEmpty(), onReleaseCapture) }
-        }
-        if (session.message?.contains("Reduced quality", ignoreCase = true) == true || session.message?.contains("quality raised", ignoreCase = true) == true) {
             item {
-                Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Caution.copy(alpha = 0.14f)), shape = RoundedCornerShape(16.dp)) {
-                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = V02Palette.Caution)
-                        Spacer(Modifier.width(10.dp))
-                        Text(session.message.orEmpty(), modifier = Modifier.weight(1f), color = V02Palette.Neutral300, style = MaterialTheme.typography.bodySmall)
-                        TextButton(onClick = onDismissStatusMessage) { Text("Dismiss") }
-                    }
+                ErrorBanner(
+                    message = session.message.orEmpty().ifBlank { "Something went wrong. Check your setup and try again." },
+                    onRetry = onReleaseCapture,
+                )
+            }
+        }
+        if (session.message?.contains("Reduced quality", ignoreCase = true) == true ||
+            session.message?.contains("quality raised", ignoreCase = true) == true
+        ) {
+            item {
+                NoticeBanner(message = session.message.orEmpty(), onDismiss = onDismissStatusMessage)
+            }
+        }
+        item {
+            GoLiveButton(
+                isLive = isLive,
+                enabled = (canStart && readiness.canStart) || isLive,
+                loading = session.status == StreamStatus.CONNECTING || session.status == StreamStatus.PREPARING,
+                onClick = { if (isLive) onStop() else onStart() },
+            )
+            if (!isLive && !readiness.canStart) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    (readiness.blockingDetail ?: readiness.cautionDetail ?: "Finish setup to go live"),
+                    style = StudioTypeScale.caption,
+                    color = StudioColorsScheme.warning,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+        if (!isLive) {
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    StudioButton(
+                        text = "Practice",
+                        onClick = onPractice,
+                        style = StudioButtonStyle.Ghost,
+                        modifier = Modifier.weight(1f),
+                        enabled = canStart,
+                    )
+                    StudioButton(
+                        text = "Scenes",
+                        onClick = onEditScenes,
+                        style = StudioButtonStyle.Ghost,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
             }
         }
         item {
-            BroadcastActionCard(
+            ControlDock(
                 session = session,
-                canStart = canStart,
-                isActive = isActive,
-                actionSource = actionSource,
-                actionPressed = actionPressed,
-                onStart = onStart,
-                onStop = onStop,
-                onPractice = onPractice,
-                readiness = readiness,
-            )
-        }
-        item {
-            QuickControls(
-                session = session,
-                enabled = isActive || session.status == StreamStatus.LIVE,
+                enabled = isActive,
                 cameraAvailable = captureMode == "camera",
                 onToggleMute = onToggleMute,
                 onSwitchCamera = onSwitchCamera,
@@ -246,201 +240,230 @@ internal fun StudioScreen(
             )
         }
         item {
-            DestinationReadiness(destination = destination, onOpenSettings = onOpenSettings)
-        }
-        item {
-            SessionHealthCard(session = session, history = healthHistory)
-        }
-        item {
-            SessionPreferences(
-                autoStopDuration = autoStopDuration,
-                aspectRatio = scene.aspectRatio,
-                enabled = !isActive,
-                onAutoStopDurationChange = onAutoStopDurationChange,
-                onAspectRatioChange = onAspectRatioChange,
-                onEditScenes = onEditScenes,
+            DestinationRow(
+                destination = destination,
+                health = session.destinationHealth,
                 onOpenSettings = onOpenSettings,
             )
+        }
+        if (isLive || session.destinationHealth.isNotEmpty()) {
+            item {
+                TelemetryStrip(session = session, health = healthHistory.lastOrNull())
+            }
+        }
+        item {
+            TextButton(onClick = { showDetails = !showDetails }, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    if (showDetails) "Hide session details" else "Session details",
+                    style = StudioTypeScale.label,
+                    color = StudioColorsScheme.cyan,
+                )
+            }
+            if (showDetails) {
+                SessionDetails(
+                    session = session,
+                    autoStopDuration = autoStopDuration,
+                    aspectRatio = scene.aspectRatio,
+                    enabled = !isActive,
+                    onAutoStopDurationChange = onAutoStopDurationChange,
+                    onAspectRatioChange = onAspectRatioChange,
+                    onOpenSettings = onOpenSettings,
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun PreviewCard(
+private fun StudioTopBar(
+    sceneName: String,
+    captureLabel: String,
+    aspectLabel: String,
+    qualityLabel: String,
+    status: StreamStatus,
+) {
+    val c = StudioColorsScheme
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                sceneName,
+                style = StudioTypeScale.title,
+                color = c.textPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                "$captureLabel • $aspectLabel • $qualityLabel",
+                style = StudioTypeScale.caption,
+                color = c.textSecondary,
+            )
+        }
+        StateBadge(
+            text = when (status) {
+                StreamStatus.LIVE -> "Live"
+                StreamStatus.CONNECTING -> "Connecting"
+                StreamStatus.RECONNECTING -> "Reconnecting"
+                StreamStatus.PREPARING -> "Preparing"
+                StreamStatus.ERROR -> "Error"
+                StreamStatus.STOPPING -> "Stopping"
+                else -> "Idle"
+            },
+            tone = when (status) {
+                StreamStatus.LIVE -> BadgeTone.Live
+                StreamStatus.CONNECTING, StreamStatus.RECONNECTING, StreamStatus.PREPARING -> BadgeTone.Active
+                StreamStatus.ERROR -> BadgeTone.Warn
+                else -> BadgeTone.Muted
+            },
+            pulsing = status == StreamStatus.LIVE,
+        )
+    }
+}
+
+@Composable
+private fun PreviewHero(
     session: StreamSessionState,
     previewListener: PreviewSurfaceView.Listener,
     encoderWidth: Int,
     encoderHeight: Int,
+    aspectRatio: Float,
 ) {
-    val motion = rememberInfiniteTransition(label = "previewSignal")
-    val signalAlpha by motion.animateFloat(
-        initialValue = 0.30f,
-        targetValue = 0.82f,
-        animationSpec = infiniteRepeatable(tween(1_700, easing = LinearEasing), RepeatMode.Reverse),
-        label = "previewSignalAlpha",
-    )
-    Card(
-        colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral950),
-        shape = RoundedCornerShape(26.dp),
-        border = BorderStroke(1.dp, if (session.status == StreamStatus.LIVE) V02Palette.AccentBlue.copy(alpha = signalAlpha) else V02Palette.Neutral700.copy(alpha = 0.65f)),
+    val c = StudioColorsScheme
+    val isLive = session.status == StreamStatus.LIVE
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(aspectRatio)
+            .clip(RoundedCornerShape(22.dp))
+            .background(c.baseDeep),
+        contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.fillMaxWidth().height(300.dp), contentAlignment = Alignment.Center) {
-            AndroidView(
-                factory = { context -> PreviewSurfaceView(context).apply {
+        AndroidView(
+            factory = { context ->
+                PreviewSurfaceView(context).apply {
                     setPreviewBufferLimit(encoderWidth, encoderHeight)
                     setPreviewListener(previewListener)
-                } },
-                update = { view ->
-                    view.setPreviewBufferLimit(encoderWidth, encoderHeight)
-                    view.setPreviewListener(previewListener)
-                },
-                onRelease = { it.releasePreviewListener() },
-                modifier = Modifier.fillMaxSize(),
-            )
-            if (!session.previewReady) {
-                Surface(color = V02Palette.Neutral900.copy(alpha = 0.96f), shape = RoundedCornerShape(18.dp), modifier = Modifier.padding(Spacing.xl)) {
-                    Column(Modifier.padding(horizontal = Spacing.xl, vertical = Spacing.lg), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        Icon(Icons.Default.Videocam, contentDescription = null, tint = V02Palette.AccentBlue.copy(alpha = signalAlpha), modifier = Modifier.size(28.dp))
-                        Text("Preview is waiting", color = V02Palette.Neutral100, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(session.message ?: "Approve capture to start your live preview", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                        if (session.status == StreamStatus.PREPARING || session.status == StreamStatus.CONNECTING || session.status == StreamStatus.RECONNECTING) {
-                            LinearProgressIndicator(Modifier.fillMaxWidth(0.72f), color = V02Palette.AccentBlue, trackColor = V02Palette.Neutral700)
-                        }
-                    }
                 }
-            }
-            if (session.status == StreamStatus.LIVE && (session.bitrateKbps > 0 || session.fps > 0)) {
-                Surface(
-                    Modifier.align(Alignment.TopEnd).padding(14.dp),
-                    color = V02Palette.Neutral950.copy(alpha = 0.82f),
-                    contentColor = V02Palette.Neutral100,
-                    shape = RoundedCornerShape(50),
-                    border = BorderStroke(1.dp, V02Palette.AccentBlue.copy(alpha = 0.28f)),
-                ) {
-                    Text(
-                        "${if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—"} • ${if (session.fps > 0) "${session.fps} fps" else "—"}",
-                        modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-            Surface(
-                Modifier.align(Alignment.TopStart).padding(14.dp),
-                color = if (session.status == StreamStatus.LIVE) V02Palette.AccentBlue.copy(alpha = 0.22f) else V02Palette.Neutral800.copy(alpha = 0.78f),
-                contentColor = V02Palette.Neutral100,
-                shape = RoundedCornerShape(50),
-                border = BorderStroke(1.dp, if (session.status == StreamStatus.LIVE) V02Palette.AccentBlue.copy(alpha = 0.58f) else V02Palette.Neutral700.copy(alpha = 0.62f)),
+            },
+            update = { view ->
+                view.setPreviewBufferLimit(encoderWidth, encoderHeight)
+                view.setPreviewListener(previewListener)
+            },
+            onRelease = { it.releasePreviewListener() },
+            modifier = Modifier.fillMaxSize(),
+        )
+        if (!session.previewReady) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(24.dp),
             ) {
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (session.status == StreamStatus.LIVE) LivePulseDot()
-                    Spacer(Modifier.width(if (session.status == StreamStatus.LIVE) 7.dp else 0.dp))
-                    Text(if (session.status == StreamStatus.LIVE) "LIVE" else "PREVIEW", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DestinationHealthCard(destinations: List<DestinationHealth>) {
-    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(18.dp)) {
-        Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            Text("Destination health", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("Per-destination insight • reconnect is coordinated by the shared encoder", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
-            destinations.forEach { destination ->
-                val (label, color) = when (destination.state) {
-                    HealthState.HEALTHY -> "Healthy" to V02Palette.AccentBlue
-                    HealthState.DEGRADED -> "Degraded" to V02Palette.Caution
-                    HealthState.RECONNECTING -> "Reconnecting" to V02Palette.Caution
-                    HealthState.FAILED -> "Failed" to V02Palette.Danger
-                    HealthState.IDLE -> "Idle" to V02Palette.Neutral500
-                }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(10.dp).clip(RoundedCornerShape(50)).background(color))
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(destination.profileName, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            destination.lastError?.takeIf { it.isNotBlank() } ?: "$label • ${destination.retryCount}/${destination.maxRetries} retries",
-                            color = V02Palette.Neutral500,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    Text(
-                        if (destination.currentBitrate > 0L) "${destination.currentBitrate / 1000} kbps" else "—",
-                        color = V02Palette.Neutral300,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun BroadcastActionCard(
-    session: StreamSessionState,
-    canStart: Boolean,
-    isActive: Boolean,
-    actionSource: MutableInteractionSource,
-    actionPressed: Boolean,
-    onStart: () -> Unit,
-    onStop: () -> Unit,
-    onPractice: () -> Unit,
-    readiness: GoLiveReadiness,
-) {
-    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(22.dp)) {
-        Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            Text(if (session.status == StreamStatus.LIVE) "Broadcast is live" else "Ready when you are", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(
-                when {
-                    session.status == StreamStatus.LIVE -> "Your destination is receiving the stream. Keep this screen open for controls."
-                    canStart && !readiness.canStart -> readiness.blockingDetail ?: "Complete the readiness checks before going live."
-                    canStart -> "Check the preview, then start one destination from this workspace."
-                    else -> session.message?.takeIf { it.isNotBlank() }
-                        ?: "The capture pipeline is preparing. Keep the app in the foreground until preview is ready."
-                },
-                color = V02Palette.Neutral500,
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Button(
-                onClick = if (session.status == StreamStatus.LIVE) onStop else onStart,
-                enabled = canStart || session.status == StreamStatus.LIVE,
-                interactionSource = actionSource,
-                modifier = Modifier.fillMaxWidth().height(56.dp).graphicsLayer {
-                    val scale = if (actionPressed) 0.97f else 1f
-                    scaleX = scale
-                    scaleY = scale
-                },
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (session.status == StreamStatus.LIVE) V02Palette.Danger else V02Palette.AccentBlue,
-                    contentColor = Color.White,
-                    disabledContainerColor = V02Palette.Neutral800,
-                    disabledContentColor = V02Palette.Neutral500,
-                ),
-            ) {
-                Icon(if (session.status == StreamStatus.LIVE) Icons.Default.Stop else Icons.Default.FiberManualRecord, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    if (session.status == StreamStatus.LIVE) "Stop broadcast" else "Go Live",
-                    fontWeight = FontWeight.Bold,
+                Icon(
+                    Icons.Default.Videocam,
+                    contentDescription = null,
+                    tint = c.textTertiary,
+                    modifier = Modifier.size(32.dp),
                 )
+                Spacer(Modifier.height(10.dp))
+                Text("Preview waiting", style = StudioTypeScale.headline, color = c.textPrimary)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    session.message ?: "Approve capture to start the live preview",
+                    style = StudioTypeScale.caption,
+                    color = c.textSecondary,
+                )
+                if (session.status == StreamStatus.PREPARING ||
+                    session.status == StreamStatus.CONNECTING ||
+                    session.status == StreamStatus.RECONNECTING
+                ) {
+                    Spacer(Modifier.height(12.dp))
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(0.6f),
+                        color = c.cyan,
+                        trackColor = c.surface3,
+                    )
+                }
             }
-            OutlinedButton(onClick = onPractice, enabled = !isActive, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                Icon(Icons.Default.PlayArrow, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Practice locally")
+        }
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (isLive) {
+                StateBadge(text = "Live", tone = BadgeTone.Live, pulsing = true)
+            } else {
+                StateBadge(text = "Preview", tone = BadgeTone.Muted)
+            }
+            if (isLive && (session.bitrateKbps > 0 || session.fps > 0)) {
+                Surface(color = c.baseDeep.copy(alpha = 0.72f), shape = RoundedCornerShape(50)) {
+                    Text(
+                        "${if (session.bitrateKbps > 0) "${session.bitrateKbps}k" else "—"} • ${if (session.fps > 0) "${session.fps}fps" else "—"}",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        style = StudioTypeScale.caption,
+                        color = c.textPrimary,
+                    )
+                }
+            }
+        }
+        if (session.recording) {
+            Row(
+                modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                LiveDot(pulsing = true, size = 8.dp)
+                Spacer(Modifier.width(6.dp))
+                Text("REC", style = StudioTypeScale.eyebrow.copy(fontSize = 10.sp), color = c.signalRed)
             }
         }
     }
 }
 
 @Composable
-private fun QuickControls(
+private fun ErrorBanner(message: String, onRetry: () -> Unit) {
+    StudioCard(contentPadding = PaddingValues(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Warning, null, tint = StudioColorsScheme.warning, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(
+                message,
+                style = StudioTypeScale.body,
+                color = StudioColorsScheme.textPrimary,
+                modifier = Modifier.weight(1f),
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        StudioButton("Reset capture", onClick = onRetry, style = StudioButtonStyle.Ghost)
+    }
+}
+
+@Composable
+private fun NoticeBanner(message: String, onDismiss: () -> Unit) {
+    StudioCard(contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                message,
+                style = StudioTypeScale.caption,
+                color = StudioColorsScheme.textSecondary,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onDismiss) {
+                Text("Dismiss", style = StudioTypeScale.label, color = StudioColorsScheme.cyan)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ControlDock(
     session: StreamSessionState,
     enabled: Boolean,
     cameraAvailable: Boolean,
@@ -449,202 +472,242 @@ private fun QuickControls(
     onToggleRecording: () -> Unit,
     onCreateMarker: () -> Unit,
 ) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-        CompactControl(
-            modifier = Modifier.weight(1f),
-            icon = if (session.microphoneMuted) Icons.Default.MicOff else Icons.Default.Mic,
-            label = if (session.microphoneMuted) "Unmute" else "Mute",
-            enabled = enabled,
-            onClick = onToggleMute,
-        )
-        if (cameraAvailable) {
-            CompactControl(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.Cameraswitch,
-                label = "Flip camera",
+    val c = StudioColorsScheme
+    StudioCard(contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            DockButton(
+                icon = if (session.microphoneMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                label = if (session.microphoneMuted) "Unmute" else "Mute",
                 enabled = enabled,
+                active = session.microphoneMuted,
+                onClick = onToggleMute,
+            )
+            DockButton(
+                icon = Icons.Default.Cameraswitch,
+                label = "Flip",
+                enabled = enabled && cameraAvailable,
                 onClick = onSwitchCamera,
             )
-        }
-        CompactControl(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Default.Movie,
-            label = if (session.recording) "Stop record" else "Record",
-            enabled = enabled,
-            onClick = onToggleRecording,
-        )
-        CompactControl(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Default.Bolt,
-            label = "Mark moment",
-            enabled = session.status == StreamStatus.LIVE,
-            onClick = onCreateMarker,
-        )
-    }
-}
-
-@Composable
-private fun LiveTelemetryCard(session: StreamSessionState, latestHealth: StreamHealthSample?) {
-    val transport = latestHealth?.networkLabel?.takeIf { it.isNotBlank() } ?: "Detecting"
-    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Live signal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Measured by the active encoder", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(session.qualityTier.label, color = V02Palette.AccentBlue, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                    if (session.audioOnlyActive) Text("AUDIO ONLY", color = V02Palette.Caution, style = MaterialTheme.typography.labelSmall)
-                }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                TelemetryMetric("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—")
-                TelemetryMetric("FPS", if (session.fps > 0) session.fps.toString() else "—")
-                TelemetryMetric("Transport", transport)
-            }
-            if (session.droppedFrames >= 0) {
-                Text("Dropped frames: ${session.droppedFrames}", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
-            }
-        }
-    }
-}
-
-@Composable
-private fun RowScope.TelemetryMetric(label: String, value: String) {
-    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(value, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-@Composable
-private fun CompactControl(modifier: Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, enabled: Boolean, onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier.height(48.dp), contentPadding = PaddingValues(horizontal = 6.dp), shape = RoundedCornerShape(14.dp)) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(5.dp))
-        Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelMedium)
-    }
-}
-
-@Composable
-private fun GoLiveReadinessCard(readiness: GoLiveReadiness) {
-    val readyCount = readiness.checks.count { it.ready }
-    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Go live check", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Confirm the essentials before you start", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                }
-                Text(
-                    "$readyCount/${readiness.checks.size} ready",
-                    color = if (readiness.canStart) V02Palette.AccentBlue else V02Palette.Caution,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-            readiness.checks.forEach { check ->
-                ReadinessRow(label = check.label, value = check.value, ready = check.ready)
-            }
-            Text(
-                readiness.blockingDetail ?: readiness.cautionDetail ?: "All essential checks are ready for this profile.",
-                color = V02Palette.Neutral500,
-                style = MaterialTheme.typography.bodySmall,
+            DockButton(
+                icon = if (session.recording) Icons.Default.FiberManualRecord else Icons.Default.RadioButtonChecked,
+                label = if (session.recording) "Stop Rec" else "Record",
+                enabled = enabled,
+                active = session.recording,
+                activeTint = c.signalRed,
+                onClick = onToggleRecording,
+            )
+            DockButton(
+                icon = Icons.Default.BookmarkAdd,
+                label = "Marker",
+                enabled = enabled && session.status == StreamStatus.LIVE,
+                onClick = onCreateMarker,
             )
         }
     }
 }
 
 @Composable
-private fun DestinationReadiness(destination: DestinationConfig, onOpenSettings: () -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
-        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(color = if (destination.isConfigured) V02Palette.AccentBlue.copy(alpha = 0.16f) else V02Palette.Caution.copy(alpha = 0.16f), shape = RoundedCornerShape(12.dp)) {
-                Icon(if (destination.isConfigured) Icons.Default.CheckCircle else Icons.Default.Wifi, contentDescription = null, tint = if (destination.isConfigured) V02Palette.AccentBlue else V02Palette.Caution, modifier = Modifier.padding(10.dp).size(22.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(if (destination.isConfigured) "${destination.platform.label} destination" else "No destination connected", fontWeight = FontWeight.SemiBold)
-                Text(if (destination.isConfigured) "Credentials are stored securely on this device" else "Connect YouTube, Twitch, Kick, or a custom RTMP endpoint in Settings", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-            }
-            if (!destination.isConfigured) TextButton(onClick = onOpenSettings) { Icon(Icons.Default.Settings, contentDescription = null); Spacer(Modifier.width(4.dp)); Text("Set up") }
+private fun DockButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    active: Boolean = false,
+    activeTint: Color = StudioColorsScheme.cyan,
+) {
+    val c = StudioColorsScheme
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(14.dp))
+            .padding(6.dp),
+    ) {
+        IconButton(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = Modifier
+                .size(48.dp)
+                .background(
+                    if (active) activeTint.copy(alpha = 0.16f) else c.surface2,
+                    CircleShape,
+                ),
+        ) {
+            Icon(
+                icon,
+                contentDescription = label,
+                tint = when {
+                    !enabled -> c.textTertiary.copy(alpha = 0.5f)
+                    active -> activeTint
+                    else -> c.textPrimary
+                },
+                modifier = Modifier.size(22.dp),
+            )
         }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            label,
+            style = StudioTypeScale.caption,
+            color = if (enabled) c.textSecondary else c.textTertiary.copy(alpha = 0.6f),
+        )
     }
 }
 
 @Composable
-private fun SessionHealthCard(session: StreamSessionState, history: List<StreamHealthSample>) {
-    val latest = history.lastOrNull()
-    val thermalLabel = when (latest?.thermalStatus) {
-        android.os.PowerManager.THERMAL_STATUS_LIGHT -> "Warm"
-        android.os.PowerManager.THERMAL_STATUS_MODERATE -> "Hot"
-        android.os.PowerManager.THERMAL_STATUS_SEVERE, android.os.PowerManager.THERMAL_STATUS_CRITICAL, android.os.PowerManager.THERMAL_STATUS_EMERGENCY, android.os.PowerManager.THERMAL_STATUS_SHUTDOWN -> "Reduce quality"
-        else -> "Normal"
-    }
-    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850), shape = RoundedCornerShape(18.dp)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Text("Session health", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(if (session.status == StreamStatus.LIVE) "Live telemetry" else "Ready for a clean start", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+private fun DestinationRow(
+    destination: DestinationConfig,
+    health: List<DestinationHealth>,
+    onOpenSettings: () -> Unit,
+) {
+    val c = StudioColorsScheme
+    StudioCard(onClick = onOpenSettings, contentPadding = PaddingValues(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("DESTINATION", style = StudioTypeScale.eyebrow.copy(fontSize = 10.sp), color = c.textTertiary)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (destination.isConfigured) {
+                        destination.platform.name.lowercase().replaceFirstChar { it.uppercase() }
+                    } else {
+                        "Not configured"
+                    },
+                    style = StudioTypeScale.bodyStrong,
+                    color = c.textPrimary,
+                )
+                if (destination.isConfigured) {
+                    Text(
+                        destination.serverUrl,
+                        style = StudioTypeScale.caption,
+                        color = c.textSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
-                Icon(Icons.Default.GraphicEq, contentDescription = null, tint = V02Palette.Neutral300)
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MetricCard("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps} kbps" else "—", Modifier.weight(1f))
-                MetricCard("FPS", if (session.status == StreamStatus.LIVE && session.fps > 0) session.fps.toString() else "—", Modifier.weight(1f))
-                MetricCard("Thermal", thermalLabel, Modifier.weight(1f))
-            }
-            if (latest != null) {
-                Text("${history.size} health samples retained locally", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
+            val worst = health
+                .firstOrNull { it.state == HealthState.FAILED }
+                ?: health.firstOrNull { it.state == HealthState.RECONNECTING }
+                ?: health.firstOrNull { it.state == HealthState.DEGRADED }
+                ?: health.firstOrNull { it.state == HealthState.HEALTHY }
+            if (worst != null && destination.isConfigured) {
+                StateBadge(
+                    text = when (worst.state) {
+                        HealthState.HEALTHY -> "Healthy"
+                        HealthState.RECONNECTING -> "Retrying"
+                        HealthState.FAILED -> "Failed"
+                        else -> worst.state.name.lowercase()
+                    },
+                    tone = when (worst.state) {
+                        HealthState.HEALTHY -> BadgeTone.Ok
+                        HealthState.RECONNECTING -> BadgeTone.Active
+                        HealthState.FAILED -> BadgeTone.Warn
+                        else -> BadgeTone.Muted
+                    },
+                )
             } else {
-                Text("Health details appear here after capture starts.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
+                StateBadge(
+                    text = if (destination.isConfigured) "Ready" else "Setup",
+                    tone = if (destination.isConfigured) BadgeTone.Ok else BadgeTone.Warn,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SessionPreferences(
+private fun TelemetryStrip(session: StreamSessionState, health: StreamHealthSample?) {
+    StudioCard(contentPadding = PaddingValues(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            TelemetryStat("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps}k" else "—")
+            TelemetryStat("FPS", if (session.fps > 0) "${session.fps}" else "—")
+            TelemetryStat("Dropped", if (session.droppedFrames >= 0) "${session.droppedFrames}" else "—")
+            TelemetryStat("Elapsed", formatStudioElapsed(session.elapsedSeconds))
+        }
+        if (health != null && health.bitrateKbps > 0) {
+            Spacer(Modifier.height(8.dp))
+            DividerHairline()
+            Spacer(Modifier.height(8.dp))
+            StatusRow("Signal", "${health.bitrateKbps} kbps")
+        }
+    }
+}
+
+@Composable
+private fun TelemetryStat(label: String, value: String) {
+    val c = StudioColorsScheme
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = StudioTypeScale.headline, color = c.textPrimary)
+        Spacer(Modifier.height(2.dp))
+        Text(label.uppercase(), style = StudioTypeScale.eyebrow.copy(fontSize = 10.sp), color = c.textTertiary)
+    }
+}
+
+private fun formatStudioElapsed(seconds: Long): String {
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    val s = seconds % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
+}
+
+@Composable
+private fun SessionDetails(
+    session: StreamSessionState,
     autoStopDuration: AutoStopDuration,
     aspectRatio: AspectRatio,
     enabled: Boolean,
     onAutoStopDurationChange: (AutoStopDuration) -> Unit,
     onAspectRatioChange: (AspectRatio) -> Unit,
-    onEditScenes: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900), shape = RoundedCornerShape(18.dp)) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Session setup", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("Scene, quality, and destination controls stay organized here.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                }
-                TextButton(onClick = { expanded = !expanded }) { Text(if (expanded) "Hide" else "Open") }
-            }
-            AnimatedVisibility(visible = expanded, enter = fadeIn(tween(MotionTokens.standard)) + slideInVertically(tween(MotionTokens.standard)) { it / 4 }) {
-                Column(verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Text("Stream format", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelMedium)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        AspectRatio.values().forEach { format ->
-                            FilterChip(selected = format == aspectRatio, onClick = { onAspectRatioChange(format) }, enabled = enabled, label = { Text("${format.ratio} ${format.label}") })
-                        }
-                    }
-                    Text("Auto-stop", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelMedium)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        AutoStopDuration.values().forEach { duration ->
-                            FilterChip(selected = duration == autoStopDuration, onClick = { onAutoStopDurationChange(duration) }, enabled = enabled, label = { Text(duration.label) })
-                        }
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        OutlinedButton(onClick = onEditScenes, enabled = enabled, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) { Icon(Icons.Default.LiveTv, contentDescription = null); Spacer(Modifier.width(5.dp)); Text("Edit scene") }
-                        OutlinedButton(onClick = onOpenSettings, enabled = enabled, modifier = Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) { Icon(Icons.Default.Settings, contentDescription = null); Spacer(Modifier.width(5.dp)); Text("Settings") }
-                    }
-                }
+    val c = StudioColorsScheme
+    StudioCard {
+        Text("SESSION", style = StudioTypeScale.eyebrow.copy(fontSize = 10.sp), color = c.textTertiary)
+        Spacer(Modifier.height(8.dp))
+        StatusRow("Status", session.status.name.lowercase())
+        StatusRow("Preview", if (session.previewReady) "Ready" else "Waiting")
+        StatusRow("Capture", if (session.captureReady) "Ready" else "Waiting")
+        StatusRow("Encoder", if (session.encoderReady) "Ready" else "Waiting")
+        if (session.message != null) {
+            Spacer(Modifier.height(4.dp))
+            Text(session.message, style = StudioTypeScale.caption, color = c.textSecondary)
+        }
+        Spacer(Modifier.height(8.dp))
+        DividerHairline()
+        Spacer(Modifier.height(8.dp))
+        Text("PREFERENCES", style = StudioTypeScale.eyebrow.copy(fontSize = 10.sp), color = c.textTertiary)
+        Spacer(Modifier.height(8.dp))
+        Text("Auto-stop", style = StudioTypeScale.label, color = c.textSecondary)
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AutoStopDuration.entries.forEach { option ->
+                FilterChip(
+                    selected = autoStopDuration == option,
+                    onClick = { if (enabled) onAutoStopDurationChange(option) },
+                    label = { Text(option.label) },
+                    enabled = enabled,
+                )
             }
         }
+        Spacer(Modifier.height(8.dp))
+        Text("Orientation", style = StudioTypeScale.label, color = c.textSecondary)
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AspectRatio.entries.forEach { option ->
+                FilterChip(
+                    selected = aspectRatio == option,
+                    onClick = { if (enabled) onAspectRatioChange(option) },
+                    label = { Text(option.label) },
+                    enabled = enabled,
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        StudioButton("Stream settings", onClick = onOpenSettings, style = StudioButtonStyle.Ghost)
     }
 }

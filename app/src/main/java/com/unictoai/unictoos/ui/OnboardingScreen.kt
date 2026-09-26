@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -24,13 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -45,104 +39,141 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.unictoai.unictoos.R
-import com.unictoai.unictoos.ui.theme.Spacing
-import com.unictoai.unictoos.ui.theme.V02Palette
+import com.unictoai.unictoos.ui.components.StudioButton
+import com.unictoai.unictoos.ui.components.StudioButtonStyle
+import com.unictoai.unictoos.ui.theme.StudioColorsScheme
+import com.unictoai.unictoos.ui.theme.StudioTypeScale
 
-private data class OnboardingPage(val image: Int)
+private data class OnboardingPage(val image: Int, val title: String, val body: String)
 
 private val onboardingPages = listOf(
-    OnboardingPage(R.drawable.onboarding_stream_anywhere),
-    OnboardingPage(R.drawable.onboarding_scenes),
-    OnboardingPage(R.drawable.onboarding_reliable_capture),
-    OnboardingPage(R.drawable.onboarding_secure_control),
+    OnboardingPage(
+        R.drawable.onboarding_stream_anywhere,
+        "Stream anywhere",
+        "Broadcast from your phone to YouTube, Twitch, Kick or your own RTMP server.",
+    ),
+    OnboardingPage(
+        R.drawable.onboarding_scenes,
+        "Scenes that switch fast",
+        "Build layouts with camera, screen, text and overlays — switch live with one tap.",
+    ),
+    OnboardingPage(
+        R.drawable.onboarding_reliable_capture,
+        "Reliable capture",
+        "Adaptive bitrate, reconnect handling and health monitoring keep you on air.",
+    ),
+    OnboardingPage(
+        R.drawable.onboarding_secure_control,
+        "Your keys stay yours",
+        "Stream keys are encrypted on-device and never leave your phone.",
+    ),
 )
 
 @Composable
 internal fun OnboardingScreen(onFinished: () -> Unit) {
+    val c = StudioColorsScheme
     var pageIndex by rememberSaveable { mutableIntStateOf(0) }
     val page = onboardingPages[pageIndex]
     val isLastPage = pageIndex == onboardingPages.lastIndex
 
-    Box(Modifier.fillMaxSize().background(V02Palette.Neutral950)) {
-        Image(
-            painter = painterResource(page.image),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Fit,
-        )
+    Box(Modifier.fillMaxSize().background(c.background)) {
+        AnimatedContent(
+            targetState = page.image,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "onboarding image",
+        ) { image ->
+            Image(
+                painter = painterResource(image),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit,
+            )
+        }
         Box(
             Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        V02Palette.Neutral950.copy(alpha = 0.78f),
+                        c.background.copy(alpha = 0.82f),
                         Color.Transparent,
-                        V02Palette.Neutral950.copy(alpha = 0.98f),
+                        c.background.copy(alpha = 0.96f),
                     ),
                 ),
             ),
         )
-        Column(Modifier.fillMaxSize().padding(horizontal = Spacing.lg, vertical = Spacing.xl)) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 20.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Surface(color = Color.White, shape = RoundedCornerShape(13.dp), modifier = Modifier.size(42.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White)
+                        .padding(5.dp),
+                ) {
                     Image(
                         painter = painterResource(R.drawable.logo_unictoos),
                         contentDescription = "Unictoos logo",
-                        modifier = Modifier.fillMaxSize().padding(4.dp),
+                        modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Fit,
                     )
                 }
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("UNICTOOS", color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                    Text("Mobile broadcast studio", color = Color.White.copy(alpha = 0.68f), style = MaterialTheme.typography.labelSmall)
+                    Text("UNICTOOS", style = StudioTypeScale.eyebrowLarge, color = c.textPrimary)
+                    Text("Mobile broadcast studio", style = StudioTypeScale.caption, color = c.textSecondary)
                 }
                 TextButton(onClick = onFinished, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    Text("Skip", color = Color.White.copy(alpha = 0.80f))
+                    Text("Skip", style = StudioTypeScale.bodyStrong, color = c.textSecondary)
                 }
             }
             Spacer(Modifier.weight(1f))
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                Text("STEP ${pageIndex + 1} OF ${onboardingPages.size}", color = V02Palette.AccentBlue, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                Text(if (isLastPage) "Your broadcast workspace is ready." else "Explore what Unictoos puts in your hands.", color = Color.White.copy(alpha = 0.76f), style = MaterialTheme.typography.bodyMedium)
+            AnimatedContent(
+                targetState = pageIndex,
+                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                label = "onboarding text",
+            ) { index ->
+                val p = onboardingPages[index]
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "STEP ${index + 1} OF ${onboardingPages.size}",
+                        style = StudioTypeScale.eyebrowLarge,
+                        color = c.cyan,
+                    )
+                    Text(p.title, style = StudioTypeScale.display, color = c.textPrimary)
+                    Text(p.body, style = StudioTypeScale.body, color = c.textSecondary)
+                }
             }
-            Spacer(Modifier.height(Spacing.lg))
-            LinearProgressIndicator(
-                progress = { (pageIndex + 1) / onboardingPages.size.toFloat() },
-                modifier = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)),
-                color = V02Palette.AccentBlue,
-                trackColor = Color.White.copy(alpha = 0.18f),
-            )
-            Spacer(Modifier.height(Spacing.md))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    onboardingPages.indices.forEach { index ->
-                        Box(Modifier.size(if (index == pageIndex) 22.dp else 7.dp, 7.dp).clip(RoundedCornerShape(50)).background(if (index == pageIndex) V02Palette.AccentBlue else Color.White.copy(alpha = 0.30f)))
-                    }
+            Spacer(Modifier.height(20.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                onboardingPages.indices.forEach { index ->
+                    Box(
+                        Modifier
+                            .size(if (index == pageIndex) 22.dp else 7.dp, 7.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(if (index == pageIndex) c.cyan else c.textTertiary.copy(alpha = 0.45f)),
+                    )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (pageIndex > 0) {
-                        IconButton(onClick = { pageIndex -= 1 }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous", tint = Color.White) }
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (pageIndex > 0) {
+                    IconButton(onClick = { pageIndex -= 1 }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous", tint = c.textPrimary)
                     }
-                    Button(
-                        onClick = { if (isLastPage) onFinished() else pageIndex += 1 },
-                        colors = ButtonDefaults.buttonColors(containerColor = V02Palette.AccentBlue, contentColor = Color.White),
-                        shape = RoundedCornerShape(14.dp),
-                    ) {
-                        if (isLastPage) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null)
-                            Spacer(Modifier.width(Spacing.sm))
-                            Text("Get started", fontWeight = FontWeight.Bold)
-                        } else {
-                            Text("Next", fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.width(Spacing.sm))
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
-                        }
-                    }
+                } else {
+                    Spacer(Modifier.width(48.dp))
                 }
+                StudioButton(
+                    text = if (isLastPage) "Get started" else "Next",
+                    onClick = { if (isLastPage) onFinished() else pageIndex += 1 },
+                    style = StudioButtonStyle.Primary,
+                    icon = if (isLastPage) Icons.Default.CheckCircle else Icons.AutoMirrored.Filled.ArrowForward,
+                )
             }
         }
     }

@@ -11,7 +11,6 @@ import com.pedro.library.multiple.MultiType
 import com.pedro.library.util.FpsListener
 import com.pedro.library.util.streamclient.StreamBaseClient
 import com.pedro.library.view.GlInterface
-import com.pedro.library.view.RenderErrorCallback
 import com.pedro.encoder.input.sources.audio.NoAudioSource
 import com.pedro.encoder.input.sources.video.NoVideoSource
 import com.unictoai.unictoos.health.DestinationSlotEvent
@@ -19,13 +18,18 @@ import com.unictoai.unictoos.health.HealthState
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Single-destination compatibility surface for the first runtime migration.
+ * Multi-destination transport owner backed by RootEncoder MultiStream.
  *
- * It preserves the service's existing lifecycle vocabulary while replacing the
- * GenericStream transport owner with RootEncoder MultiStream at slot zero. This
- * keeps the same capture and encoded-media pipeline while allowing a bounded
- * two-endpoint RTMP/RTMPS/SRT fan-out. The service remains responsible for
- * endpoint validation and aggregate lifecycle policy.
+ * Lifecycle policy:
+ * - Stopping is deterministic. RootEncoder's per-slot stop is a heuristic that
+ *   races the slot clients' asynchronous disconnect, so after disconnecting the
+ *   slots the adapter forces the unconditional shared-encoder teardown. Without
+ *   this, a failed first attempt leaves a stale streaming flag and every later
+ *   start silently no-ops or throws "Stream already started".
+ * - The session is LIVE when the first destination connects (see
+ *   [SlotAggregatePolicy]). A slow or broken secondary destination never
+ *   blocks the primary, and its failures are retried at slot level instead of
+ *   tearing down the healthy output.
  */
 class SingleDestinationMultiStreamAdapter(
     context: Context,
@@ -34,12 +38,8 @@ class SingleDestinationMultiStreamAdapter(
 ) {
     private val closed = AtomicBoolean(false)
     private val trackerLock = Any()
-    private val activeSlots = linkedSetOf<Int>()
-    private val successfulSlots = mutableSetOf<Int>()
-    private val authenticatedSlots = mutableSetOf<Int>()
-    private val failureReported = AtomicBoolean(false)
-    private val disconnectReported = AtomicBoolean(false)
-    private val authErrorReported = AtomicBoolean(false)
+    private val slotEndpoints = mutableMapOf<Int, String>()
+    private val slotPolicy = SlotAggregatePolicy()
     private val rtmpCheckers: Array<ConnectChecker> = Array(MAX_DESTINATIONS) { index -> SlotConnectChecker(index, connectChecker) }
     private val srtCheckers: Array<ConnectChecker> = Array(MAX_DESTINATIONS) { index -> SlotConnectChecker(index, connectChecker) }
     private val multiStream = MultiStream(
@@ -61,9 +61,9 @@ class SingleDestinationMultiStreamAdapter(
     val isRecording: Boolean
         get() = !closed.get() && multiStream.isRecording
 
-    fun prepareVideo(width: Int, height: Int, bitrate: Int, rotation: Int = 0): Boolean {
+    fun prepareVideo(width: Int, height: Int, bitrate: Int, fps: Int = 30, rotation: Int = 0): Boolean {
         checkOpen()
-        return multiStream.prepareVideo(width, height, bitrate, rotation)
+        return multiStream.prepareVideo(width, height, bitrate, fps, rotation = rotation)
     }
 
     fun prepareAudio(
@@ -92,9 +92,18 @@ class SingleDestinationMultiStreamAdapter(
         return multiStream.getGlInterface()
     }
 
+    /**
+     * Returns the client for the first active endpoint's transport, so cache
+     * tuning (for example low-latency sizing) targets the session that is
+     * actually running instead of always hitting RTMP slot zero.
+     */
     fun getStreamClient(): StreamBaseClient {
         checkOpen()
-        return multiStream.getStreamClient(MultiType.RTMP, RTMP_SLOT)
+        val (type, index) = synchronized(trackerLock) {
+            val entry = slotEndpoints.entries.firstOrNull()
+            if (entry != null) transportFor(entry.value) to entry.key else MultiType.RTMP to RTMP_SLOT
+        }
+        return multiStream.getStreamClient(type, index)
     }
 
     fun setFpsListener(callback: FpsListener.Callback) {
@@ -112,41 +121,57 @@ class SingleDestinationMultiStreamAdapter(
         multiStream.stopPreview()
     }
 
-    fun startStream(endpoint: String) = startStream(listOf(endpoint))
+    fun startStream(endpoint: String, lowLatencyCache: Boolean = false) =
+        startStream(listOf(endpoint), lowLatencyCache)
 
-    fun startStream(endpoints: List<String>) {
+    /**
+     * @param lowLatencyCache when true, disables the client send cache on every
+     * active slot's client (RootEncoder exposes client-cache sizing, but no
+     * public keyframe-interval override in this version). Applied here instead
+     * of at pipeline creation because only now are the endpoint transports known.
+     */
+    fun startStream(endpoints: List<String>, lowLatencyCache: Boolean = false) {
         checkOpen()
         require(endpoints.isNotEmpty()) { "At least one endpoint is required" }
         require(endpoints.size <= MAX_DESTINATIONS) { "At most $MAX_DESTINATIONS endpoints are supported" }
         val normalizedEndpoints = endpoints.map(String::trim)
         require(normalizedEndpoints.all(StreamEndpointPolicy::isSupported)) { "Every endpoint must be a complete RTMP, RTMPS, or SRT URL" }
-        if (isStreaming || synchronized(trackerLock) { activeSlots.isNotEmpty() }) stopStream()
+        if (isStreaming || synchronized(trackerLock) { slotEndpoints.isNotEmpty() }) stopStream()
         synchronized(trackerLock) {
-            activeSlots.clear()
-            successfulSlots.clear()
-            authenticatedSlots.clear()
-            normalizedEndpoints.indices.forEach(activeSlots::add)
-            normalizedEndpoints.indices.forEach { index -> emitSlot(DestinationSlotEvent(index, HealthState.RECONNECTING)) }
-            failureReported.set(false)
-            disconnectReported.set(false)
-            authErrorReported.set(false)
+            slotEndpoints.clear()
+            normalizedEndpoints.forEachIndexed { index, endpoint -> slotEndpoints[index] = endpoint }
+        }
+        slotPolicy.reset(normalizedEndpoints.indices.toList())
+        normalizedEndpoints.forEachIndexed { index, _ ->
+            emitSlot(DestinationSlotEvent(index, HealthState.RECONNECTING))
         }
         normalizedEndpoints.forEachIndexed { index, endpoint ->
-            multiStream.startStream(transportFor(endpoint), index, endpoint)
+            val type = transportFor(endpoint)
+            // Bounded per-slot retries so a single bad destination can recover
+            // without a full session restart.
+            runCatching { multiStream.getStreamClient(type, index).setReTries(SLOT_RETRIES) }
+            if (lowLatencyCache) runCatching { multiStream.getStreamClient(type, index).resizeCache(0) }
+            multiStream.startStream(type, index, endpoint)
         }
     }
 
     fun stopStream() {
         if (closed.get()) return
-        synchronized(trackerLock) {
-            activeSlots.clear()
-            successfulSlots.clear()
-            authenticatedSlots.clear()
-        }
+        synchronized(trackerLock) { slotEndpoints.clear() }
+        slotPolicy.clear()
         repeat(MAX_DESTINATIONS) { index ->
             runCatching { multiStream.stopStream(MultiType.RTMP, index) }
             runCatching { multiStream.stopStream(MultiType.SRT, index) }
         }
+        // Deterministic shared-encoder teardown. The per-slot stop above is a
+        // heuristic that races the slot clients' asynchronous disconnect: when
+        // every slot client still reports streaming, the shared encoder is left
+        // running and its isStreaming flag stays set, which poisons the next
+        // startStream (silent no-op or "Stream already started"). The no-arg
+        // path unconditionally resets the flag, stops the encoders and
+        // re-prepares them, so the next attempt always starts clean. It is
+        // skipped while recording so an active recording keeps its encoders.
+        if (multiStream.isStreaming && !multiStream.isRecording) runCatching { multiStream.stopStream() }
     }
 
     fun startRecord(path: String, listener: RecordController.Listener) {
@@ -166,11 +191,8 @@ class SingleDestinationMultiStreamAdapter(
 
     fun release() {
         if (!closed.compareAndSet(false, true)) return
-        synchronized(trackerLock) {
-            activeSlots.clear()
-            successfulSlots.clear()
-            authenticatedSlots.clear()
-        }
+        synchronized(trackerLock) { slotEndpoints.clear() }
+        slotPolicy.clear()
         var firstFailure: Throwable? = null
         fun attempt(block: () -> Unit) {
             runCatching(block).onFailure { if (firstFailure == null) firstFailure = it }
@@ -199,66 +221,101 @@ class SingleDestinationMultiStreamAdapter(
         check(!closed.get()) { "MultiStream adapter is closed" }
     }
 
+    /**
+     * Retries one failed slot through RootEncoder's built-in slot retry, which
+     * disconnects and reconnects that client with the retry flag set. The
+     * shared encoder keeps running because the healthy peer still holds it, so
+     * the live output is never interrupted.
+     */
+    private fun retryFailedSlot(slotIndex: Int, reason: String) {
+        val type = synchronized(trackerLock) {
+            val endpoint = slotEndpoints[slotIndex] ?: return
+            transportFor(endpoint)
+        }
+        emitSlot(DestinationSlotEvent(slotIndex, HealthState.RECONNECTING))
+        val retried = runCatching {
+            multiStream.getStreamClient(type, slotIndex).reTry(SLOT_RETRY_DELAY_MS, reason)
+        }.getOrDefault(false)
+        if (!retried) {
+            emitSlot(DestinationSlotEvent(slotIndex, HealthState.FAILED, error = reason.take(240)))
+        }
+    }
+
     private inner class SlotConnectChecker(
         private val slotIndex: Int,
         private val delegate: ConnectChecker,
     ) : ConnectChecker {
         override fun onConnectionStarted(url: String) {
+            if (!slotPolicy.isActive(slotIndex)) return
+            slotPolicy.onStarted(slotIndex)
             emitSlot(DestinationSlotEvent(slotIndex, HealthState.RECONNECTING))
-            if (isPrimarySlot()) delegate.onConnectionStarted(url)
+            if (slotPolicy.telemetrySlot() == slotIndex) delegate.onConnectionStarted(url)
         }
 
         override fun onConnectionSuccess() {
+            if (!slotPolicy.isActive(slotIndex)) return
             emitSlot(DestinationSlotEvent(slotIndex, HealthState.HEALTHY))
-            val shouldPublish = synchronized(trackerLock) {
-                successfulSlots += slotIndex
-                successfulSlots.containsAll(activeSlots) && activeSlots.isNotEmpty()
-            }
-            if (shouldPublish) delegate.onConnectionSuccess()
+            val result = slotPolicy.onSuccess(slotIndex)
+            if (result.publishAggregate) delegate.onConnectionSuccess()
+            // A peer that failed while this slot was still attempting gets its
+            // slot-level retry now that the session is live.
+            result.retrySlots.forEach { retryFailedSlot(it, "Retrying after peer connected") }
         }
 
         override fun onNewBitrate(bitrate: Long) {
+            if (!slotPolicy.isActive(slotIndex)) return
             emitSlot(DestinationSlotEvent(slotIndex, HealthState.HEALTHY, bitrate = bitrate))
-            // The service’s adaptive target is per encoded output. Use slot zero as the
-            // authoritative signal so a second destination cannot double the bitrate.
-            if (isPrimarySlot()) delegate.onNewBitrate(bitrate)
+            // The service's adaptive target is per encoded output. Use the first
+            // connected slot as the authoritative signal so a second destination
+            // cannot double the bitrate.
+            if (slotPolicy.telemetrySlot() == slotIndex) delegate.onNewBitrate(bitrate)
         }
 
         override fun onConnectionFailed(reason: String) {
-            if (!isActiveSlot()) return
+            if (!slotPolicy.isActive(slotIndex)) return
             emitSlot(DestinationSlotEvent(slotIndex, HealthState.FAILED, error = reason.take(240)))
-            if (failureReported.compareAndSet(false, true)) {
+            val result = slotPolicy.onFailed(slotIndex)
+            if (result.retrySelf) {
+                // Another destination is live: retry only this slot instead of
+                // tearing down the healthy output for a failure it didn't cause.
+                retryFailedSlot(slotIndex, reason.ifBlank { "connection failed" })
+            } else if (result.publishAggregate) {
                 delegate.onConnectionFailed("Destination ${slotIndex + 1}: ${reason.ifBlank { "connection failed" }}")
             }
+            // Otherwise a peer is still attempting; its outcome decides.
         }
 
         override fun onDisconnect() {
-            if (!isActiveSlot()) return
+            if (!slotPolicy.isActive(slotIndex)) return
             emitSlot(DestinationSlotEvent(slotIndex, HealthState.RECONNECTING))
-            if (disconnectReported.compareAndSet(false, true)) delegate.onDisconnect()
+            val result = slotPolicy.onDisconnected(slotIndex)
+            if (result.retrySelf) {
+                retryFailedSlot(slotIndex, "Connection lost")
+            } else if (result.publishAggregate) {
+                // No live output remains; the service owns the full session
+                // retry policy (backoff, attempt budget, watchdog).
+                delegate.onDisconnect()
+            }
         }
 
         override fun onAuthError() {
-            if (isActiveSlot()) emitSlot(DestinationSlotEvent(slotIndex, HealthState.FAILED, error = "Authentication failed"))
-            if (isActiveSlot() && authErrorReported.compareAndSet(false, true)) delegate.onAuthError()
+            if (!slotPolicy.isActive(slotIndex)) return
+            emitSlot(DestinationSlotEvent(slotIndex, HealthState.FAILED, error = "Authentication failed"))
+            // A bad key on one destination must not kill a healthy peer, and a
+            // retry cannot fix authentication, so the slot simply stays failed.
+            // The aggregate is fatal only when every destination rejected its
+            // key; a mixed auth/network outcome stays retryable.
+            when (slotPolicy.onAuthError(slotIndex)) {
+                SlotAggregatePolicy.AuthOutcome.PUBLISH_AUTH_ERROR -> delegate.onAuthError()
+                SlotAggregatePolicy.AuthOutcome.PUBLISH_FAILURE ->
+                    delegate.onConnectionFailed("Destination ${slotIndex + 1}: authentication failed")
+                SlotAggregatePolicy.AuthOutcome.NOTHING -> Unit
+            }
         }
 
         override fun onAuthSuccess() {
-            val shouldPublish = synchronized(trackerLock) {
-                authenticatedSlots += slotIndex
-                authenticatedSlots.containsAll(activeSlots) && activeSlots.isNotEmpty()
-            }
-            if (shouldPublish) delegate.onAuthSuccess()
-        }
-
-        private fun isActiveSlot(): Boolean = synchronized(trackerLock) { slotIndex in activeSlots }
-
-        private fun emitSlot(event: DestinationSlotEvent) {
-            runCatching { onSlotEvent(event) }
-        }
-
-        private fun isPrimarySlot(): Boolean = synchronized(trackerLock) {
-            activeSlots.firstOrNull() == slotIndex
+            if (!slotPolicy.isActive(slotIndex)) return
+            delegate.onAuthSuccess()
         }
     }
 
@@ -271,5 +328,7 @@ class SingleDestinationMultiStreamAdapter(
     private companion object {
         const val RTMP_SLOT = 0
         const val MAX_DESTINATIONS = 2
+        const val SLOT_RETRIES = 3
+        const val SLOT_RETRY_DELAY_MS = 3_000L
     }
 }

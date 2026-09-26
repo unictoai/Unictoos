@@ -10,8 +10,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -36,9 +36,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -50,7 +47,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -75,20 +72,24 @@ import com.unictoai.unictoos.streaming.DeviceCompatibilityReportFactory
 import com.unictoai.unictoos.streaming.StreamingDiagnostics
 import com.unictoai.unictoos.streaming.SupportabilityExport
 import com.unictoai.unictoos.ui.components.AddSceneDialog
-import com.unictoai.unictoos.ui.components.AppBackdrop
+import com.unictoai.unictoos.ui.components.DividerHairline
+import com.unictoai.unictoos.ui.components.LiveDot
 import com.unictoai.unictoos.ui.screens.HomeScreen
 import com.unictoai.unictoos.ui.screens.LibraryScreen
 import com.unictoai.unictoos.ui.screens.ScenesScreen
 import com.unictoai.unictoos.ui.screens.SettingsScreen
 import com.unictoai.unictoos.ui.screens.StudioScreen
 import com.unictoai.unictoos.ui.theme.Spacing
+import com.unictoai.unictoos.ui.theme.StudioColorsScheme
+import com.unictoai.unictoos.ui.theme.StudioTheme
+import com.unictoai.unictoos.ui.theme.StudioTypeScale
 import com.unictoai.unictoos.ui.theme.UnictoosPalette
 import com.unictoai.unictoos.ui.theme.V02Palette
 
 internal enum class AppTab(val label: String) {
     HOME("Home"),
     SCENES("Scenes"),
-    STUDIO("Go Live"),
+    STUDIO("Studio"),
     LIBRARY("Library"),
     SETTINGS("Settings"),
 }
@@ -124,6 +125,7 @@ internal fun UnictoosApp(
     var selectedSceneId by rememberSaveable { mutableStateOf("main-camera") }
     var showAddScene by rememberSaveable { mutableStateOf(false) }
     var secondaryMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    val session by vm.session.collectAsStateWithLifecycle()
     val scenes by vm.scenes.collectAsStateWithLifecycle()
     val selectedScene = remember(scenes, selectedSceneId) {
         scenes.firstOrNull { it.id == selectedSceneId }
@@ -153,11 +155,13 @@ internal fun UnictoosApp(
         return
     }
 
+    StudioTheme {
     Scaffold(
-        containerColor = Color.Transparent,
+        containerColor = StudioColorsScheme.background,
         topBar = {
-            GlassyTopBar(
+            ConsoleTopBar(
                 selectedTab = selectedTab,
+                sessionStatus = session.status,
                 menuExpanded = secondaryMenuExpanded,
                 onMenuExpandedChange = { secondaryMenuExpanded = it },
                 onSelectTab = {
@@ -167,12 +171,10 @@ internal fun UnictoosApp(
             )
         },
         bottomBar = {
-            GlassyBottomBar(selectedTab = selectedTab, onSelect = { selectedTab = it })
+            ConsoleBottomBar(selectedTab = selectedTab, onSelect = { selectedTab = it })
         },
     ) { padding ->
-        Box(Modifier.fillMaxSize()) {
-            AppBackdrop(Modifier.matchParentSize())
-            Box(Modifier.fillMaxSize().padding(padding)) {
+        Box(Modifier.fillMaxSize().background(StudioColorsScheme.background).padding(padding)) {
             AnimatedContent(
                 modifier = Modifier.fillMaxSize(),
                 targetState = selectedTab,
@@ -234,7 +236,6 @@ internal fun UnictoosApp(
                 )
             }
             }
-            }
         }
     }
 
@@ -246,6 +247,7 @@ internal fun UnictoosApp(
                 showAddScene = false
             },
         )
+    }
     }
 }
 
@@ -393,95 +395,113 @@ private const val ONBOARDING_PREFERENCES = "unictoos_onboarding"
 private const val ONBOARDING_COMPLETE = "complete"
 
 @Composable
-private fun GlassyTopBar(
+private fun ConsoleTopBar(
     selectedTab: AppTab,
+    sessionStatus: StreamStatus,
     menuExpanded: Boolean,
     onMenuExpandedChange: (Boolean) -> Unit,
     onSelectTab: (AppTab) -> Unit,
 ) {
-    Box(
+    val c = StudioColorsScheme
+    Column(
         modifier = Modifier
             .fillMaxWidth()
+            .background(c.surface)
             .statusBarsPadding()
-            .padding(horizontal = Spacing.md, vertical = Spacing.xs),
+            .padding(horizontal = 20.dp, vertical = 10.dp),
     ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 52.dp),
-            color = V02Palette.Neutral900.copy(alpha = 0.78f),
-            contentColor = V02Palette.Neutral100,
-            shape = RoundedCornerShape(22.dp),
-            border = BorderStroke(1.dp, V02Palette.AccentBlue.copy(alpha = 0.18f)),
-            shadowElevation = 16.dp,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = Spacing.xs),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(modifier = Modifier.weight(0.18f)) {
-                    IconButton(modifier = Modifier.size(44.dp), onClick = { onMenuExpandedChange(true) }) {
-                                                    Icon(Icons.Default.Tune, contentDescription = "Open workspace menu", tint = V02Palette.AccentBlue)
-
-                    }
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { onMenuExpandedChange(false) },
-                        modifier = Modifier.background(V02Palette.Neutral900),
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Scenes") },
-                            leadingIcon = { Icon(Icons.Default.Dashboard, contentDescription = null) },
-                            onClick = { onSelectTab(AppTab.SCENES) },
-                        )
-                    }
-                }
-                Column(
-                    modifier = Modifier.weight(1f).padding(horizontal = Spacing.xs),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "UNICTOOS",
+                    style = StudioTypeScale.eyebrowLarge,
+                    color = c.textPrimary,
+                    maxLines = 1,
+                )
+                Text(
+                    selectedTab.label,
+                    style = StudioTypeScale.caption,
+                    color = c.textSecondary,
+                    maxLines = 1,
+                )
+            }
+            if (sessionStatus == StreamStatus.LIVE) {
+                LiveDot()
+                Spacer(Modifier.width(8.dp))
+            }
+            Box {
+                IconButton(
+                    modifier = Modifier.size(42.dp),
+                    onClick = { onMenuExpandedChange(true) },
                 ) {
-                    Text("UNIC TOOS", style = androidx.compose.material3.MaterialTheme.typography.labelSmall, color = V02Palette.Neutral500, letterSpacing = 1.1.sp, maxLines = 1)
-                    Text(selectedTab.label, style = androidx.compose.material3.MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Default.Dashboard, contentDescription = "Open scenes menu", tint = c.textSecondary)
                 }
-                Box(modifier = Modifier.weight(0.18f), contentAlignment = Alignment.CenterEnd) {
-                    IconButton(modifier = Modifier.size(44.dp), onClick = { onSelectTab(AppTab.SETTINGS) }) {
-                                            Icon(Icons.Default.Settings, contentDescription = "Open Settings", tint = V02Palette.Neutral300)
-
-                    }
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { onMenuExpandedChange(false) },
+                    modifier = Modifier.background(c.surfaceRaised),
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Scenes", color = c.textPrimary) },
+                        leadingIcon = { Icon(Icons.Default.Dashboard, contentDescription = null, tint = c.cyan) },
+                        onClick = { onSelectTab(AppTab.SCENES) },
+                    )
                 }
             }
+            IconButton(
+                modifier = Modifier.size(42.dp),
+                onClick = { onSelectTab(AppTab.SETTINGS) },
+            ) {
+                Icon(Icons.Default.Settings, contentDescription = "Open Settings", tint = c.textSecondary)
+            }
         }
+        DividerHairline()
     }
 }
 
 @Composable
-private fun GlassyBottomBar(selectedTab: AppTab, onSelect: (AppTab) -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = Spacing.lg, vertical = Spacing.sm),
-        color = V02Palette.Neutral900.copy(alpha = 0.88f),
-        shape = RoundedCornerShape(26.dp),
-        border = BorderStroke(1.dp, V02Palette.AccentBlue.copy(alpha = 0.24f)),
-        shadowElevation = 18.dp,
+private fun ConsoleBottomBar(selectedTab: AppTab, onSelect: (AppTab) -> Unit) {
+    val c = StudioColorsScheme
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(c.surface)
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
     ) {
-        NavigationBar(
-            modifier = Modifier.height(74.dp),
-            containerColor = Color.Transparent,
-            tonalElevation = 0.dp,
+        DividerHairline()
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 6.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            listOf(AppTab.HOME, AppTab.STUDIO, AppTab.LIBRARY).forEach { tab ->
-                NavigationBarItem(
-                    selected = selectedTab == tab,
-                    onClick = { onSelect(tab) },
-                    icon = { Icon(tab.icon(), contentDescription = tab.label) },
-                    label = { Text(tab.label, maxLines = 1) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = V02Palette.Neutral100,
-                        selectedTextColor = V02Palette.Neutral100,
-                        indicatorColor = V02Palette.AccentBlue.copy(alpha = 0.18f),
-                        unselectedIconColor = V02Palette.Neutral500,
-                        unselectedTextColor = V02Palette.Neutral500,
-                    ),
-                )
+            listOf(AppTab.HOME, AppTab.SCENES, AppTab.STUDIO, AppTab.LIBRARY).forEach { tab ->
+                val selected = selectedTab == tab
+                Column(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { onSelect(tab) }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Icon(
+                        tab.icon(),
+                        contentDescription = tab.label,
+                        tint = if (selected) c.cyan else c.textTertiary,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        tab.label,
+                        style = StudioTypeScale.label,
+                        color = if (selected) c.textPrimary else c.textTertiary,
+                        maxLines = 1,
+                    )
+                }
             }
         }
     }

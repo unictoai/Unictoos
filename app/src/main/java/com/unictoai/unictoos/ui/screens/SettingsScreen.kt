@@ -1,33 +1,9 @@
 package com.unictoai.unictoos.ui.screens
 
-import android.Manifest
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.media.projection.MediaProjectionManager
-import android.os.Build
-import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -39,110 +15,49 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FiberManualRecord
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.LiveTv
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.MicOff
-import androidx.compose.material.icons.filled.Movie
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.unictoai.unictoos.domain.AspectRatio
-import com.unictoai.unictoos.domain.PlatformPreset
-import com.unictoai.unictoos.domain.Scene
-import com.unictoai.unictoos.domain.SourceType
-import com.unictoai.unictoos.data.CreatorHistoryStore
-import com.unictoai.unictoos.domain.StreamDestination
-import com.unictoai.unictoos.domain.StreamHealthSample
-import com.unictoai.unictoos.domain.StreamSessionState
-import com.unictoai.unictoos.domain.StreamStatus
-import com.unictoai.unictoos.domain.StreamQuality
-import com.unictoai.unictoos.domain.StreamQualityPreset
+import com.unictoai.unictoos.DestinationConfig
 import com.unictoai.unictoos.domain.AudioQuality
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.LatencyMode
-import com.unictoai.unictoos.streaming.CompatibilityLevel
-import com.unictoai.unictoos.streaming.DeviceCompatibilityReportFactory
-import com.unictoai.unictoos.ui.theme.Spacing
-import com.unictoai.unictoos.ui.theme.V02Palette
-import com.unictoai.unictoos.ui.theme.UnictoosTheme
-import com.unictoai.unictoos.DestinationConfig
-import com.unictoai.unictoos.ui.components.BrandHeader
+import com.unictoai.unictoos.domain.PlatformPreset
+import com.unictoai.unictoos.domain.StreamQuality
+import com.unictoai.unictoos.domain.StreamQualityPreset
+import com.unictoai.unictoos.domain.StreamStatus
+import com.unictoai.unictoos.ui.components.BadgeTone
+import com.unictoai.unictoos.ui.components.DividerHairline
 import com.unictoai.unictoos.ui.components.SectionHeader
-import com.unictoai.unictoos.ui.components.ReadinessRow
-import com.unictoai.unictoos.ui.components.SettingToggle
-import com.unictoai.unictoos.ui.components.TrustRow
+import com.unictoai.unictoos.ui.components.SegmentedControl
+import com.unictoai.unictoos.ui.components.StateBadge
+import com.unictoai.unictoos.ui.components.StudioButton
+import com.unictoai.unictoos.ui.components.StudioButtonStyle
+import com.unictoai.unictoos.ui.components.StudioCard
+import com.unictoai.unictoos.ui.components.StudioChip
+import com.unictoai.unictoos.ui.components.StudioSlider
+import com.unictoai.unictoos.ui.components.StudioSwitchRow
+import com.unictoai.unictoos.ui.components.StudioTextField
+import com.unictoai.unictoos.ui.theme.StudioColorsScheme
+import com.unictoai.unictoos.ui.theme.StudioTypeScale
 
 @Composable
 internal fun SettingsScreen(
@@ -173,12 +88,11 @@ internal fun SettingsScreen(
     onDismissCredentialsResetNotice: () -> Unit,
 ) {
     val context = LocalContext.current
-    var microphoneEnabled by rememberSaveable { mutableStateOf(true) }
-    var keepAwake by rememberSaveable { mutableStateOf(true) }
-    var selectedPlatformName by rememberSaveable(destination.platform.name) { mutableStateOf(destination.platform.name) }
     var serverUrl by rememberSaveable(destination.serverUrl) { mutableStateOf(destination.serverUrl) }
     var streamKey by rememberSaveable(destination.streamKey) { mutableStateOf(destination.streamKey) }
     var showStreamKey by rememberSaveable { mutableStateOf(false) }
+    var customBitrateMbps by rememberSaveable(streamQuality.bitrate) { mutableStateOf(streamQuality.bitrate / 1_000_000f) }
+    var customFps by rememberSaveable(streamQuality.fps) { mutableStateOf(streamQuality.fps) }
     val importConfigLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         val imported = runCatching {
@@ -190,354 +104,309 @@ internal fun SettingsScreen(
             onImportConfig(imported)
         }
     }
-    val selectedPlatform = PlatformPreset.values().firstOrNull { it.name == selectedPlatformName } ?: PlatformPreset.YOUTUBE
-    val settingsLocked = sessionStatus in setOf(StreamStatus.PREPARING, StreamStatus.CONNECTING, StreamStatus.LIVE, StreamStatus.RECONNECTING, StreamStatus.STOPPING)
+    val isLive = sessionStatus == StreamStatus.LIVE
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(Spacing.xl),
-        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+        contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         item {
-            BrandHeader("Control center", "Settings")
-            Spacer(Modifier.height(6.dp))
-            Text("Keep your broadcast setup simple, secure, and ready to repeat.", color = V02Palette.Neutral500)
-            if (settingsLocked) {
-                Spacer(Modifier.height(8.dp))
-                Text("Broadcast settings are locked during an active session. Changes apply when the next session is prepared.", color = V02Palette.Caution, style = MaterialTheme.typography.bodySmall)
-            }
+            SettingsHeader()
         }
-        item {
-            SectionHeader("Destination", "Choose where Unictoos should send your broadcast")
-            Spacer(Modifier.height(10.dp))
-            if (credentialsResetNotice) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900),
-                    border = BorderStroke(1.dp, V02Palette.Caution),
-                ) {
-                    Column(Modifier.padding(Spacing.md)) {
-                        Text("Saved destinations were cleared", color = V02Palette.Caution, style = MaterialTheme.typography.titleSmall)
-                        Spacer(Modifier.height(4.dp))
+        if (credentialsResetNotice) {
+            item {
+                StudioCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Info, null, tint = StudioColorsScheme.warning, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(12.dp))
                         Text(
-                            "Your device's secure storage changed, so saved stream keys could no longer be decrypted and were removed. Re-enter your destinations below to go live again.",
-                            color = V02Palette.Neutral500,
-                            style = MaterialTheme.typography.bodySmall,
+                            "Saved keys were cleared after a security update. Re-enter your stream key below.",
+                            style = StudioTypeScale.body,
+                            color = StudioColorsScheme.textPrimary,
+                            modifier = Modifier.weight(1f),
                         )
-                        TextButton(onClick = onDismissCredentialsResetNotice, modifier = Modifier.align(Alignment.End)) {
-                            Text("Dismiss", color = V02Palette.Caution)
-                        }
                     }
-                }
-                Spacer(Modifier.height(10.dp))
-            }
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                items(PlatformPreset.values().toList()) { platform ->
-                    FilterChip(
-                        selected = selectedPlatform == platform,
-                        onClick = { selectedPlatformName = platform.name; onSelectPlatform(platform) },
-                        enabled = !settingsLocked,
-                        label = { Text(platform.label) },
-                    )
+                    Spacer(Modifier.height(12.dp))
+                    StudioButton("Got it", onClick = onDismissCredentialsResetNotice, style = StudioButtonStyle.Ghost)
                 }
             }
         }
         item {
-            SectionHeader("Direct multistream", "One shared encoder can fan out to two RTMP/RTMPS destinations")
-            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
-                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Text("Select up to two configured destinations. RTMP and RTMPS use an ingest URL plus stream key; SRT uses one complete listener URL with its stream ID and no separate key.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                        items(PlatformPreset.values().toList()) { platform ->
-                            FilterChip(
-                                selected = platform in multistreamPlatforms,
-                                onClick = {
-                                    if (!onMultistreamPlatformChange(platform, platform !in multistreamPlatforms)) {
-                                        Toast.makeText(context, "Direct multistream is limited to two destinations", Toast.LENGTH_LONG).show()
-                                    }
-                                },
-                                enabled = !settingsLocked,
-                                label = { Text(platform.label) },
-                            )
-                        }
-                    }
-                    Text("This is direct device fan-out, not cloud relay multistream. SRTLA/RIST bonding and platform OAuth are separate integrations.", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
-        item {
-            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
-                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    Text(selectedPlatform.helper, fontWeight = FontWeight.SemiBold)
-                    Text(if (selectedPlatform == PlatformPreset.CUSTOM) "For SRT, enter the complete srt:// listener URL above and leave Stream key blank. For RTMP or RTMPS, use the server URL plus stream key. Never share keys in screenshots or logs." else "Use the current ingest URL shown in your platform dashboard. Never share your stream key in screenshots or logs.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                    OutlinedTextField(
-                        value = serverUrl,
-                        onValueChange = { serverUrl = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !settingsLocked,
-                        label = { Text("Server URL") },
-                        placeholder = { Text(selectedPlatform.serverHint) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
-                    )
-                    OutlinedTextField(
-                        value = streamKey,
-                        onValueChange = { streamKey = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !settingsLocked,
-                        label = { Text("Stream key") },
-                        placeholder = { Text("Stored with Android Keystore") },
-                        singleLine = true,
-                        visualTransformation = if (showStreamKey) VisualTransformation.None else PasswordVisualTransformation(),
-                        trailingIcon = {
-                            IconButton(onClick = { showStreamKey = !showStreamKey }) {
-                                Icon(
-                                    imageVector = if (showStreamKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = if (showStreamKey) "Hide stream key" else "Show stream key",
+            SectionHeader("Destination", subtitle = "Where your stream goes")
+            StudioCard {
+                Text("PLATFORM", style = StudioTypeScale.eyebrow, color = StudioColorsScheme.textTertiary)
+                Spacer(Modifier.height(8.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PlatformPreset.entries.chunked(2).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            row.forEach { platform ->
+                                StudioChip(
+                                    text = platform.label,
+                                    selected = destination.platform == platform,
+                                    onClick = {
+                                        onSelectPlatform(platform)
+                                        serverUrl = ""
+                                        streamKey = ""
+                                    },
+                                    modifier = Modifier.weight(1f),
                                 )
                             }
-                        },
-                        shape = RoundedCornerShape(14.dp),
-                    )
-                    Button(onClick = { onSaveDestination(selectedPlatform, serverUrl, streamKey) }, enabled = !settingsLocked, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(14.dp)) {
-                        Icon(Icons.Default.Lock, null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(7.dp))
-                        Text(if (destination.isConfigured) "Update secure destination" else "Save secure destination")
-                    }
-                    if (destination.isConfigured) {
-                        TextButton(onClick = onClearDestination, enabled = !settingsLocked, modifier = Modifier.fillMaxWidth()) {
-                            Text("Remove saved destination", color = V02Palette.Danger)
-                        }
-                    }
-                    val dashboardUrl = when (selectedPlatform) {
-                        PlatformPreset.YOUTUBE -> "https://studio.youtube.com/channel/UC/livestreaming"
-                        PlatformPreset.TWITCH -> "https://dashboard.twitch.tv/settings/stream"
-                        PlatformPreset.KICK -> "https://dashboard.kick.com/channel/stream"
-                        PlatformPreset.CUSTOM -> null
-                    }
-                    if (dashboardUrl != null) {
-                        TextButton(onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(dashboardUrl))) } }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, null)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Open ${selectedPlatform.label} dashboard")
+                            if (row.size == 1) Spacer(Modifier.weight(1f))
                         }
                     }
                 }
-            }
-        }
-        item {
-            StreamQualitySettingsCard(
-                quality = streamQuality,
-                onPresetSelected = onStreamQualityPreset,
-                onCustomChanged = onCustomStreamQualityChange,
-                enabled = !settingsLocked,
-            )
-        }
-        item {
-            AudioSettingsCard(
-                settings = audioSettings,
-                onQualityChange = onAudioQualityChange,
-                onEchoChange = onEchoCancelerChange,
-                onNoiseChange = onNoiseSuppressorChange,
-                enabled = !settingsLocked,
-            )
-        }
-        item {
-            LatencyModeCard(mode = latencyMode, onModeChange = onLatencyModeChange, enabled = !settingsLocked)
-        }
-        item {
-            SectionHeader("Device controls", "Permissions and broadcast behavior")
-            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
-                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-                    SettingToggle("Microphone", "Check audio access before going live", microphoneEnabled, onCheckedChange = { microphoneEnabled = it }, enabled = !settingsLocked)
-                    HorizontalDivider(color = V02Palette.Neutral700)
-                    SettingToggle("Keep screen awake", "Prevent the display from sleeping in Studio", keepAwake, onCheckedChange = { keepAwake = it }, enabled = !settingsLocked)
-                    HorizontalDivider(color = V02Palette.Neutral700)
-                    SettingToggle("Automatic thermal protection", "Lower live bitrate when the device is running hot", thermalProtectionEnabled, onThermalProtectionChange)
-                    HorizontalDivider(color = V02Palette.Neutral700)
-                    SettingToggle("Adaptive bitrate", "Lower or raise bitrate gradually as network conditions change", adaptiveBitrateEnabled, onAdaptiveBitrateChange, enabled = !settingsLocked)
-                }
-            }
-        }
-        item {
-            SectionHeader("Backup and export", "Share scenes and destination metadata without stream keys")
-            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
-                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    Text("Create a JSON backup of scene layouts and ingest URLs. Stream keys are always omitted.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                    FilledTonalButton(onClick = onExportConfig, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                        Icon(Icons.Default.Share, contentDescription = null)
-                        Spacer(Modifier.width(7.dp))
-                        Text("Export safe configuration")
-                    }
-                    OutlinedButton(
-                        onClick = { importConfigLauncher.launch(arrayOf("application/json", "text/*")) },
-                        enabled = !settingsLocked,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(Modifier.width(7.dp))
-                        Text("Import scenes only")
-                    }
-                    Text("Import never changes saved stream keys or destination credentials.", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
-        item {
-            val report = DeviceCompatibilityReportFactory.current(context, streamQuality)
-            SectionHeader("Device compatibility", "A quick explanation of what this profile can safely handle")
-            Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
-                Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    Text("${report.manufacturer} ${report.model} • Android ${report.sdkInt}", fontWeight = FontWeight.SemiBold)
-                    Text(report.summary, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                    report.checks.take(4).forEach { check ->
-                        ReadinessRow(
-                            label = check.label,
-                            value = check.value,
-                            ready = check.level == CompatibilityLevel.READY,
-                        )
-                    }
-                    Text(report.checks.firstOrNull { it.level != CompatibilityLevel.READY }?.detail ?: "No compatibility warnings for the selected profile.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                    FilledTonalButton(onClick = onExportDiagnostics, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                        Icon(Icons.Default.Share, contentDescription = null)
-                        Spacer(Modifier.width(7.dp))
-                        Text("Export redacted diagnostics")
-                    }
-                }
-            }
-        }
-        item {
-            SectionHeader("Privacy and trust", "What Unictoos promises")
-            TrustRow(Icons.Default.Lock, "Credential protection", "Stream keys stay encrypted on this device")
-            TrustRow(Icons.Default.Visibility, "Transparent capture", "Android asks for screen capture permission every time")
-            TrustRow(Icons.Default.Warning, "Alpha engine", "Test on a physical device before a public broadcast")
-        }
-    }
-}
-
-
-@Composable
-private fun StreamQualitySettingsCard(
-    quality: StreamQuality,
-    onPresetSelected: (StreamQualityPreset) -> Unit,
-    onCustomChanged: (Int, Int) -> Unit,
-    enabled: Boolean,
-) {
-    var customBitrate by rememberSaveable(quality.bitrate) { mutableFloatStateOf(quality.bitrate / 1_000_000f) }
-    var customFps by rememberSaveable(quality.fps) { mutableIntStateOf(quality.fps) }
-
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-        SectionHeader("Stream quality", "Choose the picture profile used when the next session is prepared")
-        Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
-            Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    items(StreamQualityPreset.values().toList()) { preset ->
-                        FilterChip(
-                            selected = quality.preset == preset,
-                            onClick = {
-                                onPresetSelected(preset)
-                                if (preset != StreamQualityPreset.CUSTOM) {
-                                    customBitrate = preset.bitrate / 1_000_000f
-                                    customFps = preset.fps
-                                }
-                            },
-                            enabled = enabled,
-                            label = { Text(preset.label) },
-                        )
-                    }
-                }
-                Text(quality.preset.description, fontWeight = FontWeight.SemiBold)
-                Text(
-                    "${quality.width} × ${quality.height} • ${quality.fps} FPS • ${"%.1f".format(quality.bitrateMbps)} Mbps",
-                    color = V02Palette.Neutral500,
-                    style = MaterialTheme.typography.bodySmall,
+                Spacer(Modifier.height(14.dp))
+                StudioTextField(
+                    value = serverUrl,
+                    onValueChange = { serverUrl = it },
+                    label = "Ingest URL",
+                    placeholder = destination.platform.serverHint,
                 )
-                if (quality.preset == StreamQualityPreset.FULL_HD_HIGH_FPS || quality.preset == StreamQualityPreset.FULL_HD) {
-                    Text("1080p needs a strong, stable upload connection.", color = V02Palette.Caution, style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    destination.platform.helper,
+                    style = StudioTypeScale.caption,
+                    color = StudioColorsScheme.textSecondary,
+                )
+                Spacer(Modifier.height(12.dp))
+                StudioTextField(
+                    value = streamKey,
+                    onValueChange = { streamKey = it },
+                    label = "Stream key",
+                    placeholder = "Paste your key",
+                    isPassword = !showStreamKey,
+                    trailingIcon = {
+                        IconButton(onClick = { showStreamKey = !showStreamKey }) {
+                            Icon(
+                                if (showStreamKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (showStreamKey) "Hide key" else "Show key",
+                                tint = StudioColorsScheme.textTertiary,
+                            )
+                        }
+                    },
+                )
+                Spacer(Modifier.height(14.dp))
+                val draftValid = serverUrl.isNotBlank() && (serverUrl.trim().startsWith("srt://", ignoreCase = true) || streamKey.isNotBlank())
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    StudioButton(
+                        text = "Save",
+                        onClick = { onSaveDestination(destination.platform, serverUrl, streamKey) },
+                        modifier = Modifier.weight(1f),
+                        enabled = !isLive && draftValid,
+                        icon = Icons.Default.CheckCircle,
+                    )
+                    StudioButton(
+                        text = "Clear",
+                        onClick = { onClearDestination(); serverUrl = ""; streamKey = "" },
+                        style = StudioButtonStyle.Ghost,
+                        modifier = Modifier.weight(1f),
+                        enabled = !isLive && destination.isConfigured,
+                        icon = Icons.Default.Delete,
+                    )
                 }
-                if (quality.preset == StreamQualityPreset.CUSTOM) {
-                    Text("Custom bitrate: ${"%.1f".format(customBitrate)} Mbps", style = MaterialTheme.typography.labelLarge)
-                    Slider(
-                        value = customBitrate,
-                        onValueChange = { customBitrate = it },
-                        enabled = enabled,
-                        onValueChangeFinished = { onCustomChanged((customBitrate * 1_000_000).toInt(), customFps) },
+                if (isLive) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Destination editing is locked while live.",
+                        style = StudioTypeScale.caption,
+                        color = StudioColorsScheme.textTertiary,
+                    )
+                }
+            }
+        }
+        item {
+            SectionHeader("Multistream", subtitle = "Send to a second platform at once")
+            StudioCard {
+                PlatformPreset.entries.filter { it != PlatformPreset.CUSTOM }.forEach { platform ->
+                    val enabled = platform in multistreamPlatforms
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(platform.label, style = StudioTypeScale.bodyStrong, color = StudioColorsScheme.textPrimary)
+                            Text(
+                                "Uses this platform's saved key",
+                                style = StudioTypeScale.caption,
+                                color = StudioColorsScheme.textSecondary,
+                            )
+                        }
+                        androidx.compose.material3.Switch(
+                            checked = enabled,
+                            onCheckedChange = { onMultistreamPlatformChange(platform, it) },
+                            enabled = !isLive,
+                        )
+                    }
+                    DividerHairline()
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "The Studio destination plus one more platform — two outputs max.",
+                    style = StudioTypeScale.caption,
+                    color = StudioColorsScheme.textTertiary,
+                )
+            }
+        }
+        item {
+            SectionHeader("Video quality", subtitle = "Encoder output")
+            StudioCard {
+                SegmentedControl(
+                    options = StreamQualityPreset.entries.map { it to it.label },
+                    selected = streamQuality.preset,
+                    onSelect = {
+                        customBitrateMbps = it.bitrate / 1_000_000f
+                        customFps = it.fps
+                        onStreamQualityPreset(it)
+                    },
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    streamQuality.preset.description,
+                    style = StudioTypeScale.caption,
+                    color = StudioColorsScheme.textSecondary,
+                )
+                if (streamQuality.preset == StreamQualityPreset.CUSTOM) {
+                    Spacer(Modifier.height(12.dp))
+                    StudioSlider(
+                        value = customBitrateMbps,
+                        onValueChange = {
+                            customBitrateMbps = it
+                            onCustomStreamQualityChange((it * 1_000_000).toInt(), customFps)
+                        },
                         valueRange = 1f..8f,
                         steps = 6,
+                        label = "Bitrate",
+                        valueText = "%.1f Mbps".format(customBitrateMbps),
                     )
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
+                    Spacer(Modifier.height(4.dp))
+                    Text("FRAME RATE", style = StudioTypeScale.eyebrow, color = StudioColorsScheme.textTertiary)
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf(24, 30, 60).forEach { fps ->
-                            FilterChip(
+                            StudioChip(
+                                text = "$fps FPS",
                                 selected = customFps == fps,
                                 onClick = {
                                     customFps = fps
-                                    onCustomChanged((customBitrate * 1_000_000).toInt(), fps)
+                                    onCustomStreamQualityChange((customBitrateMbps * 1_000_000).toInt(), fps)
                                 },
-                                enabled = enabled,
-                                label = { Text("${fps} FPS") },
                             )
                         }
                     }
                 }
-                Text("Changes apply when the next capture session is prepared.", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
             }
+        }
+        item {
+            SectionHeader("Audio")
+            StudioCard {
+                SegmentedControl(
+                    options = AudioQuality.entries.map { it to it.label },
+                    selected = audioSettings.quality,
+                    onSelect = onAudioQualityChange,
+                )
+                Spacer(Modifier.height(4.dp))
+                StudioSwitchRow(
+                    title = "Echo cancellation",
+                    subtitle = "Removes speaker feedback on calls",
+                    checked = audioSettings.echoCanceler,
+                    onCheckedChange = onEchoCancelerChange,
+                )
+                DividerHairline()
+                StudioSwitchRow(
+                    title = "Noise suppression",
+                    subtitle = "Cuts background hum and hiss",
+                    checked = audioSettings.noiseSuppressor,
+                    onCheckedChange = onNoiseSuppressorChange,
+                )
+            }
+        }
+        item {
+            SectionHeader("Stream health")
+            StudioCard {
+                SegmentedControl(
+                    options = LatencyMode.entries.map { it to it.label },
+                    selected = latencyMode,
+                    onSelect = onLatencyModeChange,
+                )
+                Spacer(Modifier.height(4.dp))
+                StudioSwitchRow(
+                    title = "Adaptive bitrate",
+                    subtitle = "Lowers quality automatically on weak upload",
+                    checked = adaptiveBitrateEnabled,
+                    onCheckedChange = onAdaptiveBitrateChange,
+                )
+                DividerHairline()
+                StudioSwitchRow(
+                    title = "Thermal protection",
+                    subtitle = "Eases load if the phone overheats",
+                    checked = thermalProtectionEnabled,
+                    onCheckedChange = onThermalProtectionChange,
+                )
+            }
+        }
+        item {
+            SectionHeader("Backup & support")
+            StudioCard {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    StudioButton(
+                        text = "Export",
+                        onClick = onExportConfig,
+                        style = StudioButtonStyle.Ghost,
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Default.ContentCopy,
+                    )
+                    StudioButton(
+                        text = "Import",
+                        onClick = { importConfigLauncher.launch(arrayOf("application/json")) },
+                        style = StudioButtonStyle.Ghost,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                StudioButton(
+                    text = "Export diagnostics",
+                    onClick = onExportDiagnostics,
+                    style = StudioButtonStyle.Subtle,
+                    icon = Icons.Default.Info,
+                )
+            }
+        }
+        item {
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StateBadge(text = if (destination.isConfigured) "Destination ready" else "No destination", tone = if (destination.isConfigured) BadgeTone.Ok else BadgeTone.Warn)
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Unictoos ${appVersionName()}",
+                style = StudioTypeScale.caption,
+                color = StudioColorsScheme.textTertiary,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
         }
     }
 }
 
-
 @Composable
-private fun AudioSettingsCard(
-    settings: AudioSettings,
-    onQualityChange: (AudioQuality) -> Unit,
-    onEchoChange: (Boolean) -> Unit,
-    onNoiseChange: (Boolean) -> Unit,
-    enabled: Boolean,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-        SectionHeader("Audio quality", "Tune voice detail and microphone cleanup for the next session")
-        Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
-            Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    AudioQuality.values().forEach { option ->
-                        FilterChip(
-                            selected = settings.quality == option,
-                            onClick = { onQualityChange(option) },
-                            enabled = enabled,
-                            label = { Text(option.label) },
-                        )
-                    }
-                }
-                Text(settings.quality.description, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                HorizontalDivider(color = V02Palette.Neutral700)
-                SettingToggle("Echo cancellation", "Reduce acoustic feedback when monitoring nearby", settings.echoCanceler, onEchoChange, enabled = enabled)
-                HorizontalDivider(color = V02Palette.Neutral700)
-                SettingToggle("Noise suppression", "Reduce steady background noise from the microphone", settings.noiseSuppressor, onNoiseChange, enabled = enabled)
-                Text("Some Android devices may not support every audio effect identically.", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
-            }
-        }
+private fun SettingsHeader() {
+    val c = StudioColorsScheme
+    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+        Text("Settings", style = StudioTypeScale.display, color = c.textPrimary)
+        Text("Destinations, quality and stream health", style = StudioTypeScale.body, color = c.textSecondary)
     }
 }
 
-
 @Composable
-private fun LatencyModeCard(mode: LatencyMode, onModeChange: (LatencyMode) -> Unit, enabled: Boolean) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-        SectionHeader("Latency mode", "Choose interaction speed or upload resilience")
-        Card(colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900)) {
-            Column(Modifier.padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
-                    LatencyMode.values().forEach { option ->
-                        FilterChip(
-                            selected = mode == option,
-                            onClick = { onModeChange(option) },
-                            enabled = enabled,
-                            label = { Text(option.label) },
-                        )
-                    }
-                }
-                Text(mode.description, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                Text("Applied when the next capture session is prepared; low latency can be less forgiving on weak upload.", color = V02Palette.Neutral500, style = MaterialTheme.typography.labelSmall)
-            }
-        }
-    }
+private fun appVersionName(): String {
+    val context = LocalContext.current
+    return runCatching {
+        val info = context.packageManager.getPackageInfo(context.packageName, 0)
+        "v${info.versionName}"
+    }.getOrDefault("v0.5.4")
 }

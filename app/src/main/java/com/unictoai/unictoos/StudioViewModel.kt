@@ -108,8 +108,25 @@ data class DestinationConfig(
         get() = serverUrl.isNotBlank() && StreamEndpointPolicy.isSupported(serverUrl) &&
             (serverUrl.trim().startsWith("srt://", ignoreCase = true) || streamKey.isNotBlank())
     val endpoint: String get() = if (isConfigured) {
-        if (serverUrl.trim().startsWith("srt://", ignoreCase = true)) serverUrl.trim() else serverUrl.trimEnd('/') + "/" + streamKey.trim()
+        buildStreamEndpoint(serverUrl, streamKey)
     } else ""
+}
+
+/**
+ * Builds the ingest URL for a destination. SRT carries the stream key as the
+ * `streamid` query parameter (some servers reject a bare key path); RTMP(S)
+ * keeps the conventional `url/key` join. An explicit streamid already present
+ * in the URL is never overwritten.
+ */
+fun buildStreamEndpoint(serverUrl: String, streamKey: String): String {
+    val base = serverUrl.trim()
+    if (!base.startsWith("srt://", ignoreCase = true)) {
+        return base.trimEnd('/') + "/" + streamKey.trim()
+    }
+    val key = streamKey.trim()
+    if (key.isEmpty() || base.contains("streamid=", ignoreCase = true)) return base
+    val separator = if (base.contains("?")) "&" else "?"
+    return base + separator + "streamid=" + java.net.URLEncoder.encode(key, Charsets.UTF_8.name())
 }
 
 class StudioViewModel @JvmOverloads constructor(
@@ -298,7 +315,7 @@ class StudioViewModel @JvmOverloads constructor(
     fun broadcastEndpoints(primary: DestinationConfig): List<String> {
         val selected = _destinations.value
             .filter { it.platform in _multistreamPlatforms.value && it.isConfigured }
-            .map { if (it.serverUrl.trim().startsWith("srt://", ignoreCase = true)) it.serverUrl.trim() else it.serverUrl.trimEnd('/') + "/" + it.streamKey }
+            .map { buildStreamEndpoint(it.serverUrl, it.streamKey) }
         return (listOf(primary.endpoint) + selected).filter { it.isNotBlank() }.distinct().take(2)
     }
 

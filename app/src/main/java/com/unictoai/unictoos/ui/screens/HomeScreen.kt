@@ -1,28 +1,9 @@
 package com.unictoai.unictoos.ui.screens
 
-import android.Manifest
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.projection.MediaProjectionManager
-import android.os.Build
-import android.os.Bundle
-import android.widget.Toast
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -34,99 +15,45 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.FiberManualRecord
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.Tune
-import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.unictoai.unictoos.domain.AspectRatio
-import com.unictoai.unictoos.domain.PlatformPreset
+import androidx.core.content.ContextCompat
 import com.unictoai.unictoos.domain.Scene
 import com.unictoai.unictoos.domain.SourceType
-import com.unictoai.unictoos.data.CreatorHistoryStore
 import com.unictoai.unictoos.domain.StreamDestination
-import com.unictoai.unictoos.domain.StreamHealthSample
+import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.StreamSessionState
 import com.unictoai.unictoos.domain.StreamStatus
-import com.unictoai.unictoos.domain.StreamQuality
-import com.unictoai.unictoos.ui.theme.Spacing
-import com.unictoai.unictoos.ui.theme.V02Palette
-import com.unictoai.unictoos.ui.theme.UnictoosTheme
-import com.unictoai.unictoos.ui.components.BrandHeader
-import com.unictoai.unictoos.ui.components.PreflightCard
-import com.unictoai.unictoos.ui.components.SceneCard
+import com.unictoai.unictoos.ui.components.BadgeTone
+import com.unictoai.unictoos.ui.components.EmptyState
+import com.unictoai.unictoos.ui.components.LiveDot
 import com.unictoai.unictoos.ui.components.SectionHeader
-import com.unictoai.unictoos.ui.components.SessionErrorCard
-import com.unictoai.unictoos.ui.components.StatusPill
-import com.unictoai.unictoos.ui.components.LivePulseDot
+import com.unictoai.unictoos.ui.components.StateBadge
+import com.unictoai.unictoos.ui.components.StudioButton
+import com.unictoai.unictoos.ui.components.StudioButtonStyle
+import com.unictoai.unictoos.ui.components.StudioCard
+import com.unictoai.unictoos.ui.theme.StudioColorsScheme
+import com.unictoai.unictoos.ui.theme.StudioTypeScale
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import java.util.Locale
 
 @Composable
 internal fun HomeScreen(
@@ -140,186 +67,315 @@ internal fun HomeScreen(
     streamQuality: StreamQuality,
 ) {
     val context = LocalContext.current
-    val microphoneReady = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
-    val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java)
-    val networkCapabilities = connectivity?.getNetworkCapabilities(connectivity.activeNetwork)
-    val networkReady = networkCapabilities?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
-    val setupReady = scenes.any { scene -> scene.sources.any { it.enabled && (it.type == SourceType.SCREEN || it.type == SourceType.CAMERA) } } &&
-        destinations.any { it.isConfigured } && microphoneReady && networkReady
+    val microphoneReady = ContextCompat.checkSelfPermission(
+        context, android.Manifest.permission.RECORD_AUDIO,
+    ) == PackageManager.PERMISSION_GRANTED
+    val connectivity = context.getSystemService(ConnectivityManager::class.java)
+    val networkReady = connectivity
+        ?.getNetworkCapabilities(connectivity.activeNetwork)
+        ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+    val captureReady = scenes.any { scene ->
+        scene.sources.any { it.enabled && (it.type == SourceType.SCREEN || it.type == SourceType.CAMERA) }
+    }
+    val destinationReady = destinations.any { it.isConfigured }
+    val isLive = session.status == StreamStatus.LIVE
+    val isError = session.status == StreamStatus.ERROR
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = Spacing.xl, top = Spacing.lg, end = Spacing.xl, bottom = Spacing.xl),
-        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+        contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        item { BrandHeader("Creator workspace", "Your broadcast desk") { StatusPill(session.status) } }
-        if (session.status == StreamStatus.ERROR) item { SessionErrorCard(session.message.orEmpty(), onGoStudio) }
-        item { ExecutiveHero(session = session, setupReady = setupReady, onOpenStudio = onGoStudio) }
-        item { PreflightCard(destinationReady = destinations.any { it.isConfigured }, quality = streamQuality) }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SectionHeader("Broadcast readiness", "A quick check before you go live")
-                ReadinessGrid(
-                    scenesReady = scenes.isNotEmpty(),
-                    sceneValue = "${scenes.size} ready",
-                    destinationReady = destinations.any { it.isConfigured },
-                    destinationValue = configuredDestinationLabel(destinations),
-                    networkReady = networkReady,
-                    microphoneReady = microphoneReady,
-                    microphoneValue = if (microphoneReady) "Permission ready" else "Tap Go Live to allow",
-                )
-            }
+            HomeHeader(isLive = isLive)
         }
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SectionHeader("Quick actions", "Keep your setup within one tap")
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    QuickAction(Icons.Default.Dashboard, "Scenes", "Build a layout", onOpenScenes, Modifier.weight(1f))
-                    QuickAction(Icons.Default.Tune, "Destinations", "Manage keys", onOpenSettings, Modifier.weight(1f))
-                }
-                QuickAction(Icons.Default.Movie, "Library", "View recordings and session history", onOpenLibrary, Modifier.fillMaxWidth())
-            }
-        }
-        if (scenes.isNotEmpty()) item {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    SectionHeader("Your scenes", "Layouts ready to launch")
-                    TextButton(onClick = onOpenScenes) { Text("View all") }
-                }
-                scenes.take(2).forEach { scene -> SceneCard(scene) }
-            }
-        }
-        item {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = V02Palette.Neutral900.copy(alpha = 0.68f),
-                shape = RoundedCornerShape(18.dp),
-            ) {
-                Row(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Lock, contentDescription = null, tint = V02Palette.AccentBlue, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Text("Your stream keys stay encrypted on this device.", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-        }
-    }
-}
-
-internal fun configuredDestinationLabel(destinations: List<StreamDestination>): String =
-    destinations.firstOrNull { it.isConfigured }?.name ?: "Add a destination"
-@Composable
-internal fun ExecutiveHero(session: StreamSessionState, setupReady: Boolean, onOpenStudio: () -> Unit) {
-    val isLive = session.status == StreamStatus.LIVE
-    val motion = rememberInfiniteTransition(label = "heroEnergy")
-    val glowAlpha by motion.animateFloat(
-        initialValue = 0.42f,
-        targetValue = 0.92f,
-        animationSpec = infiniteRepeatable(tween(1_800, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "heroGlow",
-    )
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral900.copy(alpha = 0.92f)),
-        border = BorderStroke(1.dp, if (isLive) V02Palette.AccentBlue.copy(alpha = 0.48f) else V02Palette.AccentBlue.copy(alpha = 0.32f)),
-    ) {
-        Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(if (isLive) "BROADCAST IN PROGRESS" else "BROADCAST READINESS", style = MaterialTheme.typography.labelMedium, color = if (isLive) V02Palette.AccentBlue else V02Palette.Neutral300, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                    AnimatedContent(targetState = isLive, label = "heroTitle") { live ->
-                        Text(if (live) "You are live." else "Ready when you are.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        if (isError) {
+            item {
+                StudioCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Warning, null, tint = StudioColorsScheme.warning, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Stream ran into a problem", style = StudioTypeScale.bodyStrong, color = StudioColorsScheme.textPrimary)
+                            Text(
+                                session.message.orEmpty().ifBlank { "Check your destination and connection, then try again." },
+                                style = StudioTypeScale.caption,
+                                color = StudioColorsScheme.textSecondary,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
+                    Spacer(Modifier.height(12.dp))
+                    StudioButton("Open Studio", onClick = onGoStudio, style = StudioButtonStyle.Ghost)
                 }
-                Surface(
-                    color = (if (isLive) V02Palette.AccentBlue else V02Palette.AccentBlue).copy(alpha = 0.12f + (glowAlpha * 0.08f)),
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, (if (isLive) V02Palette.AccentBlue else V02Palette.AccentBlue).copy(alpha = 0.24f)),
-                ) {
-                    Icon(
-                        if (isLive) Icons.Default.FiberManualRecord else Icons.Default.Bolt,
-                        contentDescription = null,
-                        tint = (if (isLive) V02Palette.AccentBlue else V02Palette.AccentBlue).copy(alpha = glowAlpha),
-                        modifier = Modifier.padding(12.dp).size(22.dp),
+            }
+        }
+        item {
+            HeroCard(
+                isLive = isLive,
+                session = session,
+                onGoStudio = onGoStudio,
+            )
+        }
+        item {
+            SectionHeader("Readiness", subtitle = "Everything checked before you go live")
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ReadinessTile(
+                        icon = Icons.Default.Dashboard,
+                        label = "Scenes",
+                        value = if (scenes.isEmpty()) "None yet" else "${scenes.size} ready",
+                        ready = scenes.isNotEmpty(),
+                        modifier = Modifier.weight(1f),
+                    )
+                    ReadinessTile(
+                        icon = Icons.Default.Wifi,
+                        label = "Network",
+                        value = if (networkReady) "Connected" else "Offline",
+                        ready = networkReady,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ReadinessTile(
+                        icon = Icons.Default.LiveTv,
+                        label = "Destination",
+                        value = destinations.firstOrNull { it.isConfigured }?.name ?: "Not set",
+                        ready = destinationReady,
+                        modifier = Modifier.weight(1f),
+                    )
+                    ReadinessTile(
+                        icon = Icons.Default.Mic,
+                        label = "Microphone",
+                        value = if (microphoneReady) "Ready" else "Needs access",
+                        ready = microphoneReady,
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (isLive) LivePulseDot() else Box(Modifier.size(9.dp).clip(RoundedCornerShape(50)).background(V02Palette.AccentBlue))
-                Spacer(Modifier.width(9.dp))
-                Text(if (isLive) "Session is active" else if (setupReady) "All essential checks are ready" else "Open Go Live to finish setup", color = V02Palette.Neutral500, style = MaterialTheme.typography.bodyMedium)
+        }
+        item {
+            SectionHeader("Quick actions")
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                QuickTile(
+                    icon = Icons.Default.Dashboard,
+                    title = "Scenes",
+                    subtitle = "Layouts",
+                    onClick = onOpenScenes,
+                    modifier = Modifier.weight(1f),
+                )
+                QuickTile(
+                    icon = Icons.Default.Tune,
+                    title = "Destinations",
+                    subtitle = "Keys & URLs",
+                    onClick = onOpenSettings,
+                    modifier = Modifier.weight(1f),
+                )
+                QuickTile(
+                    icon = Icons.Default.Movie,
+                    title = "Library",
+                    subtitle = "Recordings",
+                    onClick = onOpenLibrary,
+                    modifier = Modifier.weight(1f),
+                )
             }
-                        Button(
-                onClick = onOpenStudio,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (isLive) V02Palette.Danger else V02Palette.AccentBlue, contentColor = Color.White),
-                shape = RoundedCornerShape(18.dp),
-
+        }
+        if (scenes.isNotEmpty()) {
+            item {
+                SectionHeader(
+                    "Scenes",
+                    subtitle = "${scenes.size} saved",
+                    action = {
+                        androidx.compose.material3.TextButton(onClick = onOpenScenes) {
+                            Text("View all", style = StudioTypeScale.label, color = StudioColorsScheme.cyan)
+                        }
+                    },
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    scenes.take(2).forEach { scene ->
+                        SceneRow(
+                            name = scene.name,
+                            detail = "${scene.sources.count { it.enabled }} sources • ${scene.aspectRatio.name.lowercase(Locale.US)}",
+                            onClick = onOpenScenes,
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
             ) {
-                Icon(if (isLive) Icons.Default.LiveTv else Icons.Default.PlayArrow, contentDescription = null)
-                Spacer(Modifier.width(9.dp))
-                Text(if (isLive) "Open live studio" else "Go Live", style = MaterialTheme.typography.labelLarge)
+                Icon(Icons.Default.Lock, null, tint = StudioColorsScheme.textTertiary, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "Stream keys stay encrypted on this device",
+                    style = StudioTypeScale.caption,
+                    color = StudioColorsScheme.textTertiary,
+                )
             }
         }
     }
 }
+
 @Composable
-internal fun ReadinessGrid(
-    scenesReady: Boolean,
-    sceneValue: String,
-    destinationReady: Boolean,
-    destinationValue: String,
-    networkReady: Boolean,
-    microphoneReady: Boolean,
-    microphoneValue: String,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ReadinessCard(Icons.Default.Dashboard, "Scenes", sceneValue, scenesReady, Modifier.weight(1f))
-            ReadinessCard(Icons.Default.Wifi, "Network", if (networkReady) "Internet ready" else "No Internet", networkReady, Modifier.weight(1f))
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ReadinessCard(Icons.Default.Tune, "Destination", destinationValue, destinationReady, Modifier.weight(1f))
-            ReadinessCard(Icons.Default.Mic, "Microphone", microphoneValue, microphoneReady, Modifier.weight(1f))
-        }
-    }
-}
-@Composable
-internal fun ReadinessCard(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, ready: Boolean, modifier: Modifier) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850),
-        shape = RoundedCornerShape(18.dp),
+private fun HomeHeader(isLive: Boolean) {
+    val c = StudioColorsScheme
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, contentDescription = null, tint = if (ready) V02Palette.AccentBlue else V02Palette.Caution, modifier = Modifier.size(18.dp))
-                Icon(if (ready) Icons.Default.CheckCircle else Icons.Default.Warning, contentDescription = null, tint = if (ready) V02Palette.AccentBlue else V02Palette.Caution, modifier = Modifier.size(17.dp))
-            }
-            Text(label, color = V02Palette.Neutral500, style = MaterialTheme.typography.labelMedium)
-            Text(value, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+        Column {
+            Text("Unictoos", style = StudioTypeScale.display, color = c.textPrimary)
+            Text(
+                if (isLive) "You're on air" else "Your broadcast desk",
+                style = StudioTypeScale.body,
+                color = c.textSecondary,
+            )
         }
+        StateBadge(
+            text = if (isLive) "Live" else "Idle",
+            tone = if (isLive) BadgeTone.Live else BadgeTone.Muted,
+            pulsing = isLive,
+        )
     }
 }
+
 @Composable
-internal fun QuickAction(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+private fun HeroCard(
+    isLive: Boolean,
+    session: StreamSessionState,
+    onGoStudio: () -> Unit,
+) {
+    val c = StudioColorsScheme
+    StudioCard(contentPadding = PaddingValues(20.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    if (isLive) "BROADCASTING" else "STUDIO",
+                    style = StudioTypeScale.eyebrow,
+                    color = if (isLive) c.signalRed else c.textTertiary,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (isLive) "You are live" else "Ready when you are",
+                    style = StudioTypeScale.title,
+                    color = c.textPrimary,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    when {
+                        isLive && session.elapsedSeconds > 0 -> formatElapsed(session.elapsedSeconds)
+                        isLive -> "Connecting audience…"
+                        else -> "Preview, then go live in one tap"
+                    },
+                    style = StudioTypeScale.body,
+                    color = c.textSecondary,
+                )
+            }
+            if (isLive) LiveDot(pulsing = true, size = 14.dp)
+        }
+        Spacer(Modifier.height(16.dp))
+        if (isLive) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                HeroStat("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps}k" else "—")
+                HeroStat("FPS", if (session.fps > 0) "${session.fps}" else "—")
+                HeroStat("Dropped", if (session.droppedFrames >= 0) "${session.droppedFrames}" else "—")
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+        StudioButton(
+            text = if (isLive) "Open Live Studio" else "Go Live",
+            onClick = onGoStudio,
+            icon = if (isLive) Icons.Default.LiveTv else Icons.Default.PlayArrow,
+            style = if (isLive) StudioButtonStyle.Danger else StudioButtonStyle.Primary,
+        )
+    }
+}
+
+@Composable
+private fun HeroStat(label: String, value: String) {
+    val c = StudioColorsScheme
+    Column {
+        Text(value, style = StudioTypeScale.headline, color = c.textPrimary)
+        Text(label.uppercase(), style = StudioTypeScale.eyebrow.copy(fontSize = 10.sp), color = c.textTertiary)
+    }
+}
+
+private fun formatElapsed(seconds: Long): String {
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    val s = seconds % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
+}
+
+@Composable
+private fun ReadinessTile(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    ready: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val c = StudioColorsScheme
+    StudioCard(modifier = modifier, contentPadding = PaddingValues(14.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, null, tint = if (ready) c.cyan else c.textTertiary, modifier = Modifier.size(18.dp))
+            Icon(
+                if (ready) Icons.Default.CheckCircle else Icons.Default.Warning,
+                null,
+                tint = if (ready) c.success else c.warning,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(label.uppercase(), style = StudioTypeScale.eyebrow.copy(fontSize = 10.sp), color = c.textTertiary)
+        Spacer(Modifier.height(2.dp))
+        Text(value, style = StudioTypeScale.bodyStrong, color = c.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun QuickTile(
+    icon: ImageVector,
     title: String,
     subtitle: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
-        onClick = onClick,
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = V02Palette.Neutral850),
-        shape = RoundedCornerShape(20.dp),
-    ) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Surface(color = V02Palette.AccentBlue.copy(alpha = 0.16f), shape = RoundedCornerShape(12.dp)) {
-                Icon(icon, null, tint = V02Palette.AccentBlue, modifier = Modifier.padding(8.dp).size(20.dp))
+    val c = StudioColorsScheme
+    StudioCard(modifier = modifier, onClick = onClick, contentPadding = PaddingValues(14.dp)) {
+        Icon(icon, null, tint = c.cyan, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.height(10.dp))
+        Text(title, style = StudioTypeScale.bodyStrong, color = c.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(subtitle, style = StudioTypeScale.caption, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun SceneRow(name: String, detail: String, onClick: () -> Unit) {
+    val c = StudioColorsScheme
+    StudioCard(onClick = onClick, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(name, style = StudioTypeScale.bodyStrong, color = c.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(2.dp))
+                Text(detail, style = StudioTypeScale.caption, color = c.textSecondary)
             }
-            Text(title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(subtitle, color = V02Palette.Neutral500, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Icon(Icons.Default.PlayArrow, null, tint = c.textTertiary, modifier = Modifier.size(18.dp))
         }
     }
 }
