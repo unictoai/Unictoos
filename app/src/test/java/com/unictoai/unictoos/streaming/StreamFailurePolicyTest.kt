@@ -24,6 +24,38 @@ class StreamFailurePolicyTest {
     }
 
     @Test
+    fun networkErrorsMentioningServerStayRetryable() {
+        // Regression test: the broad "server" match must not shadow network signals.
+        // Real transport errors often name the server ("server disconnected") and must
+        // reconnect instead of terminating the stream as a permanent rejection.
+        val networkMessages = listOf(
+            "server disconnected",
+            "Server closed connection",
+            "could not connect to server",
+            "handshake failed, server disconnected",
+        )
+        for (message in networkMessages) {
+            val decision = StreamFailurePolicy.classify(message)
+            assertTrue("expected retryable for: $message", decision.retryable)
+            assertEquals("expected NETWORK for: $message", StreamFailureKind.NETWORK, decision.kind)
+        }
+    }
+
+    @Test
+    fun genuineServerRejectionsStayPermanent() {
+        // Guard the other direction: real rejections must not become retryable.
+        val rejectionMessages = listOf(
+            "server rejected the stream",
+            "publish denied by server",
+        )
+        for (message in rejectionMessages) {
+            val decision = StreamFailurePolicy.classify(message)
+            assertFalse("expected permanent for: $message", decision.retryable)
+            assertEquals("expected SERVER_REJECTION for: $message", StreamFailureKind.SERVER_REJECTION, decision.kind)
+        }
+    }
+
+    @Test
     fun silentConnectingStartTimesOutOnlyForCurrentGeneration() {
         assertTrue(
             StreamStartupPolicy.shouldTimeout(

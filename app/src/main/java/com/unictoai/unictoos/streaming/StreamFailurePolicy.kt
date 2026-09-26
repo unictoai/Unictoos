@@ -40,14 +40,18 @@ object StreamFailurePolicy {
                 StreamFailureDecision(StreamFailureKind.AUTHENTICATION, retryable = false, "The destination rejected the stream credentials. Check the server URL and stream key")
             value.contains("unsupported") || value.contains("invalid url") || value.contains("malformed") || value.contains("protocol") ->
                 StreamFailureDecision(StreamFailureKind.CONFIGURATION, retryable = false, "The destination URL is invalid or uses an unsupported protocol")
-            value.contains("server") || value.contains("rejected") || value.contains("publish") ->
-                StreamFailureDecision(StreamFailureKind.SERVER_REJECTION, retryable = false, "The destination server rejected the broadcast")
+            // NOTE: network signals are checked before the broad "server" match below.
+            // Real-world transport errors often mention the server ("server disconnected",
+            // "could not connect to server") and must stay retryable instead of being
+            // misclassified as a permanent server rejection.
             value.contains("timeout") || value.contains("timed out") ->
                 StreamFailureDecision(StreamFailureKind.TIMEOUT, retryable = true, "The destination did not respond in time")
-            value.contains("encoder") || value.contains("codec") || value.contains("media format") ->
-                StreamFailureDecision(StreamFailureKind.ENCODER, retryable = false, "The device encoder could not produce the selected stream profile")
             value.contains("network") || value.contains("socket") || value.contains("connect") || value.contains("disconnect") || value.contains("broken pipe") ->
                 StreamFailureDecision(StreamFailureKind.NETWORK, retryable = true, "The network connection was interrupted")
+            value.contains("encoder") || value.contains("codec") || value.contains("media format") ->
+                StreamFailureDecision(StreamFailureKind.ENCODER, retryable = false, "The device encoder could not produce the selected stream profile")
+            value.contains("server") || value.contains("rejected") || value.contains("publish") ->
+                StreamFailureDecision(StreamFailureKind.SERVER_REJECTION, retryable = false, "The destination server rejected the broadcast")
             else -> StreamFailureDecision(StreamFailureKind.UNKNOWN, retryable = true, "The destination connection failed")
         }
     }

@@ -1898,6 +1898,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         resetTelemetryForInactiveSession()
         publish(StreamStatus.ERROR, "Destination rejected the stream key. Check the selected platform and rotate the key if needed")
         stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     private fun onAuthSuccessForGeneration(generation: Long) {

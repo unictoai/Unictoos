@@ -131,6 +131,10 @@ check("camera-only background audio policy", "WAKE_LOCK" in MANIFEST and "START_
 check("text overlay renderer contract", "OverlayRenderer" in SERVICE and "TextObjectFilterRender" in OVERLAY and "StreamOverlay" in (ROOT / "app/src/main/java/com/unictoai/unictoos/overlay/StreamOverlay.kt").read_text())
 check("actionable broadcast notification", "PendingIntent.getService" in SERVICE and '"Stop"' in SERVICE and '"Mute"' in SERVICE and "recordingInProgress" in SERVICE)
 check("terminal reconnect failure stops service", "terminateStreamingFailure" in SERVICE and "stopSelf()" in SERVICE and "Reconnect limit reached" in SERVICE)
+auth_error_fn = SERVICE.split("private fun onAuthErrorForGeneration", 1)[1].split("private fun onAuthSuccessForGeneration", 1)[0]
+check("auth error path stops service", "stopSelf()" in auth_error_fn and "stopForeground(STOP_FOREGROUND_REMOVE)" in auth_error_fn)
+FAILURE_POLICY = (ROOT / "app/src/main/java/com/unictoai/unictoos/streaming/StreamFailurePolicy.kt").read_text()
+check("failure classification checks network before server rejection", FAILURE_POLICY.index("StreamFailureKind.NETWORK") < FAILURE_POLICY.index("StreamFailureKind.SERVER_REJECTION"))
 check("wake-lock terminal cleanup", "releaseBroadcastWakeLock()" in SERVICE and "onDestroy" in SERVICE and "service_restart_ignored" in SERVICE)
 check("guarded service initialization", "initializationFailed" in SERVICE and "service_initialization_failed" in SERVICE and "return START_NOT_STICKY" in SERVICE)
 check("API-safe optional screen receiver", "registerScreenStateReceiverSafely" in SERVICE and "Context.RECEIVER_NOT_EXPORTED" in SERVICE and "screenStateReceiverRegistered" in SERVICE)
