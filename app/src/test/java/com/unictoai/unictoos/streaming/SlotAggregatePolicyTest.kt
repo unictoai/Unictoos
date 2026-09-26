@@ -178,9 +178,9 @@ class SlotAggregatePolicyTest {
         val policy = SlotAggregatePolicy()
         policy.reset(listOf(0, 1))
 
-        assertEquals(0, policy.telemetrySlot)
+        assertEquals(0, policy.telemetrySlot())
         policy.onSuccess(1)
-        assertEquals(1, policy.telemetrySlot)
+        assertEquals(1, policy.telemetrySlot())
     }
 
     @Test
