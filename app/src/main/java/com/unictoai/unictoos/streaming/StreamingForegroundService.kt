@@ -247,6 +247,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
     }
 
     private var elapsedTickerGeneration = 0L
+    private var lastNotificationElapsedSeconds = -NOTIFICATION_UPDATE_INTERVAL_SECONDS
     private val elapsedTicker = object : Runnable {
         override fun run() {
             if (startedAtElapsed > 0L && elapsedTickerGeneration == sessionGeneration.get()) {
@@ -258,7 +259,10 @@ class StreamingForegroundService : Service(), ConnectChecker {
                 val previous = StreamingStatusBus.state.value
                 StreamingStatusBus.update(previous.copy(elapsedSeconds = elapsed))
                 recordHealthSample(elapsed, previous)
-                updateNotification("Live for ${formatElapsed(elapsed)}")
+                if (elapsed - lastNotificationElapsedSeconds >= NOTIFICATION_UPDATE_INTERVAL_SECONDS) {
+                    lastNotificationElapsedSeconds = elapsed
+                    updateNotification("Live for ${formatElapsed(elapsed)}")
+                }
                 handler.postDelayed(this, 1_000L)
             }
         }
@@ -1530,6 +1534,7 @@ class StreamingForegroundService : Service(), ConnectChecker {
         if (status == StreamStatus.LIVE && startedAtElapsed == 0L) {
             startedAtElapsed = SystemClock.elapsedRealtime()
             elapsedTickerGeneration = sessionGeneration.get()
+            lastNotificationElapsedSeconds = -NOTIFICATION_UPDATE_INTERVAL_SECONDS
             adaptiveTargetBitrate = activeStreamQuality.bitrate
             degradedSinceElapsed = 0L
             recoveredSinceElapsed = 0L
@@ -1975,6 +1980,11 @@ class StreamingForegroundService : Service(), ConnectChecker {
         private const val RECONNECT_JITTER_MAX_MS = 500L
         private const val MIN_RECORDING_BYTES = 64L * 1024L * 1024L
         private const val MAX_SESSION_HEALTH_SAMPLES = 1_200
+        // The elapsed ticker runs every second for auto-stop and health samples, but
+        // the foreground notification text only needs refreshing every few seconds.
+        // Updating the notification every second churns NotificationManager and costs
+        // battery for no visible benefit.
+        private const val NOTIFICATION_UPDATE_INTERVAL_SECONDS = 5L
 
         private fun formatElapsed(seconds: Long): String = "%02d:%02d".format(seconds / 60, seconds % 60)
     }

@@ -81,4 +81,57 @@ class ConfigImporterTest {
         assertEquals(0.05f, source.width)
         assertEquals(1f, source.height)
     }
+
+    @Test
+    fun deduplicatesSceneIdsOnImport() {
+        val raw = """
+            {"schema":"unictoos-config-v1","scenes":[{"id":"dup","name":"First"},{"id":"dup","name":"Second"},{"id":"dup","name":"Third"}]}
+        """.trimIndent()
+        val result = ConfigImporter.importScenes(raw)
+        assertTrue(result.toString(), result is ConfigImportResult.Success)
+        val scenes = (result as ConfigImportResult.Success).scenes
+        assertEquals(3, scenes.size)
+        assertEquals(3, scenes.map { it.id }.distinct().size)
+        assertEquals(listOf("First", "Second", "Third"), scenes.map { it.name })
+    }
+
+    @Test
+    fun remapsDuplicateSourceIdsAndDropsUnknownGroupReferences() {
+        val raw = """
+            {"schema":"unictoos-config-v1","scenes":[{"id":"s","name":"S",
+              "sources":[{"id":"a","name":"One","type":"TEXT","groupId":"g"},{"id":"a","name":"Two","type":"TEXT","groupId":"g"},{"id":"","name":"Three","type":"TEXT","groupId":"missing"}],
+              "sourceGroups":[{"id":"g","name":"Group","sourceIds":["a","a","ghost"]}]}]}
+        """.trimIndent()
+        val result = ConfigImporter.importScenes(raw)
+        assertTrue(result.toString(), result is ConfigImportResult.Success)
+        val scene = (result as ConfigImportResult.Success).scenes.single()
+        val sourceIds = scene.sources.map { it.id }
+        // Every source ID is unique, even with duplicate/blank input IDs.
+        assertEquals(sourceIds.size, sourceIds.distinct().size)
+        val group = scene.sourceGroups.single()
+        // Group references resolve to real (deduplicated) source IDs; unknown IDs are dropped.
+        assertTrue(group.sourceIds.isNotEmpty())
+        assertTrue(group.sourceIds.all { it in sourceIds })
+        assertTrue("ghost" !in group.sourceIds)
+        // Sources keep their group membership through the remap; unknown groups clear it.
+        assertEquals(group.id, scene.sources[0].groupId)
+        assertEquals(group.id, scene.sources[1].groupId)
+        assertEquals(null, scene.sources[2].groupId)
+    }
+
+    @Test
+    fun coercesTransitionDurationOnImport() {
+        val raw = """
+            {"schema":"unictoos-config-v1","scenes":[
+              {"id":"neg","name":"N","transitionDurationMs":-5},
+              {"id":"huge","name":"H","transitionDurationMs":9000000000},
+              {"id":"ok","name":"O","transitionDurationMs":900}]}
+        """.trimIndent()
+        val result = ConfigImporter.importScenes(raw)
+        assertTrue(result.toString(), result is ConfigImportResult.Success)
+        val byId = (result as ConfigImportResult.Success).scenes.associateBy { it.id }
+        assertEquals(0L, byId.getValue("neg").transition.durationMs)
+        assertEquals(1_500L, byId.getValue("huge").transition.durationMs)
+        assertEquals(900L, byId.getValue("ok").transition.durationMs)
+    }
 }
