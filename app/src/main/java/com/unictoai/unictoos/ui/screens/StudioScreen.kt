@@ -626,6 +626,7 @@ private fun TelemetryStrip(session: StreamSessionState, health: StreamHealthSamp
         ) {
             TelemetryStat("Bitrate", if (session.bitrateKbps > 0) "${session.bitrateKbps}k" else "—")
             TelemetryStat("FPS", if (session.fps > 0) "${session.fps}" else "—")
+            TelemetryStat("Tier", session.qualityTier.label)
             TelemetryStat("Dropped", if (session.droppedFrames >= 0) "${session.droppedFrames}" else "—")
             TelemetryStat("Elapsed", formatStudioElapsed(session.elapsedSeconds))
         }
