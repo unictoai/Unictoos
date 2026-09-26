@@ -63,7 +63,7 @@ check("file provider declared", "androidx.core.content.FileProvider" in MANIFEST
 check("practice mode path", "EXTRA_PRACTICE" in MAIN and "EXTRA_PRACTICE" in SERVICE and "SessionMode.PRACTICE" in SERVICE)
 check("health history path", "healthHistory" in UI and "recordHealth" in SERVICE)
 check("preflight path", "PreflightCard" in UI and "ACCESS_NETWORK_STATE" in MANIFEST)
-check("stale enum state is guarded", "destination.platform" in SETTINGS and "selectedPlatformName" not in SETTINGS)
+check("stale enum state is guarded", "destination.platform" in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/SettingsScreen.kt").read_text() and "selectedPlatformName" not in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/SettingsScreen.kt").read_text())
 check("empty scene state is guarded", "scenes.firstOrNull() ?: Scene(" in UI)
 check("restrained professional palette", "professional palette" in THEME and "Neutral950 = Color(0xFF0B0D0F)" in THEME and "AccentBlue = Color(0xFF5B8DEF)" in THEME and "PhotonCyan" not in THEME and "EventHorizon" not in THEME and "UnictoosDarkColors" in THEME)
 check("static app backdrop", "StudioTheme" in UI and "BlackHoleBackdrop" not in UI and "BlackHole" not in UI and "glassmorphism" not in UI.lower())
