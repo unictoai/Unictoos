@@ -78,7 +78,7 @@ fun StudioButton(
 ) {
     val c = StudioColorsScheme
     val (bg, fg, border) = when (style) {
-        StudioButtonStyle.Primary -> Triple(c.surface3, c.textPrimary, c.hairline)
+        StudioButtonStyle.Primary -> Triple(c.accent, c.onSignal, Color.Transparent)
         StudioButtonStyle.Danger -> Triple(c.signalRed, c.onSignal, Color.Transparent)
         StudioButtonStyle.Ghost -> Triple(Color.Transparent, c.textPrimary, c.hairline)
         StudioButtonStyle.Subtle -> Triple(c.surface2, c.textSecondary, Color.Transparent)
@@ -141,17 +141,13 @@ fun GoLiveButton(
     val c = StudioColorsScheme
     val shape = RoundedCornerShape(16.dp)
     val interaction = remember { MutableInteractionSource() }
-    val bg = if (isLive) c.surface2 else c.signalRed
-    val fg = if (isLive) c.textPrimary else c.onSignal
+    val bg = if (isLive) c.signalRed else c.accent
+    val fg = c.onSignal
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .height(60.dp)
             .clip(shape)
-            .then(
-                if (isLive) Modifier.border(1.dp, c.signalRed.copy(alpha = 0.6f), shape)
-                else Modifier,
-            )
             .clickable(
                 interactionSource = interaction,
                 indication = null,
@@ -159,7 +155,7 @@ fun GoLiveButton(
                 enabled = enabled && !loading,
                 onClick = onClick,
             ),
-        color = bg,
+        color = bg.copy(alpha = if (enabled) 1f else 0.45f),
         contentColor = fg,
         shape = shape,
     ) {
@@ -173,18 +169,10 @@ fun GoLiveButton(
                 Spacer(Modifier.width(12.dp))
                 Text("Working…", style = StudioTypeScale.bodyStrong, color = fg)
             } else {
-                if (!isLive) {
-                    LiveDot(pulsing = enabled)
-                    Spacer(Modifier.width(12.dp))
-                }
                 Text(
-                    text = when {
-                        isLive -> "End Stream"
-                        !enabled -> "Go Live"
-                        else -> "Go Live"
-                    },
+                    text = if (isLive) "End Stream" else "Go Live",
                     style = StudioTypeScale.headline,
-                    color = fg.copy(alpha = if (enabled) 1f else 0.5f),
+                    color = fg.copy(alpha = if (enabled) 1f else 0.7f),
                 )
             }
         }
@@ -317,11 +305,11 @@ fun StudioChip(
         modifier = modifier
             .clip(shape)
             .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClick = onClick),
-        color = if (selected) c.cyanDim else c.surface2,
+        color = if (selected) c.accentDim else c.surface2,
         shape = shape,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (selected) c.cyan.copy(alpha = 0.55f) else c.hairline,
+            if (selected) c.accent.copy(alpha = 0.55f) else c.hairline,
         ),
     ) {
         Row(
@@ -333,14 +321,14 @@ fun StudioChip(
                     leadingIcon,
                     contentDescription = null,
                     modifier = Modifier.size(14.dp),
-                    tint = if (selected) c.cyan else c.textTertiary,
+                    tint = if (selected) c.accent else c.textTertiary,
                 )
                 Spacer(Modifier.width(6.dp))
             }
             Text(
                 text,
                 style = StudioTypeScale.label,
-                color = if (selected) c.cyan else c.textSecondary,
+                color = if (selected) c.accent else c.textSecondary,
                 maxLines = 1,
             )
         }
@@ -357,9 +345,9 @@ fun StateBadge(
     val c = StudioColorsScheme
     val (bg, fg) = when (tone) {
         BadgeTone.Live -> c.signalRedDim to c.signalRed
-        BadgeTone.Active -> c.cyanDim to c.cyan
-        BadgeTone.Ok -> Color(0x2234D399) to c.success
-        BadgeTone.Warn -> Color(0x22FBBF24) to c.warning
+        BadgeTone.Active -> c.accentDim to c.accent
+        BadgeTone.Ok -> c.successDim to c.success
+        BadgeTone.Warn -> c.warningDim to c.warning
         BadgeTone.Muted -> c.surface3 to c.textSecondary
     }
     Surface(
@@ -457,11 +445,11 @@ fun StudioTextField(
             visualTransformation = if (isPassword) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             shape = RoundedCornerShape(14.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = c.cyan.copy(alpha = 0.6f),
+                focusedBorderColor = c.accent.copy(alpha = 0.6f),
                 unfocusedBorderColor = c.hairline,
                 focusedContainerColor = c.surface2,
                 unfocusedContainerColor = c.surface2,
-                cursorColor = c.cyan,
+                cursorColor = c.accent,
             ),
         )
     }
@@ -486,7 +474,7 @@ fun StudioSlider(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (label != null) Text(label.uppercase(), style = StudioTypeScale.eyebrow, color = c.textTertiary)
-                if (valueText != null) Text(valueText, style = StudioTypeScale.label, color = c.cyan)
+                if (valueText != null) Text(valueText, style = StudioTypeScale.label, color = c.accent)
             }
             Spacer(Modifier.height(2.dp))
         }
@@ -496,8 +484,8 @@ fun StudioSlider(
             valueRange = valueRange,
             steps = steps,
             colors = SliderDefaults.colors(
-                thumbColor = c.cyan,
-                activeTrackColor = c.cyan,
+                thumbColor = c.accent,
+                activeTrackColor = c.accent,
                 inactiveTrackColor = c.surface3,
             ),
         )
@@ -530,7 +518,7 @@ fun StudioSwitchRow(
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = c.baseDeep,
-                checkedTrackColor = c.cyan,
+                checkedTrackColor = c.accent,
                 uncheckedThumbColor = c.textTertiary,
                 uncheckedTrackColor = c.surface3,
                 uncheckedBorderColor = Color.Transparent,
@@ -566,7 +554,7 @@ fun StudioDialog(
             if (confirmText != null && onConfirm != null) {
                 TextButton(
                     onClick = onConfirm,
-                    colors = ButtonDefaults.textButtonColors(contentColor = if (danger) c.signalRed else c.cyan),
+                    colors = ButtonDefaults.textButtonColors(contentColor = if (danger) c.signalRed else c.accent),
                 ) { Text(confirmText, style = StudioTypeScale.bodyStrong) }
             }
         },

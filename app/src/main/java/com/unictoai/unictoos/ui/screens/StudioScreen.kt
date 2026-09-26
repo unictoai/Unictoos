@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.view.Surface
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -256,7 +257,7 @@ internal fun StudioScreen(
                 Text(
                     if (showDetails) "Hide session details" else "Session details",
                     style = StudioTypeScale.label,
-                    color = StudioColorsScheme.cyan,
+                    color = StudioColorsScheme.accent,
                 )
             }
             if (showDetails) {
@@ -339,7 +340,8 @@ private fun PreviewHero(
             .fillMaxWidth()
             .aspectRatio(aspectRatio)
             .clip(RoundedCornerShape(22.dp))
-            .background(c.baseDeep),
+            .background(c.baseDeep)
+            .border(1.dp, c.hairline, RoundedCornerShape(22.dp)),
         contentAlignment = Alignment.Center,
     ) {
         AndroidView(
@@ -382,7 +384,7 @@ private fun PreviewHero(
                     Spacer(Modifier.height(12.dp))
                     LinearProgressIndicator(
                         modifier = Modifier.fillMaxWidth(0.6f),
-                        color = c.cyan,
+                        color = c.accent,
                         trackColor = c.surface3,
                     )
                 }
@@ -456,7 +458,7 @@ private fun NoticeBanner(message: String, onDismiss: () -> Unit) {
                 modifier = Modifier.weight(1f),
             )
             TextButton(onClick = onDismiss) {
-                Text("Dismiss", style = StudioTypeScale.label, color = StudioColorsScheme.cyan)
+                Text("Dismiss", style = StudioTypeScale.label, color = StudioColorsScheme.accent)
             }
         }
     }
@@ -517,7 +519,7 @@ private fun DockButton(
     onClick: () -> Unit,
     enabled: Boolean = true,
     active: Boolean = false,
-    activeTint: Color = StudioColorsScheme.cyan,
+    activeTint: Color = StudioColorsScheme.accent,
 ) {
     val c = StudioColorsScheme
     Column(

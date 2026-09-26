@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.sp
  *
  * A broadcast-console aesthetic: deep charcoal surfaces, hairline borders,
  * one hot signal-red reserved for LIVE / record / destructive actions and a
- * cool cyan for active / informational states. Everything else stays neutral
+ * cool accent for active / informational states. Everything else stays neutral
  * so the red always means "you are on air".
  */
 @Immutable
@@ -34,10 +34,12 @@ data class StudioColors(
     val textTertiary: Color,
     val signalRed: Color,
     val signalRedDim: Color,
-    val cyan: Color,
-    val cyanDim: Color,
+    val accent: Color,
+    val accentDim: Color,
     val success: Color,
+    val successDim: Color,
     val warning: Color,
+    val warningDim: Color,
     val onSignal: Color,
 ) {
     /** Semantic aliases used by the console surfaces. */
@@ -47,40 +49,44 @@ data class StudioColors(
 }
 
 private val DarkStudioColors = StudioColors(
-    base = Color(0xFF0A0D14),
-    baseDeep = Color(0xFF06080D),
-    surface1 = Color(0xFF111724),
-    surface2 = Color(0xFF18202F),
-    surface3 = Color(0xFF202A3D),
+    base = Color(0xFF0B0D10),
+    baseDeep = Color(0xFF050607),
+    surface1 = Color(0xFF14171B),
+    surface2 = Color(0xFF1B1F24),
+    surface3 = Color(0xFF242A31),
     hairline = Color(0x14FFFFFF),
-    textPrimary = Color(0xFFF2F5FA),
-    textSecondary = Color(0xFF9AA6B8),
-    textTertiary = Color(0xFF5F6B80),
-    signalRed = Color(0xFFFF3D5E),
-    signalRedDim = Color(0x33FF3D5E),
-    cyan = Color(0xFF3FD8FF),
-    cyanDim = Color(0x263FD8FF),
-    success = Color(0xFF34D399),
+    textPrimary = Color(0xFFF2F4F6),
+    textSecondary = Color(0xFF9AA3AD),
+    textTertiary = Color(0xFF626B76),
+    signalRed = Color(0xFFFF3B30),
+    signalRedDim = Color(0x33FF3B30),
+    accent = Color(0xFF5B8DEF),
+    accentDim = Color(0x265B8DEF),
+    success = Color(0xFF34C77B),
+    successDim = Color(0x2234C77B),
     warning = Color(0xFFFBBF24),
+    warningDim = Color(0x22FBBF24),
     onSignal = Color(0xFFFFFFFF),
 )
 
 private val LightStudioColors = StudioColors(
-    base = Color(0xFFF4F6FA),
-    baseDeep = Color(0xFFE9EDF3),
+    base = Color(0xFFF4F6F8),
+    baseDeep = Color(0xFFE6EAEE),
     surface1 = Color(0xFFFFFFFF),
-    surface2 = Color(0xFFF0F3F8),
-    surface3 = Color(0xFFE4E9F1),
-    hairline = Color(0x1A0A0D14),
-    textPrimary = Color(0xFF0D1320),
-    textSecondary = Color(0xFF4A5568),
-    textTertiary = Color(0xFF8A94A6),
-    signalRed = Color(0xFFE11D48),
-    signalRedDim = Color(0x22E11D48),
-    cyan = Color(0xFF0284C7),
-    cyanDim = Color(0x1A0284C7),
-    success = Color(0xFF059669),
-    warning = Color(0xFFD97706),
+    surface2 = Color(0xFFEDF0F4),
+    surface3 = Color(0xFFDFE5EB),
+    hairline = Color(0x140B0D10),
+    textPrimary = Color(0xFF0F1418),
+    textSecondary = Color(0xFF4E5862),
+    textTertiary = Color(0xFF8B95A1),
+    signalRed = Color(0xFFD92D20),
+    signalRedDim = Color(0x22D92D20),
+    accent = Color(0xFF2F6FED),
+    accentDim = Color(0x1A2F6FED),
+    success = Color(0xFF0E7A4F),
+    successDim = Color(0x1A0E7A4F),
+    warning = Color(0xFFB54708),
+    warningDim = Color(0x1AB54708),
     onSignal = Color(0xFFFFFFFF),
 )
 
@@ -116,9 +122,9 @@ val LocalStudioType = staticCompositionLocalOf { StudioTypography }
 
 private fun StudioColors.toMaterial(dark: Boolean) = if (dark) {
     darkColorScheme(
-        primary = signalRed,
+        primary = accent,
         onPrimary = onSignal,
-        secondary = cyan,
+        secondary = accent,
         tertiary = success,
         background = base,
         surface = surface1,
@@ -132,9 +138,9 @@ private fun StudioColors.toMaterial(dark: Boolean) = if (dark) {
     )
 } else {
     lightColorScheme(
-        primary = signalRed,
+        primary = accent,
         onPrimary = onSignal,
-        secondary = cyan,
+        secondary = accent,
         tertiary = success,
         background = base,
         surface = surface1,

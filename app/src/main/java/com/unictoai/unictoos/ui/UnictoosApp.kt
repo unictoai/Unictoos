@@ -451,7 +451,7 @@ private fun ConsoleTopBar(
                 ) {
                     DropdownMenuItem(
                         text = { Text("Scenes", color = c.textPrimary) },
-                        leadingIcon = { Icon(Icons.Default.Dashboard, contentDescription = null, tint = c.cyan) },
+                        leadingIcon = { Icon(Icons.Default.Dashboard, contentDescription = null, tint = c.accent) },
                         onClick = { onSelectTab(AppTab.SCENES) },
                     )
                 }
@@ -496,7 +496,7 @@ private fun ConsoleBottomBar(selectedTab: AppTab, onSelect: (AppTab) -> Unit) {
                     Icon(
                         tab.icon(),
                         contentDescription = tab.label,
-                        tint = if (selected) c.cyan else c.textTertiary,
+                        tint = if (selected) c.accent else c.textTertiary,
                         modifier = Modifier.size(22.dp),
                     )
                     Spacer(Modifier.height(2.dp))

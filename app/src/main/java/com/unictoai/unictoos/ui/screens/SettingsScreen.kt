@@ -236,7 +236,7 @@ internal fun SettingsScreen(
                         Text(
                             "Open ${destination.platform.label} dashboard",
                             style = StudioTypeScale.label,
-                            color = StudioColorsScheme.cyan,
+                            color = StudioColorsScheme.accent,
                         )
                     }
                 }

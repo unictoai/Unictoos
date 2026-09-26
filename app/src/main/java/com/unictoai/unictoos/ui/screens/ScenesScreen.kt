@@ -123,7 +123,7 @@ internal fun ScenesScreen(
                 subtitle = "Layers in “${selectedScene.name}”",
                 action = {
                     androidx.compose.material3.TextButton(onClick = { showAddSource = true }) {
-                        Text("+ Add", style = StudioTypeScale.label, color = StudioColorsScheme.cyan)
+                        Text("+ Add", style = StudioTypeScale.label, color = StudioColorsScheme.accent)
                     }
                 },
             )
@@ -215,7 +215,7 @@ private fun TemplateCard(title: String, subtitle: String, icon: ImageVector, onC
         modifier = Modifier.width(168.dp),
         contentPadding = PaddingValues(14.dp),
     ) {
-        Icon(icon, null, tint = c.cyan, modifier = Modifier.size(22.dp))
+        Icon(icon, null, tint = c.accent, modifier = Modifier.size(22.dp))
         Spacer(Modifier.height(10.dp))
         Text(title, style = StudioTypeScale.bodyStrong, color = c.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(subtitle, style = StudioTypeScale.caption, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -264,7 +264,7 @@ private fun SourceRow(
             Icon(
                 if (source.enabled) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                 null,
-                tint = if (source.enabled) c.cyan else c.textTertiary,
+                tint = if (source.enabled) c.accent else c.textTertiary,
                 modifier = Modifier.size(20.dp),
             )
             Spacer(Modifier.width(12.dp))

@@ -188,7 +188,7 @@ internal fun HomeScreen(
                     subtitle = "${scenes.size} saved",
                     action = {
                         androidx.compose.material3.TextButton(onClick = onOpenScenes) {
-                            Text("View all", style = StudioTypeScale.label, color = StudioColorsScheme.cyan)
+                            Text("View all", style = StudioTypeScale.label, color = StudioColorsScheme.accent)
                         }
                     },
                 )
@@ -333,7 +333,7 @@ private fun ReadinessTile(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, null, tint = if (ready) c.cyan else c.textTertiary, modifier = Modifier.size(18.dp))
+            Icon(icon, null, tint = if (ready) c.accent else c.textTertiary, modifier = Modifier.size(18.dp))
             Icon(
                 if (ready) Icons.Default.CheckCircle else Icons.Default.Warning,
                 null,
@@ -358,7 +358,7 @@ private fun QuickTile(
 ) {
     val c = StudioColorsScheme
     StudioCard(modifier = modifier, onClick = onClick, contentPadding = PaddingValues(14.dp)) {
-        Icon(icon, null, tint = c.cyan, modifier = Modifier.size(22.dp))
+        Icon(icon, null, tint = c.accent, modifier = Modifier.size(22.dp))
         Spacer(Modifier.height(10.dp))
         Text(title, style = StudioTypeScale.bodyStrong, color = c.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(subtitle, style = StudioTypeScale.caption, color = c.textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)

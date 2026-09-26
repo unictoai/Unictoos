@@ -240,7 +240,7 @@ internal fun LibraryScreen(onOpenStudio: () -> Unit = {}) {
                                     .clip(RoundedCornerShape(3.dp))
                                     .background(
                                         if (sample.networkLabel == "Offline") StudioColorsScheme.warning
-                                        else StudioColorsScheme.cyan.copy(alpha = 0.75f),
+                                        else StudioColorsScheme.accent.copy(alpha = 0.75f),
                                     ),
                             )
                         }
@@ -412,7 +412,7 @@ private fun RecordingRow(
     val c = StudioColorsScheme
     StudioCard(contentPadding = PaddingValues(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Movie, null, tint = c.cyan, modifier = Modifier.size(24.dp))
+            Icon(Icons.Default.Movie, null, tint = c.accent, modifier = Modifier.size(24.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(

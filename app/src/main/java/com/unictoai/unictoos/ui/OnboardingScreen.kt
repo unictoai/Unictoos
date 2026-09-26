@@ -138,7 +138,7 @@ internal fun OnboardingScreen(onFinished: () -> Unit) {
                     Text(
                         "STEP ${index + 1} OF ${onboardingPages.size}",
                         style = StudioTypeScale.eyebrowLarge,
-                        color = c.cyan,
+                        color = c.accent,
                     )
                     Text(p.title, style = StudioTypeScale.display, color = c.textPrimary)
                     Text(p.body, style = StudioTypeScale.body, color = c.textSecondary)
@@ -151,7 +151,7 @@ internal fun OnboardingScreen(onFinished: () -> Unit) {
                         Modifier
                             .size(if (index == pageIndex) 22.dp else 7.dp, 7.dp)
                             .clip(RoundedCornerShape(50))
-                            .background(if (index == pageIndex) c.cyan else c.textTertiary.copy(alpha = 0.45f)),
+                            .background(if (index == pageIndex) c.accent else c.textTertiary.copy(alpha = 0.45f)),
                     )
                 }
             }
