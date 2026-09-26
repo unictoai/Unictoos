@@ -67,18 +67,18 @@ object GoLiveReadinessPolicy {
                     label = "Microphone",
                     value = if (microphonePermission) "Permission ready" else "Permission needed",
                     ready = microphonePermission,
-                    blocking = true,
-                    detail = if (microphonePermission) "Audio capture can be requested" else "Allow microphone access; Unictoos includes audio in every broadcast",
+                    blocking = false,
+                    detail = if (microphonePermission) "Audio capture can be requested" else "Microphone access will be requested when you go live; Unictoos includes audio in every broadcast",
                 ),
                 GoLiveReadinessCheck(
                     id = "capture",
                     label = captureLabel,
                     value = if (captureReady) "Ready" else "Permission needed",
                     ready = captureReady,
-                    blocking = true,
+                    blocking = captureMode != "screen" && captureMode != "camera",
                     detail = when {
                         captureReady -> "$captureLabel is available"
-                        captureMode == "camera" -> "Allow camera access for the selected camera scene"
+                        captureMode == "camera" -> "Camera access will be requested when you go live"
                         else -> "Enable a camera or screen source in the selected scene before going live"
                     },
                 ),

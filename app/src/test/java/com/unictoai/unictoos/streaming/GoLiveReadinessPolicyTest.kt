@@ -24,7 +24,7 @@ class GoLiveReadinessPolicyTest {
     }
 
     @Test
-    fun missingDestinationNetworkOrMicrophoneIsBlocking() {
+    fun missingDestinationOrNetworkIsBlockingButMissingPermissionsAreNot() {
         val result = GoLiveReadinessPolicy.evaluate(
             destinationReady = false,
             captureMode = "screen",
@@ -35,16 +35,21 @@ class GoLiveReadinessPolicyTest {
         )
 
         assertFalse(result.canStart)
-        assertTrue(result.checks.filter { it.id in setOf("destination", "network", "microphone") }.all { it.blocking && !it.ready })
+        assertTrue(result.checks.filter { it.id in setOf("destination", "network") }.all { it.blocking && !it.ready })
+        assertFalse(result.checks.first { it.id == "microphone" }.blocking)
     }
 
     @Test
-    fun cameraModeRequiresCameraPermissionButScreenModeDoesNot() {
+    fun missingPermissionsAreCautionNotBlocking() {
         val camera = GoLiveReadinessPolicy.evaluate(true, "camera", true, false, true, quality)
-        val screen = GoLiveReadinessPolicy.evaluate(true, "screen", true, false, true, quality)
+        val screen = GoLiveReadinessPolicy.evaluate(true, "screen", false, false, true, quality)
 
-        assertFalse(camera.canStart)
+        assertTrue(camera.canStart)
         assertTrue(screen.canStart)
+        assertFalse(camera.checks.first { it.id == "capture" }.ready)
+        assertFalse(camera.checks.first { it.id == "capture" }.blocking)
+        assertFalse(screen.checks.first { it.id == "microphone" }.ready)
+        assertFalse(screen.checks.first { it.id == "microphone" }.blocking)
     }
 
     @Test
