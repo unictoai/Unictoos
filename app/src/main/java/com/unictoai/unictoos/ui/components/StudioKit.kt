@@ -2,7 +2,6 @@ package com.unictoai.unictoos.ui.components
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateColorAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -156,12 +155,7 @@ fun GoLiveButton(
         ),
         label = "goLivePress",
     )
-    val targetBg = if (isLive) c.signalRed else c.accent
-    val bg by animateColorAsState(
-        targetValue = targetBg.copy(alpha = if (enabled) 1f else 0.45f),
-        animationSpec = tween(300),
-        label = "goLiveBg",
-    )
+    val bg = if (isLive) c.signalRed else c.accent
     val fg = c.onSignal
     Surface(
         modifier = modifier
@@ -179,7 +173,7 @@ fun GoLiveButton(
                 enabled = enabled && !loading,
                 onClick = onClick,
             ),
-        color = bg,
+        color = bg.copy(alpha = if (enabled) 1f else 0.45f),
         contentColor = fg,
         shape = shape,
     ) {
