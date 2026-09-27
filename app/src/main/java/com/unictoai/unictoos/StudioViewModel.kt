@@ -405,11 +405,94 @@ class StudioViewModel @JvmOverloads constructor(
         val safeName = name.trim().ifBlank { "New Scene" }
         _scenes.update { current ->
             (current + Scene(
-                id = "scene-${current.size + 1}",
+                id = "scene-${System.currentTimeMillis()}",
                 name = safeName,
                 aspectRatio = aspectRatio,
-                sources = listOf(Source("color-${current.size + 1}", "Background", SourceType.COLOR)),
+                sources = listOf(Source("color-${System.currentTimeMillis()}", "Background", SourceType.COLOR)),
             )).also(sceneStore::save)
+        }
+    }
+
+    fun renameScene(sceneId: String, name: String) {
+        val safeName = name.trim()
+        if (safeName.isBlank()) return
+        _scenes.update { scenes ->
+            scenes.map { scene ->
+                if (scene.id == sceneId) scene.copy(name = safeName) else scene
+            }.also(sceneStore::save)
+        }
+    }
+
+    fun duplicateScene(sceneId: String) {
+        val suffix = System.currentTimeMillis().toString()
+        _scenes.update { current ->
+            val original = current.firstOrNull { it.id == sceneId } ?: return@update current
+            val sourceIdMap = original.sources.associate { it.id to "${it.id}-copy-$suffix" }
+            val copy = original.copy(
+                id = "${original.id}-copy-$suffix",
+                name = "${original.name} copy",
+                sources = original.sources.map { source ->
+                    source.copy(
+                        id = sourceIdMap.getValue(source.id),
+                        groupId = source.groupId?.let { "$it-copy-$suffix" },
+                    )
+                },
+                sourceGroups = original.sourceGroups.map { group ->
+                    group.copy(
+                        id = "${group.id}-copy-$suffix",
+                        sourceIds = group.sourceIds.map { sourceIdMap.getValue(it) },
+                    )
+                },
+            )
+            (current + copy).also(sceneStore::save)
+        }
+    }
+
+    /**
+     * Deletes a scene. Refuses when it is the last one.
+     * @return the id the UI should select afterwards (first remaining scene),
+     * or null when nothing was deleted.
+     */
+    fun deleteScene(sceneId: String): String? {
+        var selectAfter: String? = null
+        _scenes.update { current ->
+            if (current.size <= 1) return@update current
+            val remaining = current.filterNot { it.id == sceneId }
+            if (remaining.size == current.size) return@update current
+            selectAfter = remaining.first().id
+            remaining.also(sceneStore::save)
+        }
+        return selectAfter
+    }
+
+    fun renameSource(sceneId: String, sourceId: String, name: String) {
+        val safeName = name.trim()
+        if (safeName.isBlank()) return
+        _scenes.update { scenes ->
+            scenes.map { scene ->
+                if (scene.id != sceneId) scene else scene.copy(
+                    sources = scene.sources.map { source ->
+                        if (source.id == sourceId) source.copy(name = safeName) else source
+                    },
+                )
+            }.also(sceneStore::save)
+        }
+    }
+
+    fun deleteSource(sceneId: String, sourceId: String) {
+        _scenes.update { scenes ->
+            scenes.map { scene ->
+                if (scene.id != sceneId) scene else {
+                    val remaining = scene.sources.filterNot { it.id == sourceId }
+                    if (remaining.size == scene.sources.size) scene
+                    else scene.copy(
+                        sources = remaining.mapIndexed { index, source -> source.copy(zIndex = index) },
+                        sourceGroups = scene.sourceGroups.map { group ->
+                            group.copy(sourceIds = group.sourceIds - sourceId)
+                        }.filter { it.sourceIds.isNotEmpty() },
+                    )
+                }
+            }.also(sceneStore::save)
         }
     }
 

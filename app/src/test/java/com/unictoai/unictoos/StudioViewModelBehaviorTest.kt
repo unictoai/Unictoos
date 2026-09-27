@@ -33,6 +33,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -79,10 +80,73 @@ class StudioViewModelBehaviorTest {
         assertEquals(before.size + 1, viewModel.scenes.value.size)
         assertEquals("Vertical show", added.name)
         assertEquals(AspectRatio.LANDSCAPE, added.aspectRatio)
-        assertEquals("scene-${before.size + 1}", added.id)
+        assertTrue(added.id.startsWith("scene-"))
+        assertTrue(before.none { it.id == added.id })
         assertEquals(SourceType.COLOR, added.sources.single().type)
         assertNotEquals(before.first().id, added.id)
         assertEquals(viewModel.scenes.value, scenes.saved.last())
+    }
+
+    @Test
+    fun renameSceneTrimsAndIgnoresBlank() {
+        viewModel.renameScene("main-camera", "  Interview  ")
+        assertEquals("Interview", viewModel.scenes.value.first { it.id == "main-camera" }.name)
+
+        viewModel.renameScene("main-camera", "   ")
+        assertEquals("Interview", viewModel.scenes.value.first { it.id == "main-camera" }.name)
+    }
+
+    @Test
+    fun duplicateSceneCopiesWithRemappedIds() {
+        val before = viewModel.scenes.value
+        val original = before.first { it.id == "main-camera" }
+
+        viewModel.duplicateScene("main-camera")
+
+        val after = viewModel.scenes.value
+        assertEquals(before.size + 1, after.size)
+        val copy = after.last()
+        assertEquals("Main Camera copy", copy.name)
+        assertNotEquals(original.id, copy.id)
+        assertEquals(original.sources.size, copy.sources.size)
+        assertEquals(
+            original.sources.map { it.name },
+            copy.sources.map { it.name },
+        )
+        // Every source id must be unique across the whole scene list.
+        val allIds = after.flatMap { it.sources }.map { it.id }
+        assertEquals(allIds.size, allIds.toSet().size)
+    }
+
+    @Test
+    fun deleteSceneRemovesAndReturnsFallbackSelection() {
+        val fallback = viewModel.deleteScene("main-camera")
+
+        val remaining = viewModel.scenes.value
+        assertTrue(remaining.none { it.id == "main-camera" })
+        assertEquals(remaining.first().id, fallback)
+    }
+
+    @Test
+    fun deleteSceneRefusesLastScene() {
+        // Reduce to a single scene, then attempt to delete it.
+        viewModel.scenes.value.map { it.id }.forEach { viewModel.deleteScene(it) }
+        assertEquals(1, viewModel.scenes.value.size)
+
+        val lastId = viewModel.scenes.value.single().id
+        assertNull(viewModel.deleteScene(lastId))
+        assertEquals(1, viewModel.scenes.value.size)
+    }
+
+    @Test
+    fun renameAndDeleteSourceWork() {
+        viewModel.renameSource("main-camera", "camera", "  Face  ")
+        assertEquals("Face", viewModel.scenes.value.first { it.id == "main-camera" }.sources.first { it.id == "camera" }.name)
+
+        viewModel.deleteSource("main-camera", "screen")
+        val sources = viewModel.scenes.value.first { it.id == "main-camera" }.sources
+        assertTrue(sources.none { it.id == "screen" })
+        assertEquals(listOf(0), sources.map { it.zIndex })
     }
 
     @Test

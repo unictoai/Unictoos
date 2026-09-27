@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -47,6 +49,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,7 +70,10 @@ import com.unictoai.unictoos.DestinationConfig
 import com.unictoai.unictoos.domain.AspectRatio
 import com.unictoai.unictoos.domain.AudioSettings
 import com.unictoai.unictoos.domain.AutoStopDuration
+import com.unictoai.unictoos.data.CreatorHistoryStore
 import com.unictoai.unictoos.domain.Scene
+import com.unictoai.unictoos.domain.SessionMode
+import com.unictoai.unictoos.domain.SessionSummary
 import com.unictoai.unictoos.domain.StreamHealthSample
 import com.unictoai.unictoos.domain.StreamQuality
 import com.unictoai.unictoos.domain.StreamSessionState
@@ -88,12 +94,19 @@ import com.unictoai.unictoos.ui.components.StatusRow
 import com.unictoai.unictoos.ui.components.StudioButton
 import com.unictoai.unictoos.ui.components.StudioButtonStyle
 import com.unictoai.unictoos.ui.components.StudioCard
+import com.unictoai.unictoos.ui.components.StudioChip
+import com.unictoai.unictoos.ui.components.StudioDialog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.unictoai.unictoos.ui.theme.StudioColorsScheme
 import com.unictoai.unictoos.ui.theme.StudioTypeScale
 
 @Composable
 internal fun StudioScreen(
     scene: Scene,
+    scenes: List<Scene>,
+    selectedSceneId: String,
+    onSelectScene: (String) -> Unit,
     session: StreamSessionState,
     healthHistory: List<StreamHealthSample>,
     destination: DestinationConfig,
@@ -164,6 +177,25 @@ internal fun StudioScreen(
     )
     var showDetails by remember { mutableStateOf(false) }
     var showSetupDialog by remember { mutableStateOf(false) }
+    var lastSummary by remember { mutableStateOf<SessionSummary?>(null) }
+    // Track whether the session was ever active (not just the previous status)
+    // so LIVE -> STOPPING -> STOPPED transitions still trigger the summary.
+    var wasEverActive by remember { mutableStateOf(false) }
+
+    // Show a stream summary right after a broadcast ends (YouTube-style recap).
+    LaunchedEffect(session.status) {
+        val isActive = session.status == StreamStatus.LIVE || session.status == StreamStatus.RECONNECTING
+        if (isActive) wasEverActive = true
+        val nowEnded = session.status == StreamStatus.STOPPED || session.status == StreamStatus.IDLE
+        if (wasEverActive && nowEnded) {
+            wasEverActive = false
+            lastSummary = withContext(Dispatchers.IO) {
+                runCatching {
+                    CreatorHistoryStore(context).loadSessions().maxByOrNull { it.finishedAtMillis }
+                }.getOrNull()
+            }
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -187,6 +219,15 @@ internal fun StudioScreen(
                 encoderHeight = effectiveQuality.height,
                 aspectRatio = if (scene.aspectRatio == AspectRatio.PORTRAIT) 9f / 16f else 16f / 9f,
             )
+        }
+        if (!isActive && scenes.size > 1) {
+            item {
+                SceneSwitchRow(
+                    scenes = scenes,
+                    selectedSceneId = selectedSceneId,
+                    onSelect = onSelectScene,
+                )
+            }
         }
         if (session.status == StreamStatus.ERROR) {
             item {
@@ -303,6 +344,12 @@ internal fun StudioScreen(
             onAddDestination = { showSetupDialog = false; onOpenSettings() },
             onFixCapture = { showSetupDialog = false; onEditScenes() },
             onDismiss = { showSetupDialog = false },
+        )
+    }
+    lastSummary?.let { summary ->
+        StreamSummaryDialog(
+            summary = summary,
+            onDismiss = { lastSummary = null },
         )
     }
 }
@@ -796,5 +843,79 @@ private fun SetupNeededDialog(
             },
             dismissButton = { TextButton(onClick = onDismiss) { Text("Not now") } },
         )
+    }
+}
+
+@Composable
+private fun SceneSwitchRow(
+    scenes: List<Scene>,
+    selectedSceneId: String,
+    onSelect: (String) -> Unit,
+) {
+    Column {
+        Text(
+            "Scene",
+            style = StudioTypeScale.label,
+            color = StudioColorsScheme.textSecondary,
+            modifier = Modifier.padding(bottom = 8.dp),
+        )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(scenes, key = { it.id }) { scene ->
+                StudioChip(
+                    text = scene.name,
+                    selected = scene.id == selectedSceneId,
+                    onClick = { onSelect(scene.id) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StreamSummaryDialog(
+    summary: SessionSummary,
+    onDismiss: () -> Unit,
+) {
+    val c = StudioColorsScheme
+    val minutes = summary.elapsedSeconds / 60
+    val seconds = summary.elapsedSeconds % 60
+    StudioDialog(
+        title = if (summary.mode == SessionMode.PRACTICE) "Practice run finished" else "Stream finished",
+        onDismiss = onDismiss,
+        confirmText = "Done",
+        onConfirm = onDismiss,
+        dismissText = "",
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SummaryStatRow("Duration", "%d:%02d".format(minutes, seconds))
+            SummaryStatRow("Avg bitrate", "${summary.bitrateKbps} kbps")
+            SummaryStatRow("Frame rate", "${summary.fps} fps")
+            SummaryStatRow(
+                label = "Dropped frames",
+                value = summary.droppedFrames.toString(),
+                valueColor = if (summary.droppedFrames > 0) c.warning else c.textPrimary,
+            )
+            Text(
+                "Full details live in the Library, under session history.",
+                style = StudioTypeScale.caption,
+                color = c.textSecondary,
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummaryStatRow(
+    label: String,
+    value: String,
+    valueColor: androidx.compose.ui.graphics.Color = StudioColorsScheme.textPrimary,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = StudioTypeScale.body, color = StudioColorsScheme.textSecondary)
+        Text(value, style = StudioTypeScale.bodyStrong, color = valueColor)
     }
 }

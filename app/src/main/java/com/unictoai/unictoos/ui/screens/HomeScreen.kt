@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.LiveTv
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Mic
@@ -108,6 +109,29 @@ internal fun HomeScreen(
                     }
                     Spacer(Modifier.height(12.dp))
                     StudioButton("Open Studio", onClick = onGoStudio, style = StudioButtonStyle.Ghost)
+                }
+            }
+        }
+        if (!destinationReady && !isLive) {
+            item {
+                StudioCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Flag, null, tint = StudioColorsScheme.accent, modifier = Modifier.size(22.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Add your first destination", style = StudioTypeScale.bodyStrong, color = StudioColorsScheme.textPrimary)
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "Paste your stream key or server URL once — then you're ready to go live.",
+                                style = StudioTypeScale.caption,
+                                color = StudioColorsScheme.textSecondary,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    StudioButton("Set up destination", onClick = onOpenSettings, style = StudioButtonStyle.Primary)
                 }
             }
         }

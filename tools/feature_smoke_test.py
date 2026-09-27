@@ -244,6 +244,17 @@ check("saved destinations hydrate on startup", "hydrateSavedDestinations" in (RO
 check("projection callback reset per generation", "intentionallyReleasingProjection = false" in SERVICE_SOURCE and "projection.registerCallback" in SERVICE_SOURCE)
 check("repeated lifecycle test exists", "repeat(50)" in (ROOT / "app/src/test/java/com/unictoai/unictoos/streaming/PipelineReleasePolicyTest.kt").read_text() and (ROOT / "app/src/androidTest/java/com/unictoai/unictoos/ui/PreviewSurfaceViewLifecycleTest.kt").exists())
 check("adaptive launcher icon resources", "@mipmap/ic_launcher" in MANIFEST and (ROOT / "app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml").exists() and (ROOT / "app/src/main/res/drawable/ic_unictoos_foreground.xml").exists())
+VM = (ROOT / "app/src/main/java/com/unictoai/unictoos/StudioViewModel.kt").read_text()
+SCENES_UI = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/ScenesScreen.kt").read_text()
+check("scene rename/duplicate/delete paths", "fun renameScene(" in VM and "fun duplicateScene(" in VM and "fun deleteScene(" in VM and "fun renameSource(" in VM and "fun deleteSource(" in VM)
+check("scene delete guards last scene", "current.size <= 1" in VM)
+check("scene/source management UI", "onRenameScene" in SCENES_UI and "onDuplicateScene" in SCENES_UI and "onDeleteScene" in SCENES_UI and "onRenameSource" in SCENES_UI and "onDeleteSource" in SCENES_UI and "DropdownMenu" in SCENES_UI)
+check("scene management wired in app shell", "onDeleteScene" in UI and "deleteScene(id)?.let" in UI)
+HOME_UI = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/HomeScreen.kt").read_text()
+STUDIO_UI = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/StudioScreen.kt").read_text()
+check("home destination quick-start CTA", "Add your first destination" in HOME_UI and "Set up destination" in HOME_UI)
+check("studio scene switcher row", "SceneSwitchRow" in STUDIO_UI and "onSelectScene" in STUDIO_UI and "scenes.size > 1" in STUDIO_UI)
+check("post-stream summary dialog", "StreamSummaryDialog" in STUDIO_UI and "lastSummary" in STUDIO_UI and "SessionSummary" in STUDIO_UI)
 
 if APK.exists():
     sdk_home = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT") or str(Path.home() / "android-sdk")

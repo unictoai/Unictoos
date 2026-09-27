@@ -199,8 +199,13 @@ internal fun UnictoosApp(
                     onSelect = { selectedSceneId = it },
                     onAdd = { showAddScene = true },
                     onAddTemplate = vm::addSceneTemplate,
+                    onRenameScene = vm::renameScene,
+                    onDuplicateScene = vm::duplicateScene,
+                    onDeleteScene = { id -> vm.deleteScene(id)?.let { selectedSceneId = it } },
                     onToggleSource = vm::toggleSource,
                     onAddSource = vm::addSource,
+                    onRenameSource = vm::renameSource,
+                    onDeleteSource = vm::deleteSource,
                     onMoveSource = vm::moveSource,
                     onSetSourceOpacity = vm::setSourceOpacity,
                     onSetSourceGeometry = vm::setSourceGeometry,
@@ -214,6 +219,9 @@ internal fun UnictoosApp(
                 AppTab.STUDIO -> StudioRoute(
                     vm = vm,
                     scene = selectedScene,
+                    scenes = scenes,
+                    selectedSceneId = selectedSceneId,
+                    onSelectScene = { selectedSceneId = it },
                     onAspectRatioChange = { ratio -> vm.setSceneAspectRatio(selectedScene.id, ratio) },
                     onRequestStreamStart = onRequestStreamStart,
                     onRequestPracticeStart = onRequestPracticeStart,
@@ -281,6 +289,9 @@ private fun HomeRoute(
 private fun StudioRoute(
     vm: StudioViewModel,
     scene: Scene,
+    scenes: List<Scene>,
+    selectedSceneId: String,
+    onSelectScene: (String) -> Unit,
     onAspectRatioChange: (AspectRatio) -> Unit,
     onRequestStreamStart: (String, String, String) -> Unit,
     onRequestPracticeStart: (String, String) -> Unit,
@@ -305,6 +316,9 @@ private fun StudioRoute(
     val captureMode = remember(scene) { CaptureModePolicy.forScene(scene) }
     StudioScreen(
         scene = scene,
+        scenes = scenes,
+        selectedSceneId = selectedSceneId,
+        onSelectScene = onSelectScene,
         session = session,
         healthHistory = healthHistory,
         destination = destination,

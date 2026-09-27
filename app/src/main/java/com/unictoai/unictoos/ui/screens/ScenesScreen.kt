@@ -1,6 +1,7 @@
 package com.unictoai.unictoos.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -19,11 +20,17 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DriveFileRenameOutline
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -63,8 +70,13 @@ internal fun ScenesScreen(
     onSelect: (String) -> Unit,
     onAdd: () -> Unit,
     onAddTemplate: (String) -> Unit,
+    onRenameScene: (String, String) -> Unit,
+    onDuplicateScene: (String) -> Unit,
+    onDeleteScene: (String) -> Unit,
     onToggleSource: (String, String) -> Unit,
     onAddSource: (String, String, SourceType) -> Unit,
+    onRenameSource: (String, String, String) -> Unit,
+    onDeleteSource: (String, String) -> Unit,
     onMoveSource: (String, String, Int) -> Unit,
     onSetSourceOpacity: (String, String, Float) -> Unit,
     onSetSourceGeometry: (String, String, Float, Float, Float, Float) -> Unit,
@@ -77,6 +89,10 @@ internal fun ScenesScreen(
 ) {
     var showAddSource by rememberSaveable { mutableStateOf(false) }
     var showAddScene by rememberSaveable { mutableStateOf(false) }
+    var renameSceneId by rememberSaveable { mutableStateOf<String?>(null) }
+    var deleteSceneId by rememberSaveable { mutableStateOf<String?>(null) }
+    var renameSourceId by rememberSaveable { mutableStateOf<String?>(null) }
+    var deleteSourceId by rememberSaveable { mutableStateOf<String?>(null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -112,7 +128,11 @@ internal fun ScenesScreen(
                 SceneListRow(
                     scene = scene,
                     selected = scene.id == selectedSceneId,
+                    canDelete = scenes.size > 1,
                     onSelect = { onSelect(scene.id) },
+                    onRename = { renameSceneId = scene.id },
+                    onDuplicate = { onDuplicateScene(scene.id) },
+                    onDelete = { deleteSceneId = scene.id },
                 )
                 Spacer(Modifier.height(10.dp))
             }
@@ -146,6 +166,8 @@ internal fun ScenesScreen(
                     onMoveUp = { onMoveSource(selectedScene.id, source.id, -1) },
                     onMoveDown = { onMoveSource(selectedScene.id, source.id, 1) },
                     onOpacityChange = { onSetSourceOpacity(selectedScene.id, source.id, it) },
+                    onRename = { renameSourceId = source.id },
+                    onDelete = { deleteSourceId = source.id },
                 )
                 Spacer(Modifier.height(10.dp))
             }
@@ -182,6 +204,76 @@ internal fun ScenesScreen(
                 showAddSource = false
             },
         )
+    }
+
+    renameSceneId?.let { targetId ->
+        val target = scenes.firstOrNull { it.id == targetId }
+        if (target != null) {
+            RenameDialog(
+                title = "Rename scene",
+                initial = target.name,
+                onDismiss = { renameSceneId = null },
+                onConfirm = { onRenameScene(targetId, it); renameSceneId = null },
+            )
+        } else {
+            renameSceneId = null
+        }
+    }
+
+    deleteSceneId?.let { targetId ->
+        val target = scenes.firstOrNull { it.id == targetId }
+        if (target != null && scenes.size > 1) {
+            StudioDialog(
+                title = "Delete scene?",
+                onDismiss = { deleteSceneId = null },
+                confirmText = "Delete",
+                danger = true,
+                onConfirm = { onDeleteScene(targetId); deleteSceneId = null },
+            ) {
+                Text(
+                    "“${target.name}” and all of its sources will be removed. This cannot be undone.",
+                    style = StudioTypeScale.body,
+                    color = StudioColorsScheme.textSecondary,
+                )
+            }
+        } else {
+            deleteSceneId = null
+        }
+    }
+
+    renameSourceId?.let { targetId ->
+        val target = selectedScene.sources.firstOrNull { it.id == targetId }
+        if (target != null) {
+            RenameDialog(
+                title = "Rename source",
+                initial = target.name,
+                onDismiss = { renameSourceId = null },
+                onConfirm = { onRenameSource(selectedScene.id, targetId, it); renameSourceId = null },
+            )
+        } else {
+            renameSourceId = null
+        }
+    }
+
+    deleteSourceId?.let { targetId ->
+        val target = selectedScene.sources.firstOrNull { it.id == targetId }
+        if (target != null) {
+            StudioDialog(
+                title = "Remove source?",
+                onDismiss = { deleteSourceId = null },
+                confirmText = "Remove",
+                danger = true,
+                onConfirm = { onDeleteSource(selectedScene.id, targetId); deleteSourceId = null },
+            ) {
+                Text(
+                    "“${target.name}” will be removed from “${selectedScene.name}”.",
+                    style = StudioTypeScale.body,
+                    color = StudioColorsScheme.textSecondary,
+                )
+            }
+        } else {
+            deleteSourceId = null
+        }
     }
 }
 
@@ -223,8 +315,17 @@ private fun TemplateCard(title: String, subtitle: String, icon: ImageVector, onC
 }
 
 @Composable
-private fun SceneListRow(scene: Scene, selected: Boolean, onSelect: () -> Unit) {
+private fun SceneListRow(
+    scene: Scene,
+    selected: Boolean,
+    canDelete: Boolean,
+    onSelect: () -> Unit,
+    onRename: () -> Unit,
+    onDuplicate: () -> Unit,
+    onDelete: () -> Unit,
+) {
     val c = StudioColorsScheme
+    var menuExpanded by rememberSaveable { mutableStateOf(false) }
     StudioCard(onClick = onSelect, contentPadding = PaddingValues(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -246,7 +347,56 @@ private fun SceneListRow(scene: Scene, selected: Boolean, onSelect: () -> Unit) 
                     modifier = Modifier.size(18.dp),
                 )
             }
+            Spacer(Modifier.width(4.dp))
+            Box {
+                IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Default.MoreVert, "Scene options", tint = c.textTertiary, modifier = Modifier.size(20.dp))
+                }
+                DropdownMenu(
+                    expanded = menuExpanded,
+                    onDismissRequest = { menuExpanded = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Rename", style = StudioTypeScale.body) },
+                        onClick = { menuExpanded = false; onRename() },
+                        leadingIcon = { Icon(Icons.Default.DriveFileRenameOutline, null, tint = c.textSecondary) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Duplicate", style = StudioTypeScale.body) },
+                        onClick = { menuExpanded = false; onDuplicate() },
+                        leadingIcon = { Icon(Icons.Default.ContentCopy, null, tint = c.textSecondary) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete", style = StudioTypeScale.body, color = c.signalRed) },
+                        enabled = canDelete,
+                        onClick = { menuExpanded = false; onDelete() },
+                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = c.signalRed) },
+                    )
+                }
+            }
         }
+    }
+}
+
+@Composable
+private fun RenameDialog(
+    title: String,
+    initial: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var value by rememberSaveable(initial) { mutableStateOf(initial) }
+    StudioDialog(
+        title = title,
+        onDismiss = onDismiss,
+        confirmText = "Save",
+        onConfirm = { onConfirm(value) },
+    ) {
+        StudioTextField(
+            value = value,
+            onValueChange = { value = it },
+            placeholder = "Name",
+        )
     }
 }
 
@@ -257,6 +407,8 @@ private fun SourceRow(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
     onOpacityChange: (Float) -> Unit,
+    onRename: () -> Unit,
+    onDelete: () -> Unit,
 ) {
     val c = StudioColorsScheme
     StudioCard(contentPadding = PaddingValues(14.dp)) {
@@ -272,10 +424,16 @@ private fun SourceRow(
                 Text(source.name, style = StudioTypeScale.bodyStrong, color = c.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(source.type.label, style = StudioTypeScale.caption, color = c.textSecondary)
             }
-            IconButton(onClick = onMoveUp, modifier = Modifier.size(36.dp)) {
+            IconButton(onClick = onRename, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Default.DriveFileRenameOutline, "Rename source", tint = c.textTertiary, modifier = Modifier.size(18.dp))
+            }
+            IconButton(onClick = onDelete, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Default.Delete, "Remove source", tint = c.textTertiary, modifier = Modifier.size(18.dp))
+            }
+            IconButton(onClick = onMoveUp, modifier = Modifier.size(40.dp)) {
                 Icon(Icons.Default.ArrowUpward, "Move up", tint = c.textTertiary, modifier = Modifier.size(18.dp))
             }
-            IconButton(onClick = onMoveDown, modifier = Modifier.size(36.dp)) {
+            IconButton(onClick = onMoveDown, modifier = Modifier.size(40.dp)) {
                 Icon(Icons.Default.ArrowDownward, "Move down", tint = c.textTertiary, modifier = Modifier.size(18.dp))
             }
             StudioChip(
