@@ -234,14 +234,6 @@ internal fun StudioScreen(
                 }
             }
         }
-        if (showSetupDialog) {
-            SetupNeededDialog(
-                readiness = readiness,
-                onAddDestination = { showSetupDialog = false; onOpenSettings() },
-                onFixCapture = { showSetupDialog = false; onEditScenes() },
-                onDismiss = { showSetupDialog = false },
-            )
-        }
         if (!isLive) {
             item {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -304,6 +296,14 @@ internal fun StudioScreen(
                 )
             }
         }
+    }
+    if (showSetupDialog) {
+        SetupNeededDialog(
+            readiness = readiness,
+            onAddDestination = { showSetupDialog = false; onOpenSettings() },
+            onFixCapture = { showSetupDialog = false; onEditScenes() },
+            onDismiss = { showSetupDialog = false },
+        )
     }
 }
 
