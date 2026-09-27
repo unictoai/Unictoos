@@ -4,13 +4,6 @@ import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.view.Surface
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -38,7 +31,6 @@ import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -75,7 +67,6 @@ import com.unictoai.unictoos.domain.StreamStatus
 import com.unictoai.unictoos.health.DestinationHealth
 import com.unictoai.unictoos.health.HealthState
 import com.unictoai.unictoos.streaming.CaptureModePolicy
-import com.unictoai.unictoos.streaming.GoLiveReadiness
 import com.unictoai.unictoos.streaming.GoLiveReadinessPolicy
 import com.unictoai.unictoos.ui.PreviewSurfaceView
 import com.unictoai.unictoos.ui.components.BadgeTone
@@ -163,7 +154,6 @@ internal fun StudioScreen(
         quality = effectiveQuality,
     )
     var showDetails by remember { mutableStateOf(false) }
-    var showSetupDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -206,32 +196,18 @@ internal fun StudioScreen(
         item {
             GoLiveButton(
                 isLive = isLive,
-                // The button stays tappable: when prerequisites are missing it opens
-                // a guided setup dialog instead of sitting dead and silent.
-                enabled = canStart || isLive,
+                enabled = (canStart && readiness.canStart) || isLive,
                 loading = session.status == StreamStatus.CONNECTING || session.status == StreamStatus.PREPARING,
-                onClick = {
-                    when {
-                        isLive -> onStop()
-                        readiness.canStart -> onStart()
-                        else -> showSetupDialog = true
-                    }
-                },
+                onClick = { if (isLive) onStop() else onStart() },
             )
-            AnimatedVisibility(
-                visible = !isLive && !readiness.canStart,
-                enter = fadeIn(tween(250)) + expandVertically(tween(250)),
-                exit = fadeOut(tween(200)) + shrinkVertically(tween(200)),
-            ) {
-                Column {
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        (readiness.blockingDetail ?: readiness.cautionDetail ?: "Finish setup to go live"),
-                        style = StudioTypeScale.caption,
-                        color = StudioColorsScheme.warning,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+            if (!isLive && !readiness.canStart) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    (readiness.blockingDetail ?: readiness.cautionDetail ?: "Finish setup to go live"),
+                    style = StudioTypeScale.caption,
+                    color = StudioColorsScheme.warning,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
         if (!isLive) {
@@ -296,14 +272,6 @@ internal fun StudioScreen(
                 )
             }
         }
-    }
-    if (showSetupDialog) {
-        SetupNeededDialog(
-            readiness = readiness,
-            onAddDestination = { showSetupDialog = false; onOpenSettings() },
-            onFixCapture = { showSetupDialog = false; onEditScenes() },
-            onDismiss = { showSetupDialog = false },
-        )
     }
 }
 
@@ -744,57 +712,5 @@ private fun SessionDetails(
         }
         Spacer(Modifier.height(12.dp))
         StudioButton("Stream settings", onClick = onOpenSettings, style = StudioButtonStyle.Ghost)
-    }
-}
-
-@Composable
-private fun SetupNeededDialog(
-    readiness: GoLiveReadiness,
-    onAddDestination: () -> Unit,
-    onFixCapture: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val blockers = readiness.checks.filter { it.blocking && !it.ready }
-    val destinationBlocked = blockers.any { it.id == "destination" }
-    val captureBlocked = blockers.any { it.id == "capture" }
-    AnimatedVisibility(
-        visible = true,
-        enter = fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.96f),
-        exit = fadeOut(tween(160)),
-    ) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text("Finish setup to go live", style = StudioTypeScale.headline) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    blockers.forEach { check ->
-                        Row(verticalAlignment = Alignment.Top) {
-                            Icon(
-                                Icons.Default.Warning,
-                                contentDescription = null,
-                                tint = StudioColorsScheme.warning,
-                                modifier = Modifier.size(18.dp),
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(check.label, style = StudioTypeScale.bodyStrong)
-                                Text(
-                                    check.detail,
-                                    style = StudioTypeScale.caption,
-                                    color = StudioColorsScheme.textSecondary,
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    if (captureBlocked) TextButton(onClick = onFixCapture) { Text("Open scenes") }
-                    if (destinationBlocked) TextButton(onClick = onAddDestination) { Text("Add destination") }
-                }
-            },
-            dismissButton = { TextButton(onClick = onDismiss) { Text("Not now") } },
-        )
     }
 }

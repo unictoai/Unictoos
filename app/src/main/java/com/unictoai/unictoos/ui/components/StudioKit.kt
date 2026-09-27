@@ -1,19 +1,14 @@
 package com.unictoai.unictoos.ui.components
 
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateColorAsState
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,7 +49,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -147,30 +141,12 @@ fun GoLiveButton(
     val c = StudioColorsScheme
     val shape = RoundedCornerShape(16.dp)
     val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val pressScale by animateFloatAsState(
-        targetValue = if (pressed && enabled && !loading) 0.97f else 1f,
-        animationSpec = spring(
-            stiffness = Spring.StiffnessMediumLow,
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-        ),
-        label = "goLivePress",
-    )
-    val targetBg = if (isLive) c.signalRed else c.accent
-    val bg by animateColorAsState(
-        targetValue = targetBg.copy(alpha = if (enabled) 1f else 0.45f),
-        animationSpec = tween(300),
-        label = "goLiveBg",
-    )
+    val bg = if (isLive) c.signalRed else c.accent
     val fg = c.onSignal
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .height(60.dp)
-            .graphicsLayer {
-                scaleX = pressScale
-                scaleY = pressScale
-            }
             .clip(shape)
             .clickable(
                 interactionSource = interaction,
@@ -179,7 +155,7 @@ fun GoLiveButton(
                 enabled = enabled && !loading,
                 onClick = onClick,
             ),
-        color = bg,
+        color = bg.copy(alpha = if (enabled) 1f else 0.45f),
         contentColor = fg,
         shape = shape,
     ) {
