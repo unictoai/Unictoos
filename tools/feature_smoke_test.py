@@ -157,6 +157,7 @@ check("go live button animates press", "goLivePress" in STUDIOKIT and "collectIs
 SHARED = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/components/SharedComponents.kt").read_text()
 check("backdrop has gentle drifting aura", "auraDrift" in SHARED and "rememberInfiniteTransition" in SHARED)
 check("scene template workflow", "addSceneTemplate" in (ROOT / "app/src/main/java/com/unictoai/unictoos/StudioViewModel.kt").read_text() and "Templates" in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/ScenesScreen.kt").read_text())
+check("text overlay templates", "addTextTemplate" in (ROOT / "app/src/main/java/com/unictoai/unictoos/StudioViewModel.kt").read_text() and "Text Templates" in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/ScenesScreen.kt").read_text())
 check("live telemetry indicator", "TelemetryStrip" in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/StudioScreen.kt").read_text() and "session.bitrateKbps" in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/StudioScreen.kt").read_text())
 check("post-session recap", '"Last session"' in LIBRARY and "SessionSummary" in LIBRARY)
 QUALITY = (ROOT / "app/src/main/java/com/unictoai/unictoos/domain/StreamQuality.kt").read_text()

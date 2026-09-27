@@ -204,6 +204,7 @@ internal fun UnictoosApp(
                     onDeleteScene = { id -> vm.deleteScene(id)?.let { selectedSceneId = it } },
                     onToggleSource = vm::toggleSource,
                     onAddSource = vm::addSource,
+                    onAddTextTemplate = vm::addTextTemplate,
                     onRenameSource = vm::renameSource,
                     onDeleteSource = vm::deleteSource,
                     onMoveSource = vm::moveSource,

@@ -75,6 +75,7 @@ internal fun ScenesScreen(
     onDeleteScene: (String) -> Unit,
     onToggleSource: (String, String) -> Unit,
     onAddSource: (String, String, SourceType) -> Unit,
+    onAddTextTemplate: (String, String) -> Unit,
     onRenameSource: (String, String, String) -> Unit,
     onDeleteSource: (String, String) -> Unit,
     onMoveSource: (String, String, Int) -> Unit,
@@ -171,6 +172,38 @@ internal fun ScenesScreen(
                 )
                 Spacer(Modifier.height(10.dp))
             }
+        }
+        item {
+            SectionHeader(
+                "Text Templates",
+                subtitle = "One-tap overlays",
+            )
+        }
+        item {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                StudioChip(
+                    text = "Title",
+                    selected = false,
+                    onClick = { onAddTextTemplate(selectedScene.id, "title") },
+                    modifier = Modifier.weight(1f),
+                )
+                StudioChip(
+                    text = "Lower Third",
+                    selected = false,
+                    onClick = { onAddTextTemplate(selectedScene.id, "lower-third") },
+                    modifier = Modifier.weight(1f),
+                )
+                StudioChip(
+                    text = "Social",
+                    selected = false,
+                    onClick = { onAddTextTemplate(selectedScene.id, "social") },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(Modifier.height(8.dp))
         }
         item {
             Spacer(Modifier.height(8.dp))

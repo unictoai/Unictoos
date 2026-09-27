@@ -629,6 +629,52 @@ class StudioViewModel @JvmOverloads constructor(
         scheduleScenePersistence()
     }
 
+    /**
+     * Adds a pre-configured text overlay template (Streamlabs/CameraFi-style quick overlays).
+     * Templates: "title" (large centered), "lower-third" (name bar), "social" (@handle).
+     */
+    fun addTextTemplate(sceneId: String, templateId: String) {
+        val template = when (templateId) {
+            "title" -> TextTemplate("Title", "Your Title", 48f, 0.10f, 0.40f, 0.80f, 0.20f)
+            "lower-third" -> TextTemplate("Lower Third", "Your Name", 28f, 0.05f, 0.75f, 0.50f, 0.15f)
+            "social" -> TextTemplate("Social Handle", "@username", 22f, 0.60f, 0.05f, 0.35f, 0.10f)
+            else -> return
+        }
+        _scenes.update { scenes ->
+            scenes.map { scene ->
+                if (scene.id != sceneId) scene else {
+                    val sourceId = "text-${System.currentTimeMillis()}"
+                    scene.copy(
+                        sources = scene.sources + Source(
+                            id = sourceId,
+                            name = template.name,
+                            type = SourceType.TEXT,
+                            enabled = true,
+                            zIndex = scene.sources.size,
+                            textContent = template.content,
+                            textSizeSp = template.sizeSp,
+                            x = template.x,
+                            y = template.y,
+                            width = template.w,
+                            height = template.h,
+                        )
+                    )
+                }
+            }
+        }
+        scheduleScenePersistence()
+    }
+
+    private data class TextTemplate(
+        val name: String,
+        val content: String,
+        val sizeSp: Float,
+        val x: Float,
+        val y: Float,
+        val w: Float,
+        val h: Float,
+    )
+
     fun setSourceGeometry(sceneId: String, sourceId: String, x: Float, y: Float, width: Float, height: Float) {
         val geometry = SceneGeometryPolicy.clamp(x, y, width, height)
         _scenes.update { scenes ->
