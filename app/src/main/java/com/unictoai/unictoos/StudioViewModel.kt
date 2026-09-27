@@ -148,9 +148,6 @@ class StudioViewModel @JvmOverloads constructor(
                 name = "Starting Soon",
                 aspectRatio = AspectRatio.PORTRAIT,
                 sources = listOf(
-                    // Base screen-capture layer behind the slate so a fresh
-                    // install always has a valid capture mode for going live.
-                    Source("screen-base", "Screen", SourceType.SCREEN, zIndex = -1),
                     Source("bg", "Background", SourceType.COLOR),
                     Source("title", "Welcome text", SourceType.TEXT),
                 ),

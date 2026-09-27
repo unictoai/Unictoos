@@ -135,14 +135,6 @@ import com.unictoai.unictoos.ui.theme.UnictoosTheme
 
 @Composable
 internal fun AppBackdrop(modifier: Modifier = Modifier) {
-    // Slow-drifting accent aura over the static gradient: subtle motion without
-    // the cost of the old full-canvas animated background.
-    val drift by rememberInfiniteTransition(label = "backdrop").animateFloat(
-        initialValue = 0.32f,
-        targetValue = 0.68f,
-        animationSpec = infiniteRepeatable(tween(8000), RepeatMode.Reverse),
-        label = "auraDrift",
-    )
     Canvas(modifier) {
         drawRect(
             brush = Brush.verticalGradient(
@@ -156,10 +148,10 @@ internal fun AppBackdrop(modifier: Modifier = Modifier) {
         drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    V02Palette.AccentBlue.copy(alpha = 0.09f),
+                    V02Palette.AccentBlue.copy(alpha = 0.07f),
                     Color.Transparent,
                 ),
-                center = Offset(size.width * drift, 0f),
+                center = Offset(size.width * 0.5f, 0f),
                 radius = size.minDimension.coerceAtLeast(1f) * 0.9f,
             ),
         )

@@ -54,7 +54,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -104,7 +103,7 @@ fun StudioButton(
                 enabled = enabled && !loading,
                 onClick = onClick,
             ),
-        color = bg,
+        color = bg.copy(alpha = if (enabled) 1f else 0.45f),
         contentColor = fg,
         shape = shape,
     ) {
@@ -156,19 +155,7 @@ fun GoLiveButton(
         ),
         label = "goLivePress",
     )
-    // Animate the idle/live color via a progress float (lerp) instead of
-    // animateColorAsState, which is not available with a label in this BOM.
-    val liveProgress by animateFloatAsState(
-        targetValue = if (isLive) 1f else 0f,
-        animationSpec = tween(300),
-        label = "goLiveColor",
-    )
-    val bgAlpha by animateFloatAsState(
-        targetValue = if (enabled) 1f else 0.45f,
-        animationSpec = tween(300),
-        label = "goLiveBgAlpha",
-    )
-    val bg = lerp(c.accent, c.signalRed, liveProgress).copy(alpha = bgAlpha)
+    val bg = if (isLive) c.signalRed else c.accent
     val fg = c.onSignal
     Surface(
         modifier = modifier
@@ -186,7 +173,7 @@ fun GoLiveButton(
                 enabled = enabled && !loading,
                 onClick = onClick,
             ),
-        color = bg,
+        color = bg.copy(alpha = if (enabled) 1f else 0.45f),
         contentColor = fg,
         shape = shape,
     ) {
