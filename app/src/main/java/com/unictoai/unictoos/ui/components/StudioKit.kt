@@ -103,7 +103,7 @@ fun StudioButton(
                 enabled = enabled && !loading,
                 onClick = onClick,
             ),
-        color = bg.copy(alpha = if (enabled) 1f else 0.45f),
+        color = bg,
         contentColor = fg,
         shape = shape,
     ) {

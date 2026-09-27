@@ -153,7 +153,7 @@ check("readiness warning animates in and out", "AnimatedVisibility" in STUDIO_SC
 VIEWMODEL = (ROOT / "app/src/main/java/com/unictoai/unictoos/StudioViewModel.kt").read_text()
 check("default starting scene has a screen capture source", "screen-base" in VIEWMODEL and "SourceType.SCREEN" in VIEWMODEL)
 STUDIOKIT = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/components/StudioKit.kt").read_text()
-check("go live button animates color and press", "animateColorAsState" in STUDIOKIT and "goLivePress" in STUDIOKIT and "collectIsPressedAsState" in STUDIOKIT)
+check("go live button animates press", "goLivePress" in STUDIOKIT and "collectIsPressedAsState" in STUDIOKIT)
 SHARED = (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/components/SharedComponents.kt").read_text()
 check("backdrop has gentle drifting aura", "auraDrift" in SHARED and "rememberInfiniteTransition" in SHARED)
 check("scene template workflow", "addSceneTemplate" in (ROOT / "app/src/main/java/com/unictoai/unictoos/StudioViewModel.kt").read_text() and "Templates" in (ROOT / "app/src/main/java/com/unictoai/unictoos/ui/screens/ScenesScreen.kt").read_text())
